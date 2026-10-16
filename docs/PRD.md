@@ -141,9 +141,11 @@ is authoritative. These are the rules the schema cannot express:
 - `Authorization: Bearer <access token>` on every authenticated call.
 - `X-Makerspace-Id: <id>` selects the makerspace for makerspace-scoped calls. It must be one where the
   user has an active membership (from the user payload).
-- Errors: JSON `{ "detail": "...", "code": "..." }`. Switch on `code`, show `detail`. 400 validation,
-  401 auth, 403 not allowed, 404 not found / not yours, 409 conflict, 429 throttled (respect
-  `Retry-After`), 503 a dependency is unavailable (retry later, don't crash).
+- Errors: usually `{ "detail": "...", "code": "..." }`, but not always. Validation errors (400) can be a
+  **field dictionary** (`{"field": ["message"]}`), and some framework errors carry only `detail`.
+  Parse in this order: `code` → `detail` → field dictionary → generic message by status. 401 auth,
+  403 not allowed, 404 not found / not yours, 409 conflict, 429 throttled (respect `Retry-After`),
+  503 a dependency is unavailable (retry later, don't crash).
 - Lists are paginated: `{ count, next, previous, results }`, 24 per page. Use `next` for infinite scroll.
 
 **Sign-in (device auth)**
@@ -158,9 +160,10 @@ is authoritative. These are the rules the schema cannot express:
 3. `POST /auth/device/login` with credentials + `challenge` + `attestation` → either tokens
    (`access`, `refresh`, grant id, user payload) **or** an MFA challenge → complete MFA via the MFA
    route in the schema.
-4. Google, Sign in with Apple and OIDC providers **already work on devices**: the social login routes
-   take `delivery=device` plus the attestation challenge (see the schema). Google on Android uses the
-   server client id; on iOS the iOS client id. Apple uses native Sign in with Apple.
+4. Google and OIDC providers **already work on devices**: the social login routes take
+   `delivery=device` plus the attestation challenge (see the schema). Google uses the Android / iOS client
+   ids the server publishes. **Native Sign in with Apple has a server bug that backend 1a fixes**. Build
+   it, but expect it to fail against the server until then.
 5. **Planned (backend 1a):** phone OTP with `delivery=device` (member-only, never staff), and a `native`
    block in the public `GET /config` with `min_app_version` per platform and the sign-in providers and
    client ids. Read `/config` on launch: render only the sign-in methods it lists and block the app with
@@ -171,15 +174,26 @@ is authoritative. These are the rules the schema cannot express:
 7. `POST /auth/device/refresh` rotates tokens. **Refresh is single-flight**: if two requests 401 at
    once, only one refresh runs and the others wait for it. **Re-using an old refresh token revokes the
    whole device session** (security feature). Persist the new pair atomically before retrying.
-8. `POST /auth/device/logout` on sign-out. `GET/DELETE /auth/device/grants` lists and revokes devices.
+8. `POST /auth/device/logout` on sign-out. `GET /auth/device/grants` lists devices;
+   `DELETE /auth/device/grants/{grant_id}` revokes one.
 9. Superadmin accounts are refused (`code: device_superadmin_not_supported`, planned): show
    "Use the web console".
 10. `GET /auth/me` = the user payload: identity + per-makerspace memberships with `actions`. Drive the
    makerspace switcher and all staff-tool visibility from it, and refetch on app foreground.
+   **Planned (1a):** a `session_authority` field. Show staff tools only when `session_authority` is
+   `native_staff` **and** the membership has the action. Phone sign-in never gets staff tools, and a member
+   who was given a staff role after signing in must sign in again.
+11. **Planned (1a):** on staff screens, `X-Makerspace-Id` is **mandatory** and must equal any makerspace
+    id in the URL. Without it, staff calls are refused.
 
 **Push notifications**
-- After sign-in (and whenever the OS token changes): `POST /integrations/push/devices` with the
-  FCM/APNs token, provider and environment. On logout: `DELETE /integrations/push/devices/{id}`.
+- Registration is **per makerspace**: after sign-in, for **each** makerspace the user is an active member
+  of (and again whenever the OS token changes or a membership is added),
+  `POST /integrations/push/devices` with that makerspace selected, the token, the provider (**Android =
+  FCM, iOS = APNs**) and the environment (debug builds = development). Keep the returned ids. On logout or
+  leaving a makerspace: `DELETE /integrations/push/devices/{id}`.
+- Members' inbox and preferences (`/notifications/inbox/…`, `/notifications/preferences/…`) become
+  reachable from a member phone session in backend 1a. Until then they answer 403.
 - Payload `data` today: `feature`, `event`, `makerspace_id`. **Planned, backend 1b (v2):**
   `v: "2"`, `event_id`, `makerspace_id`, `feature`, `event`, optional `inbox_row_id`, optional `link`
   (an in-app path). The title becomes the makerspace name. iOS notifications are grouped per makerspace
@@ -195,24 +209,31 @@ is authoritative. These are the rules the schema cannot express:
   `vendor` (**planned, backend 1c**; today Stripe only):
   - `stripe` → present Stripe **PaymentSheet** with the returned client secret / publishable key.
   - `razorpay` → open Razorpay Checkout with `key_id`, `order_id`, amount, currency.
-- The app **never** marks anything paid. After the sheet closes, poll the payment until the server shows
-  `paid` (the provider webhook settles it) or show "processing".
+- The app **never** marks anything paid. After the sheet closes, poll the payment until its status
+  leaves `pending`. `paid_online` and `paid_offline` are both paid. Treat any other non-pending
+  status (waived, refunded, cancelled… per the schema enum) as "no longer payable" and show it as-is.
+  While still pending, show "processing".
 - 409 `payment_rail_conflict` → the charge was started on the web. Tell the member to finish it there.
-  503 `payments_unavailable` → online payment is off for this charge. Pay at the desk.
+  503 `payments_unavailable` → online payment can't be used right now (switched off **or** the provider is
+  unreachable). Offer "try again later" and "pay at the desk".
 - Card payments for makerspace services are real-world services, so no Apple/Google in-app purchase.
 
 **Evidence photos (staff issue/return)**
-- Request a presigned upload URL (`/admin/makerspaces/{id}/uploads/evidence-url`), `PUT` the bytes
-  directly to that URL, then pass the returned evidence id to the issue/return call.
+- Request an upload (`/admin/makerspaces/{id}/uploads/evidence-url`), then upload **exactly as the
+  response says**: use its `method` (multipart **POST** with the returned `fields`, or **PUT**) and send
+  every returned header. Servers differ, so never hard-code PUT. Then pass the returned evidence id to
+  the issue/return call.
 - **Upload JPEG only** (convert HEIC on iOS), resize to ≤ 2048 px long edge, strip location EXIF.
-  Allowed types: jpeg, png, webp. Respect the size limit in the presign response.
+  Allowed types: jpeg, png, webp. Keep files under 10 MB. The response doesn't state the limit yet, and an
+  oversized upload is rejected by storage.
 - Issue needs a **box/tool QR scan + photo**. Return needs a **photo + remark**. The server enforces it,
   and the UI should make it impossible to submit without them.
 
 **Request lifecycle** (show these states and only the actions the schema offers):
 `draft → pending_approval → rejected | accepted → issued → partially_returned | returned | closed_with_issue`.
 
-**Account deletion** (planned, backend 1d — required by both stores)
+**Account deletion** (planned, backend 1d — required by both stores; the blocker list below is the
+intended shape, final codes ship with 1d)
 - Deletes the **whole Space Works account on this server, across every makerspace**. It is not
   "leave this makerspace" (that already exists per makerspace).
 - `GET /auth/account/deletion` → `{deletable, blockers: [{code, makerspace_id, count, detail}]}`.

@@ -52,6 +52,11 @@ class NetworkTest {
         assertEquals("Use the web console",Errors.map(403,"""{"detail":"No phones","code":"device_superadmin_not_supported"}""").detail)
         assertEquals("The server is unavailable. Try again later.",Errors.map(503,"broken").detail)
     }
+    @Test fun frameworkAndFieldDictionaryErrorsAreReadable() {
+        assertEquals("Maintenance",Errors.map(503,"""{"detail":"Maintenance"}""").detail)
+        assertEquals("email: Enter a valid email.",Errors.map(400,"""{"email":["Enter a valid email."]}""").detail)
+        assertEquals("Check the details and try again.",Errors.map(400,"bad json").detail)
+    }
     @Test fun addressAndPaginationRejectCredentialLeaks() {
         assertEquals("https://example.org/",ServerAddress.parse("https://example.org",false).toString())
         assertEquals("http://localhost/",ServerAddress.parse("http://localhost",true).toString())

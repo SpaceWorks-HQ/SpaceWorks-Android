@@ -2,7 +2,7 @@ package org.spaceworks.app.network
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
@@ -65,11 +65,21 @@ object Errors {
     private val json = Json { ignoreUnknownKeys = true }
     fun map(status: Int, body: String?, retryAfter: String? = null, now: Instant = Instant.now()): ApiFailure {
         val error = try { body?.let { json.decodeFromString<HardwareRequestError>(it) } } catch (_: Exception) { null }
-        val detail = when (error?.code) {
+        val envelope = try { body?.let { json.parseToJsonElement(it) as? JsonObject } } catch (_: Exception) { null }
+        val code = error?.code ?: (envelope?.get("code") as? JsonPrimitive)?.contentOrNull
+        val serverDetail = error?.detail ?: (envelope?.get("detail") as? JsonPrimitive)?.contentOrNull
+        fun messages(value: JsonElement): List<String> = when (value) {
+            is JsonPrimitive -> listOfNotNull(value.contentOrNull?.takeIf { it.isNotBlank() })
+            is JsonArray -> value.flatMap(::messages)
+            is JsonObject -> value.entries.flatMap { (field, nested) -> messages(nested).map { "$field: $it" } }
+        }
+        val fieldDetail = if (status == 400) envelope?.filterKeys { it != "code" && it != "detail" }?.entries
+            ?.flatMap { (field, value) -> messages(value).map { "$field: $it" } }?.joinToString("\n")?.takeIf { it.isNotBlank() } else null
+        val detail = when (code) {
             "device_superadmin_not_supported" -> "Use the web console"
             "payment_rail_conflict" -> "Finish this payment on the web."
-            "payments_unavailable" -> "Online payment is unavailable. Pay at the desk."
-            else -> error?.detail?.takeIf { it.isNotBlank() } ?: when(status) {
+            "payments_unavailable" -> "Online payment is unavailable. Try again later or pay at the desk."
+            else -> serverDetail?.takeIf { it.isNotBlank() } ?: fieldDetail ?: when(status) {
                 400 -> "Check the details and try again."
                 401 -> "Please sign in again."
                 403 -> "You do not have permission to do this."
@@ -83,7 +93,7 @@ object Errors {
         val seconds = retryAfter?.toLongOrNull()?.coerceAtLeast(0) ?: try {
             retryAfter?.let { (ZonedDateTime.parse(it, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().epochSecond - now.epochSecond).coerceAtLeast(0) }
         } catch (_: Exception) { null }
-        return ApiFailure(status,detail,error?.code,seconds)
+        return ApiFailure(status,detail,code,seconds)
     }
 }
 object Pagination {
