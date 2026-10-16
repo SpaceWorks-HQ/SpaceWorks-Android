@@ -1,0 +1,16 @@
+# Remaining mobile implementation plan
+
+Owner extension (2026-10-16): complete the apps in tested phases on `dev`, including adaptive phone and tablet layouts. Push phase commits under Shaan's configured GitHub identity with Codex attribution. Intermediate PR/merge waits are replaced by green phase CI; the final PR is prepared after the batch. The supplied PRD remains unchanged.
+
+1. **A1 identity and secure sessions:** generated challenge/password login/MFA/config/me/logout; Android Keystore atomic token storage; single-flight refresh; selected membership, foreground identity refresh; native attestation where configured. Inspect contract/provider configuration before exposing social methods. A missing native provider/version/authority contract becomes a precise backend-request, never fabricated behavior.
+2. **A2 member read:** implement generated inventory, requests/loans, bookings/events, dashboard/card and inbox read flows using authoritative data and pagination.
+3. **A3 member actions:** request, renew, book/register/cancel, ticket and profile/preferences flows.
+4. **A4 push/deep links:** integrate FCM and safe in-app routing when v2/device configuration exists.
+5. **A5 payments:** server-selected supported rails and actual settlement polling; provider configuration required.
+6. **A6 staff:** require native staff authority and membership actions, CameraX/ML Kit and immutable upload/issue/return evidence; backend contract dependencies remain real gates.
+7. **A7 account/store readiness:** device management, membership exit and whole-account deletion only with the required contract; accessibility and localization audit.
+8. **A8 release:** prepare owner-account/signing/store material; no publishing without required owner setup.
+
+For every phase: contract audit → implement → unit/MockWebServer/UI checks → phone/tablet screenshot review → green CI → small commits/changelog parity note. Every API operation used has a stub test. Test widths include 320/360/393/480/600/840dp, portrait/landscape, 2× font scaling and both themes. The local Docker origin/test details are supplied by the coordinating agent. Secrets and accounts stay outside tracked files. Unsupported backend/provider features are reported in a shared blocker note, with independent supported features continuing.
+
+The owner subsequently deferred backend setup. All remaining flows therefore get a complete, tested DEBUG-only demo journey through an injectable in-memory domain service; demo data and sessions never reach real APIs or SDK payments. Production uses generated contract operations and honest unavailable states where native contract/configuration is missing. The local health/config probe is evidence only; live sign-in is blocked by server attestation configuration and has not passed.

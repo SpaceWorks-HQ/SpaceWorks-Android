@@ -1,5 +1,8 @@
-name: Android A0
-on: [push, pull_request]
+name: Android
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
 concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
@@ -33,7 +36,13 @@ jobs:
             app/build/outputs/apk/debug
   ui:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        device: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["compact","phone","large","tablet","tablet-landscape","large-tablet"]' || '["phone","tablet"]') }}
+    name: UI (${{ matrix.device }})
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,9 +66,12 @@ jobs:
         with:
           api-level: 35
           arch: x86_64
-          script: ./gradlew connectedDebugAndroidTest
+          script: bash scripts/device-matrix.sh ${{ matrix.device }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: android-ui-reports
-          path: app/build/reports/androidTests
+          name: android-ui-${{ matrix.device }}
+          path: |
+            app/build/reports/androidTests
+            app/build/outputs/androidTest-results
+            validation/${{ matrix.device }}
