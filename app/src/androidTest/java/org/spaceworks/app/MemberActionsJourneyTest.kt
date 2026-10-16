@@ -13,6 +13,14 @@ import java.io.File
 class MemberActionsJourneyTest {
     @get:Rule val compose=createComposeRule()
     private lateinit var session:org.spaceworks.app.auth.AuthBundle
+    private val journey by lazy {NativeJourney(compose,"a3")}
+    private fun answers(project:String,safety:Boolean) {
+        try {compose.runOnIdle {
+            val actual=session.actions!!.state.value.answers
+            assertEquals(kotlinx.serialization.json.JsonPrimitive(project),actual["project"])
+            assertEquals(kotlinx.serialization.json.JsonPrimitive(safety),actual["safety"])
+        }}catch(f:Throwable){shot("a3-answer-retention-failure");throw f}
+    }
     private fun waitText(text:String){DeviceWindowGuard.awaitClear();try {compose.waitUntil(12000){compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()}}catch(f:Throwable){shot("a3-failure-${text.filter(Char::isLetterOrDigit).take(30)}");throw f}}
     private fun click(text:String){DeviceWindowGuard.awaitClear();dismissKeyboard();try {compose.waitUntil(12000){runCatching {compose.onNodeWithText(text).assertIsEnabled();true}.getOrDefault(false)};compose.onNodeWithText(text).reachable().performClick()}catch(f:Throwable){shot("a3-click-failure-${text.filter(Char::isLetterOrDigit).take(30)}");throw f}}
     private fun dismissKeyboard() {
@@ -49,7 +57,7 @@ class MemberActionsJourneyTest {
         return assertIsDisplayed()
     }
     private fun tab(text:String){DeviceWindowGuard.awaitClear();compose.onAllNodesWithText(text,useUnmergedTree=true).onLast().performClick()}
-    private fun shot(name:String){DeviceWindowGuard.awaitClear();if(::session.isInitialized && !name.contains("failure"))compose.waitUntil(10000){session.actions?.state?.value?.busy!=true};val dir=InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("validation")!!;dir.mkdirs();File(dir,"$name.png").outputStream().use {compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it)};val full=requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot());File(dir,"$name-screen.png").outputStream().use {full.compress(Bitmap.CompressFormat.PNG,100,it)};full.recycle()}
+    private fun shot(name:String){DeviceWindowGuard.awaitClear();if(::session.isInitialized && !name.contains("failure"))compose.waitUntil(10000){session.actions?.state?.value?.busy!=true};val dir=InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("validation")!!;dir.mkdirs();if(::session.isInitialized && session.demo && name.contains("failure")){val state=session.actions?.state?.value;File(dir,"$name-demo-form.txt").writeText("route=${state?.route}\nanswers=${state?.answers}\nfields=${state?.fieldErrors}\nticket=${state?.ticketId}\nerror=${state?.error}\n")};File(dir,"$name.png").outputStream().use {compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it)};val full=requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot());File(dir,"$name-screen.png").outputStream().use {full.compress(Bitmap.CompressFormat.PNG,100,it)};full.recycle()}
     private fun signedIn(){compose.setContent {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}),demoFactory={org.spaceworks.app.auth.DemoSupport.create().also {session=it}})};click("Explore demo");waitText("Email or username");compose.onNodeWithTag("submitSignIn").reachable().performClick();waitText("Choose your makerspace");click("Fab Lab Kochi");click("Continue");waitText("Welcome back, Meera Nair.")}
     @Test fun reviewBorrowRequestAndRenewalReturnServerConfirmedReceipts(){
         signedIn();tab("Inventory");waitText("Cordless drill");click("Cordless drill");waitText("Borrowing terms");click("Add to request");click("Review request");waitText("Review your request");shot("a3-cart-review");click("Submit request");waitText("Submit your request?");click("Confirm");waitText("Request received");shot("a3-request-receipt");click("Refresh request status");waitText("1 × Cordless drill");click("Done")
@@ -58,12 +66,13 @@ class MemberActionsJourneyTest {
     @Test fun bookWithRequiredFalseAnswerThenRegisterAndViewConfirmedTicket(){
         signedIn();click("Book a space");waitText("Electronics bench");click("Electronics bench");waitText("Submit booking request");click("Check availability");waitText("No overlapping bookings were returned. Final availability is checked when you book.")
         DeviceWindowGuard.awaitClear()
-        compose.onNodeWithText("What will you work on? (required)").reachable().performTextReplacement("A sensor enclosure")
-        click("No");compose.onNodeWithText("No").assertIsSelected();compose.runOnIdle {val id=session.actions!!.state.value.space!!.form.questions.single {it.type=="yes_no"}.id;assertEquals(kotlinx.serialization.json.JsonPrimitive(false),session.actions!!.state.value.answers[id])};click("Submit booking request");waitText("Space booked");shot("a3-booking-receipt");click("Done")
+        journey.replace(compose.onNodeWithText("What will you work on? (required)"),"A sensor enclosure")
+        click("No");compose.onNodeWithText("No").assertIsSelected();answers("A sensor enclosure",false);click("Submit booking request");waitText("Space booked");shot("a3-booking-receipt");click("Done")
         tab("Home");click("Explore events");waitText("Make a desk light");click("Make a desk light");waitText("Register for this event");click("Register for this event");waitText("Confirm registration")
         DeviceWindowGuard.awaitClear()
-        compose.onNodeWithText("What will you work on? (required)").reachable().performTextReplacement("A reading light")
-        click("Yes");compose.onNodeWithText("Yes").assertIsSelected();compose.runOnIdle {val id=session.actions!!.state.value.event!!.form.questions.single {it.type=="yes_no"}.id;assertEquals(kotlinx.serialization.json.JsonPrimitive(true),session.actions!!.state.value.answers[id])};click("Member place · INR 350.00 · 10 left");click("Confirm registration");waitText("Registration confirmed");shot("a3-registration-receipt");click("Done");tab("Activity");waitText("View registration")
+        journey.replace(compose.onNodeWithText("What will you work on? (required)"),"A reading light")
+        click("Yes");compose.onNodeWithText("Yes").assertIsSelected();answers("A reading light",true)
+        click("Member place · INR 350.00 · 10 left");answers("A reading light",true);click("Confirm registration");waitText("Registration confirmed");shot("a3-registration-receipt");click("Done");tab("Activity");waitText("View registration")
         DeviceWindowGuard.awaitClear()
         compose.onAllNodesWithText("View registration").onFirst().reachable().performClick();waitText("Show QR ticket");click("Show QR ticket");compose.waitUntil(10000){compose.onAllNodesWithContentDescription("Your event registration QR ticket").fetchSemanticsNodes().isNotEmpty()};shot("a3-event-qr")
     }

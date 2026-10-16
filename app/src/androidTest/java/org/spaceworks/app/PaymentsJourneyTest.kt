@@ -1,7 +1,7 @@
 package org.spaceworks.app
 
 import android.graphics.Bitmap
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.CompositionLocalProvider
@@ -34,11 +34,13 @@ class PaymentsJourneyTest {
             val density=LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density,if(largeText)3.2f else density.fontScale)){
                 MaterialTheme(colorScheme=if(dark)DarkScheme else LightScheme,shapes=Shapes(small=RoundedCornerShape(10.dp),medium=RoundedCornerShape(16.dp))){
-                    Surface(Modifier.fillMaxSize()){PaymentsScreen(holder,true,{},launchStripe={launches.incrementAndGet();PaymentLaunchResult.DEMO_BLOCKED})}
+                    Surface(Modifier.fillMaxSize()){Box(Modifier.fillMaxSize().safeDrawingPadding()){
+                        PaymentsScreen(holder,true,{},launchStripe={launches.incrementAndGet();PaymentLaunchResult.DEMO_BLOCKED})
+                    }}
                 }
             }
         }
-        waitText("Sample equipment deposit");return holder
+        journey.systemBars(dark);waitText("Sample equipment deposit");return holder
     }
     private fun waitText(text:String)=journey.waitText(text)
     private fun click(text:String)=journey.clickText(text)

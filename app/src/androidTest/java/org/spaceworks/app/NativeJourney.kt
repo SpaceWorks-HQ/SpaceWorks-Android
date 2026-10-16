@@ -41,7 +41,18 @@ class NativeJourney(private val compose:ComposeContentTestRule,private val phase
     }catch(f:Throwable){shot("$phase-click-failure");throw f}}
     fun clickText(text:String)=click(compose.onNodeWithText(text))
     fun clickTag(tag:String)=click(compose.onNodeWithTag(tag))
-    fun replace(node:SemanticsNodeInteraction,value:String) {DeviceWindowGuard.awaitClear();visible(node).performTextReplacement(value);node.assertTextContains(value)}
+    fun replace(node:SemanticsNodeInteraction,value:String) {
+        DeviceWindowGuard.awaitClear();visible(node).performClick();node.assertIsFocused()
+        node.performTextReplacement(value);node.assertTextContains(value)
+    }
+    fun systemBars(dark:Boolean) {
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            val activity=ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED).first()
+            androidx.core.view.WindowCompat.getInsetsController(activity.window,activity.window.decorView).apply {
+                isAppearanceLightStatusBars=!dark;isAppearanceLightNavigationBars=!dark
+            }
+        }
+    }
     fun shot(name:String) {DeviceWindowGuard.awaitClear();compose.waitForIdle()
         val instrumentation=InstrumentationRegistry.getInstrumentation();val output=instrumentation.targetContext.getExternalFilesDir("validation")!!;output.mkdirs()
         File(output,"$name.png").outputStream().use {compose.onAllNodes(isRoot(),useUnmergedTree=true).onLast().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it)}
