@@ -39,8 +39,8 @@ fun SpaceWorksApp(holder: ConnectionStateHolder) {
         Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
             Column(Modifier.safeDrawingPadding()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal=24.dp),horizontalArrangement=Arrangement.SpaceBetween) {
-                    Text(stringResource(R.string.app_name),Modifier.padding(vertical=16.dp),style=MaterialTheme.typography.titleLarge)
-                    TextButton(onClick={dark=!dark}) { Text(if (dark) stringResource(R.string.light_mode) else stringResource(R.string.dark_mode)) }
+                    Text(stringResource(R.string.app_name),Modifier.weight(1f).padding(vertical=16.dp),style=MaterialTheme.typography.titleLarge)
+                    TextButton(onClick={dark=!dark},colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onPrimaryContainer)) { Text(if (dark) stringResource(R.string.light_mode) else stringResource(R.string.dark_mode)) }
                 }
                 val connection by holder.state.collectAsStateWithLifecycle()
                 LaunchedEffect(holder) { if (holder.state.value.url.isNotBlank()) holder.connect() }
@@ -56,7 +56,7 @@ private fun ServerScreen(holder: ConnectionStateHolder, state: ConnectionState) 
         Spacer(Modifier.height(32.dp))
         Text(stringResource(R.string.connect_title),style=MaterialTheme.typography.headlineLarge)
         Text(stringResource(R.string.server_help))
-        OutlinedTextField(value=state.url,onValueChange=holder::edit,label={Text(stringResource(R.string.server_url))},enabled=!state.connecting && !holder.locked,singleLine=true,modifier=Modifier.fillMaxWidth().testTag("serverUrl"))
+        OutlinedTextField(value=state.url,onValueChange=holder::edit,label={Text(stringResource(R.string.server_url))},enabled=!state.connecting && !holder.locked,singleLine=true,colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=MaterialTheme.colorScheme.onPrimaryContainer,focusedLabelColor=MaterialTheme.colorScheme.onPrimaryContainer,cursorColor=MaterialTheme.colorScheme.onPrimaryContainer),modifier=Modifier.fillMaxWidth().testTag("serverUrl"))
         state.error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.testTag("connectionError")) }
         Button(onClick={scope.launch {holder.connect()}},enabled=!state.connecting,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
             Text(stringResource(if(state.connecting) R.string.connecting else R.string.connect))
@@ -79,7 +79,7 @@ private fun AppShell(holder: ConnectionStateHolder) {
                         Text(stringResource(R.string.sign_in_placeholder))
                     }
                     Text(stringResource(R.string.empty))
-                    if (tab=="Profile" && !holder.locked) TextButton(onClick=holder::changeServer) { Text(stringResource(R.string.change_server)) }
+                    if (tab=="Profile" && !holder.locked) TextButton(onClick=holder::changeServer,colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onPrimaryContainer)) { Text(stringResource(R.string.change_server)) }
                 }
             } }
         }
