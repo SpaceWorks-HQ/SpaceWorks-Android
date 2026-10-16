@@ -41,9 +41,10 @@ data class AuthState(val busy:Boolean=false,val initialized:Boolean=false,val co
 }
 class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
     private val readSelection:()->Int?={null},private val saveSelection:(Int?)->Unit={},
-    private val now:()->Long=System::currentTimeMillis,private val onSessionEnded:()->Unit={},private val text:MobileText=MobileText.ENGLISH) {
+    private val now:()->Long=System::currentTimeMillis,private val onSessionEnded:()->Unit={},
+    private val onScopeChanged:()->Unit={},private val text:MobileText=MobileText.ENGLISH) {
     constructor(api:AuthGateway,tokens:TokenStore,readSelection:()->Int?={null},saveSelection:(Int?)->Unit={},now:()->Long=System::currentTimeMillis,onSessionEnded:()->Unit)
-        :this(api,tokens,readSelection,saveSelection,now,onSessionEnded,MobileText.ENGLISH)
+        :this(api,tokens,readSelection,saveSelection,now,onSessionEnded,{},MobileText.ENGLISH)
 
     private val mutable=MutableStateFlow(AuthState())
     val state=mutable.asStateFlow()
@@ -140,11 +141,15 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         if(state.value.memberships.none {it.id==id}) {
             mutable.value=state.value.copy(error=text(CoreStrings.CORE_YOUR_MAKERSPACE_ACCESS_CHANGED_CHOOSE_AGAIN));return
         }
+        if(state.value.selectedId!=id)onScopeChanged()
         saveSelection(id);mutable.value=state.value.copy(selectedId=id)
     }
     fun dismissGate() {if(!state.value.busy)mutable.value=state.value.copy(gate=null,error=null)}
     suspend fun signOut()=runOperation(ignoreThrottle=true) {
         val expected=installedEpoch?:tokens.snapshot().epoch
+        // Private flows stop before push cleanup/server revocation can suspend.
+        onSessionEnded()
+        mutable.value=state.value.copy(user=null,selectedId=null,mfa=null,enrollment=null,recoveryCodes=emptyList())
         var failed=false
         try { api.logout() } catch(cancelled:CancellationException) {throw cancelled} catch(_:Exception) {failed=true}
         finally {
@@ -210,6 +215,7 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         val allowed=user.makerspaces.filter {it.source==AuthMembershipSourceEnum.membership}
         val selected=state.value.selectedId?.takeIf {id->allowed.any {it.id==id}}
             ?: readSelection()?.takeIf {id->allowed.any {it.id==id}} ?: allowed.singleOrNull()?.id
+        if(state.value.selectedId!=selected)onScopeChanged()
         saveSelection(selected)
         mutable.value=state.value.copy(user=user,selectedId=selected,mfa=null,enrollment=null,error=null)
     }

@@ -1,0 +1,23 @@
+<resources>
+    <string name="document_export_unavailable">"Export unavailable"</string>
+    <string name="document_the_document_could_not_be_saved_try_another_location">"The document could not be saved. Try another location."</string>
+    <string name="document_document">"Document"</string>
+    <string name="document_open_document">"Open document"</string>
+    <string name="document_share_document">"Share document"</string>
+    <string name="document_no_compatible_app_could_open_this_document_you_can_save_it_i">"No compatible app could open this document. You can save it instead."</string>
+    <string name="document_this_pdf_could_not_be_previewed_save_it_or_open_it_in_anothe">"This PDF could not be previewed. Save it or open it in another app."</string>
+    <string name="document_this_file_may_contain_private_account_information_choose_a_t">"This file may contain private account information. Choose a trusted location or app."</string>
+    <string name="document_preparing_pdf_preview">"Preparing PDF preview"</string>
+    <string name="document_1_s_page_2_s_of_3_s">"%1$s, page %2$s of %3$s"</string>
+    <string name="document_page_1_s_of_2_s">"Page %1$s of %2$s"</string>
+    <string name="document_previous_page">"Previous page"</string>
+    <string name="document_next_page">"Next page"</string>
+    <string name="document_for_selectable_text_or_assistive_reading_open_the_pdf_in_a_d">"For selectable text or assistive reading, open the PDF in a document reader."</string>
+    <string name="document_open_in_another_app">"Open in another app"</string>
+    <string name="document_zip_archive_save_it_to_a_private_location_to_inspect_its_con">"ZIP archive · save it to a private location to inspect its contents."</string>
+    <string name="document_save_1_s">"Save %1$s"</string>
+    <string name="document_done">"Done"</string>
+    <string name="document_unavailable">"This document cannot be opened."</string>
+    <string name="document_prepare_failed">"This document could not be prepared."</string>
+    <string name="document_cleanup_failed">"The temporary document could not be removed."</string>
+</resources>

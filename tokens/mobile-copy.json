@@ -10,5 +10,17 @@
     "package": "org.spaceworks.app.copy",
     "object": "CoreStrings",
     "output": "app/src/main/java/org/spaceworks/app/copy/CoreStrings.kt"
+  },
+  {
+    "catalog": "app/src/main/res/values/payment_strings.xml",
+    "package": "org.spaceworks.app.payments",
+    "object": "PaymentStrings",
+    "output": "app/src/main/java/org/spaceworks/app/payments/PaymentStrings.kt"
+  },
+  {
+    "catalog": "app/src/main/res/values/document_strings.xml",
+    "package": "org.spaceworks.app.platform",
+    "object": "DocumentStrings",
+    "output": "app/src/main/java/org/spaceworks/app/platform/DocumentStrings.kt"
   }
 ]

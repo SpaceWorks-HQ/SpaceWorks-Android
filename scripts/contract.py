@@ -31,6 +31,13 @@ phase3_operations={
     'api_v1_notifications_preferences_retrieve','api_v1_notifications_preferences_partial_update',
 }
 phase3_operations |= {'api_v1_integrations_push_devices_create','api_v1_integrations_push_devices_destroy'}
+phase3_operations |= {
+    'api_v1_member_makerspaces_payments_list',
+    'api_v1_member_makerspaces_payments_mobile_intent_create',
+    'api_v1_member_makerspaces_payment_documents_retrieve',
+    'api_v1_member_makerspaces_payment_documents_download_url_retrieve',
+    'api_v1_payment_documents_download_retrieve',
+}
 found=set()
 for path, item in s['paths'].items():
     operations={op.get('operationId') for op in item.values() if isinstance(op,dict)} & phase3_operations

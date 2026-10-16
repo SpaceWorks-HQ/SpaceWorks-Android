@@ -35,10 +35,21 @@ class MainActivity:ComponentActivity() {
     private val controller:AppController by viewModels()
     override fun onCreate(savedInstanceState:Bundle?) {
         super.onCreate(savedInstanceState)
+        // Activity Result contracts must be registered before STARTED, including restored callbacks.
+        val stripe=StripeSheetAdapter(this)
+        RazorpaySheetAdapter(this,stripe.callbacks)
+        val checkout=NativeCheckoutBindings(stripe.callbacks.state,{stripe.launch(it,false)},
+            {stripe.callbacks.acknowledgeServerRefresh()},
+            {stripe.callbacks.recoverInterrupted(MobileText.resources(applicationContext)(org.spaceworks.app.payments.PaymentStrings.PAYMENT_CHECK_THE_PAYMENT_STATUS_BEFORE_TRYING_AGAIN));Unit})
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            NativeDocumentFiles(java.io.File(cacheDir,"native-documents")).cleanStale()
+        }
         controller.receive(intent)
         setContent {
             val incoming by controller.incoming.collectAsStateWithLifecycle()
+            CompositionLocalProvider(LocalNativeCheckout provides checkout) {
             SpaceWorksApp(controller.connection,controller::realSession,controller::demoSession,controller::clearDemo,controller.onboarding,controller.appearance,incoming,controller::consumed)
+            }
         }
     }
     override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);controller.receive(intent)}
@@ -138,7 +149,7 @@ class MainActivity:ComponentActivity() {
     }
 
     LaunchedEffect(bundle) {if(!state.initialized)bundle.holder.initialize()}
-    LaunchedEffect(bundle,state.user?.id,state.selectedId) {if(state.user==null || state.selectedId==null){bundle.member?.clear();bundle.actions?.clear()};if(state.user==null)bundle.push?.pause()}
+    LaunchedEffect(bundle,state.user?.id,state.selectedId) {if(state.user==null || state.selectedId==null){bundle.member?.clear();bundle.actions?.clear();bundle.payments?.clear()};if(state.user==null)bundle.push?.pause()}
     LaunchedEffect(lifecycle,bundle) {lifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {bundle.holder.foreground();activatePush();kotlinx.coroutines.awaitCancellation()}}
     links?.error?.let {Box(Modifier.padding(horizontal=24.dp)){BrandError(it)}}
     pushError?.let {Box(Modifier.padding(horizontal=24.dp)){BrandError(it)}}

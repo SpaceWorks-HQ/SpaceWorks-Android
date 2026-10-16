@@ -95,7 +95,7 @@ fun memberAvailability(item:InventoryItem,text:MobileText=MobileText.ENGLISH):St
         }
     }
 }
-@Composable fun MemberHome(holder:MemberStateHolder,name:String,onInventory:()->Unit,demo:Boolean=false,requestedExtra:Pair<Long,String>?=null) {
+@Composable fun MemberHome(holder:MemberStateHolder,name:String,onInventory:()->Unit,demo:Boolean=false,requestedExtra:Pair<Long,String>?=null,onPayments:(()->Unit)?=null) {
     val copyText=rememberMobileText()
 
     val state by holder.state.collectAsStateWithLifecycle();val scope=rememberCoroutineScope()
@@ -127,7 +127,7 @@ fun memberAvailability(item:InventoryItem,text:MobileText=MobileText.ENGLISH):St
                     overview.restrictionCode?.let {Text(copyText(UiStrings.MOBILE_BORROWING_STATUS_VALUE,memberStatus(it,copyText)))}
                 }
             }
-            MemberSection(copyText(UiStrings.MOBILE_DUES)) {MemberDues(overview.dues)}
+            MemberSection(copyText(UiStrings.MOBILE_DUES)) {MemberDues(overview.dues);onPayments?.let {BrandTextButton(copyText(org.spaceworks.app.payments.PaymentStrings.PAYMENT_PAYMENTS),it)}}
             MemberSection(copyText(UiStrings.MOBILE_ACTIVE_LOANS)) {if(overview.loans.isEmpty())MemberEmpty() else overview.loans.take(3).forEach {MemberLoanPanel(it)}}
             MemberSection(copyText(UiStrings.MOBILE_UPCOMING_BOOKINGS)) {if(overview.bookings.items.isEmpty())MemberEmpty() else overview.bookings.items.take(3).forEach {MemberBookingPanel(it)}}
             MemberSection(copyText(UiStrings.MOBILE_EVENTS)) {if(overview.registrations.isEmpty())MemberEmpty() else overview.registrations.take(3).forEach {MemberRegistrationPanel(it)}}

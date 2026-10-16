@@ -42,9 +42,9 @@ class AppController(application:Application):AndroidViewModel(application) {
     fun demoSession():AuthBundle?=demo ?: run {
         sessions.values.forEach {it.push?.pause()}
         FcmRegistration.pause(getApplication())
-        DemoSupport.create(text=copyText)?.also {demo=it}
+        DemoSupport.create(text=copyText,paymentFiles=org.spaceworks.app.payments.CachedPaymentFiles(java.io.File(getApplication<Application>().cacheDir,"native-documents")))?.also {demo=it}
     }
-    fun clearDemo(){demo?.push?.pause();demo=null}
+    fun clearDemo(){demo?.let {it.payments?.clear();it.member?.clear();it.actions?.clear();it.links?.clear();it.push?.pause();it.tokens.replace(null)};demo=null}
     fun realSession(origin:String):AuthBundle {
         val key=getApplication<Application>().noBackupFilesDir.absolutePath+"\n"+origin
         return sessions.computeIfAbsent(key){createReal(origin)}
@@ -57,6 +57,7 @@ class AppController(application:Application):AndroidViewModel(application) {
         var links:LinkStateHolder?=null
         var member:org.spaceworks.app.member.MemberStateHolder?=null
         var actions:org.spaceworks.app.actions.MemberActionsStateHolder?=null
+        var payments:org.spaceworks.app.payments.PaymentsStateHolder?=null
         val session=ApiSession(ServerAddress.parse(origin,BuildConfig.DEBUG),store){holder.state.value.selectedId?.toString()}
         val environment=if(BuildConfig.DEBUG)EnvironmentEnum.development else EnvironmentEnum.production
         val emulator=Build.FINGERPRINT.startsWith("generic") || Build.MODEL.contains("Emulator") || Build.MODEL.contains("sdk_gphone") || Build.PRODUCT.startsWith("sdk_")
@@ -66,7 +67,8 @@ class AppController(application:Application):AndroidViewModel(application) {
         holder=AuthStateHolder(gateway,store,
             readSelection={prefs.getInt("space.$origin",-1).takeIf {it>0}},
             saveSelection={id->prefs.edit().apply {if(id==null)remove("space.$origin")else putInt("space.$origin",id)}.apply()},
-            onSessionEnded={member?.clear();actions?.clear();links?.clear();push?.pause()},text=copyText)
+            onSessionEnded={member?.clear();actions?.clear();payments?.clear();links?.clear();push?.pause()},
+            onScopeChanged={member?.clear();actions?.clear();payments?.clear()},text=copyText)
         links=LinkStateHolder(session.server,holder::authorizeMakerspace,holder::select,holder::authorizeSlug,text=copyText)
         push=PushStateHolder(GeneratedPushGateway(session,environment),object:PushProvider {
             override suspend fun token()=FcmRegistration.token(application)
@@ -75,6 +77,11 @@ class AppController(application:Application):AndroidViewModel(application) {
         val accounts=AccountStateHolder(gateway,{holder.state.value.selfRegistrationEnabled},{holder.foreground()},text=copyText)
         member=org.spaceworks.app.member.MemberStateHolder(org.spaceworks.app.member.GeneratedMemberGateway(session,text=copyText),onUnauthorized={holder.foreground()},text=copyText)
         actions=org.spaceworks.app.actions.MemberActionsStateHolder(org.spaceworks.app.actions.GeneratedMemberActionsGateway(session,text=copyText),requireNotNull(member),onUnauthorized={holder.foreground()},onProfileSaved={holder.foreground()},capabilities=org.spaceworks.app.actions.GeneratedMakerCapabilitiesGateway(session,text=copyText),text=copyText)
-        return AuthBundle(holder,store,accounts=accounts,member=member,actions=actions,origin=session.server.toString(),push=push,links=links,pushConfigured=FcmRegistration.configured(application),sessionEpoch={store.snapshot().epoch})
+        payments=org.spaceworks.app.payments.PaymentsStateHolder(
+            org.spaceworks.app.payments.GeneratedPaymentsGateway(session,text=copyText),
+            org.spaceworks.app.payments.CachedPaymentFiles(java.io.File(application.cacheDir,"native-documents")),
+            onUnauthorized={holder.foreground()},onForbidden={holder.foreground()},
+            resetSDK={runCatching {com.razorpay.Checkout.clearUserData(application)};Unit},text=copyText)
+        return AuthBundle(holder,store,accounts=accounts,member=member,actions=actions,origin=session.server.toString(),push=push,links=links,pushConfigured=FcmRegistration.configured(application),sessionEpoch={store.snapshot().epoch},payments=payments)
     }
 }

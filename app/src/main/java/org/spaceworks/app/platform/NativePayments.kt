@@ -62,9 +62,9 @@ class PaymentCallbackState(initial: NativePaymentState = NativePaymentState.Idle
     }
 
     /** Explicit recovery after process death/lost SDK activity. Recheck the server before offering another payment. */
-    @Synchronized fun recoverInterrupted(): Boolean {
+    @Synchronized fun recoverInterrupted(message:String="Check the payment status before trying again."): Boolean {
         val active = mutable.value as? NativePaymentState.Presenting ?: return false
-        return finish(active.provider, SheetCloseReason.INTERRUPTED, "Check the payment status before trying again.")
+        return finish(active.provider, SheetCloseReason.INTERRUPTED, message)
     }
 
     @Synchronized fun acknowledgeServerRefresh() {
@@ -131,11 +131,12 @@ internal fun stripeCloseReason(result: PaymentSheetResult): SheetCloseReason = w
 /** Construct once in Activity.onCreate BEFORE STARTED; Stripe restores its Activity Result registration. */
 class StripeSheetAdapter(private val activity: ComponentActivity,
     val callbacks: PaymentCallbackState = ViewModelProvider(activity)[NativePaymentViewModel::class.java].callbacks) {
+    private val text=MobileText.resources(activity.applicationContext)
     init { check(!activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) { "Register payment adapters in onCreate." } }
     private val sheet = PaymentSheet.Builder { result ->
         val reason = stripeCloseReason(result)
         callbacks.finish(NativePaymentProvider.STRIPE, reason,
-            if (reason == SheetCloseReason.FAILED) "Checkout could not finish. Check the payment status and try again." else null)
+            if (reason == SheetCloseReason.FAILED) text(org.spaceworks.app.payments.PaymentStrings.PAYMENT_CHECKOUT_COULD_NOT_FINISH_CHECK_THE_PAYMENT_STATUS_AND_TRY_A) else null)
     }.build(activity)
 
     @MainThread fun launch(input: StripeSheetInput, demo: Boolean): PaymentLaunchResult {
@@ -153,7 +154,7 @@ class StripeSheetAdapter(private val activity: ComponentActivity,
                 merchantDisplayName = input.merchantName, customer = customer, allowsDelayedPaymentMethods = false,
             ))
         } catch (_: Exception) {
-            callbacks.finish(NativePaymentProvider.STRIPE, SheetCloseReason.FAILED, "Checkout is unavailable. Try again later or pay at the desk.")
+            callbacks.finish(NativePaymentProvider.STRIPE, SheetCloseReason.FAILED, text(org.spaceworks.app.payments.PaymentStrings.PAYMENT_SDK_CHECKOUT_UNAVAILABLE))
         }
         return result
     }
@@ -162,10 +163,11 @@ class StripeSheetAdapter(private val activity: ComponentActivity,
 /** Construct once in Activity.onCreate alongside StripeSheetAdapter, using their shared ViewModel. */
 class RazorpaySheetAdapter(private val activity: ComponentActivity,
     val callbacks: PaymentCallbackState = ViewModelProvider(activity)[NativePaymentViewModel::class.java].callbacks) {
+    private val text=MobileText.resources(activity.applicationContext)
     init { check(!activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) { "Register payment adapters in onCreate." } }
     private val launcher = activity.registerForActivityResult(RazorpayCheckoutContract()) { reason ->
         callbacks.finish(NativePaymentProvider.RAZORPAY, reason,
-            if (reason == SheetCloseReason.FAILED) "Checkout could not finish. Check the payment status and try again." else null)
+            if (reason == SheetCloseReason.FAILED) text(org.spaceworks.app.payments.PaymentStrings.PAYMENT_CHECKOUT_COULD_NOT_FINISH_CHECK_THE_PAYMENT_STATUS_AND_TRY_A) else null)
     }
 
     @MainThread fun launch(input: RazorpaySheetInput, demo: Boolean): PaymentLaunchResult {
@@ -175,7 +177,7 @@ class RazorpaySheetAdapter(private val activity: ComponentActivity,
         val result = callbacks.begin(input.paymentReference, NativePaymentProvider.RAZORPAY, false)
         if (result != PaymentLaunchResult.STARTED) return result
         try { launcher.launch(input) }
-        catch (_: Exception) { callbacks.finish(NativePaymentProvider.RAZORPAY, SheetCloseReason.FAILED, "Checkout is unavailable. Try again later or pay at the desk.") }
+        catch (_: Exception) { callbacks.finish(NativePaymentProvider.RAZORPAY, SheetCloseReason.FAILED, text(org.spaceworks.app.payments.PaymentStrings.PAYMENT_SDK_CHECKOUT_UNAVAILABLE)) }
         return result
     }
 }

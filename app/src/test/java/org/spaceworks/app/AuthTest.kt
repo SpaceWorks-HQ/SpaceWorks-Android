@@ -2,6 +2,7 @@ package org.spaceworks.app
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
 import org.junit.Assert.*
@@ -15,6 +16,7 @@ private const val USER="""{"id":1,"username":"member","email":"member@example.in
 private class FakeAuth:AuthGateway {
     var who=Json.decodeFromString<AuthUserPayload>(USER)
     var identityFailure:Exception?=null
+    var logoutGate:CompletableDeferred<Unit>?=null
     var verifyGate:CompletableDeferred<Unit>?=null
     var calls=0
     var native=true
@@ -43,10 +45,36 @@ private class FakeAuth:AuthGateway {
         return MFACompleted(who,"access","device",refresh=if(native)"refresh" else null,deviceGrant=if(native)mapOf("id" to kotlinx.serialization.json.JsonPrimitive(grantId)) else null)
     }
     override suspend fun me():AuthUserPayload {identityFailure?.let {throw it};return who}
-    override suspend fun logout() {}
+    override suspend fun logout() {logoutGate?.await()}
     override suspend fun changePassword(current:String,replacement:String){changed=true}
 }
 class AuthTest {
+    @Test fun delayedLogoutInvalidatesPrivateFlowsBeforeAwaitingServerRevocation()=runTest {
+        val api=FakeAuth();val store=MemoryTokenStore();var privateScopeAccessible=true
+        val holder=AuthStateHolder(api,store,onSessionEnded={privateScopeAccessible=false})
+        holder.initialize();holder.signIn("member","pass");holder.verify("123456")
+        api.logoutGate=CompletableDeferred()
+        val logout=launch {holder.signOut()};runCurrent()
+        assertTrue(holder.state.value.busy);assertFalse(privateScopeAccessible)
+        assertNull(holder.state.value.user);assertNull(holder.state.value.selectedId)
+        assertNotNull(store.read()) // Still needed for the in-flight server revocation.
+        api.logoutGate!!.complete(Unit);logout.join()
+        assertNull(store.read());assertNull(holder.state.value.user)
+    }
+    @Test fun privateScopeIsClearedSynchronouslyBeforeSelectionAndRevocationPublish()=runTest {
+        val api=FakeAuth()
+        val initial=api.who.makerspaces.single()
+        api.who=api.who.copy(makerspaces=listOf(initial,initial.copy(id=2,slug="second")))
+        lateinit var holder:AuthStateHolder
+        val selectionsAtCleanup=mutableListOf<Int?>()
+        holder=AuthStateHolder(api,MemoryTokenStore(),onScopeChanged={selectionsAtCleanup+=holder.state.value.selectedId})
+        holder.initialize();holder.signIn("member","pass");holder.verify("123456")
+        holder.select(1);holder.select(2);holder.select(2)
+        assertEquals(listOf(null,1),selectionsAtCleanup)
+        api.who=api.who.copy(makerspaces=emptyList());holder.foreground()
+        assertEquals(listOf(null,1,2),selectionsAtCleanup)
+        assertNull(holder.state.value.selectedId)
+    }
     @Test fun staleMakerspaceChoiceAfterForegroundRefreshNeverCrashesOrSelectsRemovedAccess()=runTest {
         val api=FakeAuth();val holder=AuthStateHolder(api,MemoryTokenStore())
         holder.initialize();holder.signIn("member","pass");holder.verify("123456")

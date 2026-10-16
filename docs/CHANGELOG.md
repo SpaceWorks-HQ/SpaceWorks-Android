@@ -126,3 +126,17 @@ Moved A0–A4 owned UI/accessibility and local validation/notices into572 canoni
 Parity checklist: the English screens/actions remain the same across onboarding, server connection, all auth previews, member tabs/actions, notification setup and safe links; singular quantities are grammatical. No translated locale was added. Isolated validation passed177 core cases and three display/plural cases, with the combined staged core/UI/factory/SDK Compose sources compiling. Four generator safety tests and SDK36 resource compilation passed. Actual app/unit/lint/package/device validation is required before this checkpoint is complete; future phases remain inactive.
 
 Integrated local checks passed:234 Debug +224 Release unit cases (458 executions, zero failures/errors/skips), lint, Debug/unsigned Release APKs, unsigned AAB and instrumentation APK compilation. Both APKs retain ten ELF64 libraries and pass native/ZIP16KB alignment. All572 English keys pass the catalog drift/format guard; seven native-template and four copy-generator cases run through Gradle. Phone/tablet CI remains the completion gate.
+
+### English resource validation checkpoint
+
+Head8440c62 passed build and all25 native cases on each phone/tablet: [CI38961220631](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/actions/runs/38961220631). The English extraction gate is complete; A5 can proceed. This does not add translations.
+
+### A5 — payments and issued documents
+
+Added Home/Profile payment entry, actual generated charge/Stripe-intent/document APIs, authoritative settlement reconciliation and native PDF preview/save/share. Stripe and Razorpay Activity adapters register before STARTED; the current live contract selects Stripe only. Pending, paid online, paid at the desk, cancelled/failed/delayed SDK closure, refusal, throttling, unknown status and unavailable-provider states stay distinct. Demo checkout and sample receipts are isolated from APIs and SDK charges.
+
+Private scope invalidation now precedes maker selection, and sign-out clears protected identity/holders before awaited push cleanup and server revocation. SDK launch requires the original installation/account/maker and a ready auth host. Payment links require their own latest committed fresh list read. PDF grant/download ownership, bounded streaming, exact same-origin links, cancellation and explicit temporary file sharing are covered by regressions. App-owned payment/document/SDK messages use canonical English resources; server details retain their provenance.
+
+Parity checklist: Home dues/Profile → payments list/filter → review → configured native checkout or labelled demo → pending/server-confirmed status → issued receipt; cancellation/error/409/503 desk guidance, late callback, interrupted checkout, account/maker replacement and native PDF cleanup. Four native payment journeys cover full-app navigation, paid receipt, delayed confirmation and dark3.2× text. Final local/package/device evidence is recorded after validation; live payment success remains deferred to owner configuration.
+
+A5 local validation passed:282 Debug +272 Release unit cases (554 executions, zero failures/errors/skips), lint, Debug/unsigned Release APKs, unsigned AAB and instrumentation APK. Both APKs retain ten ELF64 libraries and pass native/ZIP16KB alignment. All681 canonical English keys pass generation/format verification. Four new device journeys compile; phone/tablet CI and full-OS screenshot review remain the phase completion gate.

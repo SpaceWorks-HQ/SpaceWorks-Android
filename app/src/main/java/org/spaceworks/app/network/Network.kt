@@ -174,6 +174,8 @@ object Pagination {
     }
 }
 class ApiSession(val server: HttpUrl, private val store: TokenStore = MemoryTokenStore(), makerspace: () -> String? = { null }) {
+    /** Non-secret installation identity for generated operations with several awaited calls. */
+    val installationEpoch:Long get()=store.snapshot().epoch
     private val json = Json {
         ignoreUnknownKeys = true; explicitNulls = false
         serializersModule = SerializersModule {

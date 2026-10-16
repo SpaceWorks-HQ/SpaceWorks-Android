@@ -4,4 +4,5 @@ class AuthBundle(val holder:AuthStateHolder,val tokens:TokenStore,val demo:Boole
     val previewAuth:PreviewAuthController?=null,val member:org.spaceworks.app.member.MemberStateHolder?=null,
     val actions:org.spaceworks.app.actions.MemberActionsStateHolder?=null,
     val origin:String="",val push:org.spaceworks.app.notifications.PushStateHolder?=null,
-    val links:org.spaceworks.app.notifications.LinkStateHolder?=null,val pushConfigured:Boolean=false,val sessionEpoch:()->Long={0L},val pushPreview:org.spaceworks.app.notifications.PushPreviewControl?=null)
+    val links:org.spaceworks.app.notifications.LinkStateHolder?=null,val pushConfigured:Boolean=false,val sessionEpoch:()->Long={0L},val pushPreview:org.spaceworks.app.notifications.PushPreviewControl?=null,
+    val payments:org.spaceworks.app.payments.PaymentsStateHolder?=null)
