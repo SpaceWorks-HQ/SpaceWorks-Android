@@ -16,6 +16,22 @@ class EncryptedTokenStoreTest {
         override fun open(sealed:ByteArray):ByteArray=Cipher.getInstance("AES/GCM/NoPadding").run {init(Cipher.DECRYPT_MODE,key,GCMParameterSpec(128,sealed.copyOfRange(0,12)));doFinal(sealed.copyOfRange(12,sealed.size))}
         override fun destroy(){key=KeyGenerator.getInstance("AES").apply {init(256)}.generateKey()}
     }
+    @Test fun oldSnapshotCannotWriteOrClearEncryptedNewLogin() {
+        val disk=Disk();val store=EncryptedTokenStore(disk,Crypto());store.replace(TokenPair("old","old-refresh"));val old=store.snapshot()
+        store.replace(null);store.replace(TokenPair("new","new-refresh"));val encrypted=disk.bytes!!.copyOf()
+        assertFalse(store.rotateIfCurrent(old,TokenPair("stale","stale-refresh")));assertFalse(store.rotateIfCurrent(old,null))
+        assertArrayEquals(encrypted,disk.bytes);assertEquals(TokenPair("new","new-refresh"),store.read());assertNotEquals(old.epoch,store.snapshot().epoch)
+    }
+    @Test fun sameSessionEncryptedRotationKeepsEpochButReinstallationInvalidatesSnapshot() {
+        val store=EncryptedTokenStore(Disk(),Crypto());val pair=TokenPair("a","r");store.replace(pair);val old=store.snapshot()
+        assertTrue(store.rotateIfCurrent(old,TokenPair("b","s")));assertEquals(old.epoch,store.snapshot().epoch)
+        val rotated=store.snapshot();store.replace(TokenPair("b","s"));assertFalse(store.rotateIfCurrent(rotated,null));assertEquals(TokenPair("b","s"),store.read())
+    }
+    @Test fun failedEncryptedRotationIsConditionallyClearedByCoordinator()=kotlinx.coroutines.runBlocking {
+        val disk=Disk();val store=EncryptedTokenStore(disk,Crypto());store.replace(TokenPair("a","r"));val epoch=store.snapshot().epoch;disk.fail=true
+        val coordinator=org.spaceworks.app.network.RefreshCoordinator(store){TokenPair("b","s")}
+        assertTrue(runCatching {coordinator.refresh("a",epoch)}.isFailure);assertNull(store.read());assertNull(disk.bytes)
+    }
     @Test fun ciphertextRoundtripsAndFailedWriteNeverPublishesPartialRotation() {
         val disk=Disk();val crypto=Crypto();val store=EncryptedTokenStore(disk,crypto);val old=TokenPair("access-secret","refresh-secret")
         store.replace(old);assertFalse(disk.bytes!!.decodeToString().contains("secret"));assertEquals(old,EncryptedTokenStore(disk,crypto).read())

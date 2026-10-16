@@ -95,3 +95,14 @@ A3 keyboard/profile follow-up: choices and Back dismiss the IME, independent con
 A3 accessibility lifecycle follow-up: the inventory search journey exposed a detached Material3 child-semantics node observing the live inventory state. Custom semantics now capture selected/visible/loading values during composition rather than retaining delegated state reads in detached nodes. Existing native search coverage remains enabled on phone/tablet. Signup, reset and email confirmation final fields now submit through the real keyboard Done action. Local lint and debug/application-test assembly passed. Material3 stays at the current stable 1.4.0; see the [official release table](https://developer.android.com/jetpack/androidx/releases/compose-material3). No crash handler or test was suppressed.
 
 A3 native input follow-up: radio choices now expose selected radio semantics. Device journeys dismiss and wait for the real keyboard before pointer actions and assert both selected radio state and the retained boolean answer before submission. Recovery verifies the entered email and uses the published field IME actions for request/update. This follows current full-screen evidence of an empty recovery email and an unselected event answer; no timeout increase or skipped journey.
+
+
+### A3 validation checkpoint
+
+Head2868cfd passed build and all21 device cases on phone and tablet: [CI38952596187](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/actions/runs/38952596187). Full OS screenshots for recovery, booking and registration receipts were reviewed without overlays; status bars and enabled Done controls are visible. Owner-specific motion/UX files stay in this mobile repository with the unchanged original Design baseline.
+
+### A4 — notifications and safe update navigation (in progress)
+
+Networking now binds each generated authenticated call to the local session installation before enqueue. Physical retries and rotating-token publication reject old installations; same-session concurrent401 recovery remains single flight. Encrypted replacement is atomic, controllers share an origin store, and account-global generated calls retain Bearer while removing maker scope. Identity results and local cleanup cannot overwrite a later login. Session-end callbacks synchronously clear private holders even when UI collection is stopped.
+
+Initial A4 validation:224 debug and214 release JVM cases pass, zero failures/errors/skips, including generated push registration/removal, strict links,29 routing/registration state cases,16 read-only destination cases and account/session races. Native notification journeys and final lint/package/device CI are still pending; this is not an A4 completion claim.

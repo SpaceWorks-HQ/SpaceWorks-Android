@@ -35,17 +35,19 @@ data class AuthState(val busy:Boolean=false,val initialized:Boolean=false,val co
 }
 class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
     private val readSelection:()->Int?={null},private val saveSelection:(Int?)->Unit={},
-    private val now:()->Long=System::currentTimeMillis) {
+    private val now:()->Long=System::currentTimeMillis,private val onSessionEnded:()->Unit={}) {
     private val mutable=MutableStateFlow(AuthState())
     val state=mutable.asStateFlow()
     private val operation=Mutex()
+    private var installedEpoch:Long?=null
     private var retryAt=0L
     private var challengeExpiresAt=0L
     val nativeSocialReady get()=api.nativeSocialReady
     suspend fun initialize()=runOperation {
         val config=api.config()
         mutable.value=state.value.copy(config=config,initialized=true)
-        if (withContext(Dispatchers.IO){tokens.read()}!=null) refreshIdentity()
+        val restored=withContext(Dispatchers.IO){tokens.snapshot()}
+        if(restored.pair!=null){installedEpoch=restored.epoch;refreshIdentity()}
     }
     suspend fun signIn(username:String,password:String)=runOperation {
         mutable.value=state.value.copy(gate=null)
@@ -86,15 +88,17 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
     }
     suspend fun finishMfa()=runOperation { finishMfaInternal() }
     private suspend fun finishMfaInternal() {
+        val expected=installedEpoch
         try { refreshIdentity();mutable.value=state.value.copy(mfa=null,enrollment=null,recoveryCodes=emptyList()) }
-        catch(f:Exception) {withContext(NonCancellable+Dispatchers.IO){tokens.replace(null)};throw f}
+        catch(f:Exception) {clearInstalled(expected);throw f}
     }
     private suspend fun acceptPair(pair:TokenPair) {
         persist(pair)
-        try {refreshIdentity()} catch(f:Exception) {withContext(NonCancellable+Dispatchers.IO){tokens.replace(null)};throw f}
+        val expected=installedEpoch
+        try {refreshIdentity()} catch(f:Exception) {clearInstalled(expected);throw f}
     }
     suspend fun cancelMfa()=runOperation(ignoreThrottle=true) {
-        withContext(NonCancellable+Dispatchers.IO){tokens.replace(null)}
+        clearInstalled(installedEpoch)
         mutable.value=state.value.copy(mfa=null,enrollment=null,recoveryCodes=emptyList(),error=null,expiredMfa=false,mfaExpiresAtMillis=0)
     }
     suspend fun expireMfa()=runOperation(ignoreThrottle=true) {
@@ -104,6 +108,25 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         if (!state.value.initialized || state.value.user==null || state.value.busy) return
         runOperation {refreshIdentity()}
     }
+    /** Navigation and push hints must confirm a fresh server identity, never only cached role text. */
+    suspend fun authorizeMakerspace(id:Int):Boolean {
+        var authorized=false
+        runOperation {
+            if(state.value.user==null)return@runOperation
+            refreshIdentity()
+            authorized=state.value.memberships.any {it.id==id}
+        }
+        return authorized
+    }
+    suspend fun authorizeSlug(slug:String,staff:Boolean):Int? {
+        var authorized:Int?=null
+        runOperation {
+            if(state.value.user==null)return@runOperation
+            refreshIdentity()
+            if(!staff || state.value.staffAllowed)authorized=state.value.memberships.singleOrNull {it.slug==slug}?.id
+        }
+        return authorized
+    }
     fun select(id:Int) {
         if(state.value.memberships.none {it.id==id}) {
             mutable.value=state.value.copy(error="Your makerspace access changed. Choose again.");return
@@ -112,46 +135,69 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
     }
     fun dismissGate() {if(!state.value.busy)mutable.value=state.value.copy(gate=null,error=null)}
     suspend fun signOut()=runOperation(ignoreThrottle=true) {
+        val expected=installedEpoch?:tokens.snapshot().epoch
         var failed=false
         try { api.logout() } catch(cancelled:CancellationException) {throw cancelled} catch(_:Exception) {failed=true}
         finally {
-            saveSelection(null)
+            if(tokens.snapshot().epoch==expected)saveSelection(null)
             mutable.value=AuthState(initialized=true,config=state.value.config,
                 notice=if(failed) "Signed out on this device. Server revocation could not be confirmed." else "Signed out.")
-            withContext(NonCancellable+Dispatchers.IO){tokens.replace(null)}
+            clearInstalled(expected)
         }
     }
     suspend fun changePassword(current:String,replacement:String,confirmation:String)=runOperation {
+        val expected=installedEpoch
         ensure(current.isNotEmpty() && replacement.isNotEmpty(),"Enter your current and new passwords.")
         ensure(replacement.length>=8,"Use at least 8 characters.")
         ensure(replacement==confirmation,"Passwords don't match.")
         api.changePassword(current,replacement)
         try {api.logout()} catch(cancelled:CancellationException){throw cancelled} catch(_:Exception) {/* Server changed the credential; local session is always discarded. */}
         finally {
-            saveSelection(null)
+            if(expected==null || tokens.snapshot().epoch==expected)saveSelection(null)
             mutable.value=AuthState(initialized=true,config=state.value.config,notice="Password updated. Sign in again.")
-            withContext(NonCancellable+Dispatchers.IO){tokens.replace(null)}
+            clearInstalled(expected)
         }
     }
     private suspend fun persist(pair:TokenPair) {
         ensure(pair.access.isNotBlank() && pair.refresh.isNotBlank(),"This server did not return a device session. Contact your makerspace.")
-        withContext(NonCancellable+Dispatchers.IO) {tokens.replace(pair)}
+        withContext(NonCancellable+Dispatchers.IO) {tokens.replace(pair);installedEpoch=tokens.snapshot().epoch}
+    }
+    private fun rejectChangedSession():Nothing {
+        onSessionEnded()
+        mutable.value=state.value.copy(user=null,selectedId=null,mfa=null,enrollment=null,recoveryCodes=emptyList(),gate=AuthGate.SESSION_ENDED)
+        throw AuthMessage("Your session changed. Sign in again.")
+    }
+    private fun requireInstalledEpoch():Long {
+        val expected=installedEpoch?:tokens.snapshot().epoch.also {installedEpoch=it}
+        if(tokens.snapshot().epoch!=expected)rejectChangedSession()
+        return expected
+    }
+    private suspend fun clearInstalled(expected:Long?) {
+        if(expected==null)return
+        try {withContext(NonCancellable+Dispatchers.IO) {
+            val current=tokens.snapshot()
+            if(current.epoch==expected)tokens.rotateIfCurrent(current,null)
+        }} finally {onSessionEnded()}
     }
     private suspend fun refreshIdentity() {
+        val expected=requireInstalledEpoch()
         val user=try {api.me()} catch(f:ApiFailure) {
+            if(tokens.snapshot().epoch!=expected)rejectChangedSession()
             if(f.status==401 || f.code=="device_superadmin_not_supported") {
                 saveSelection(null);mutable.value=state.value.copy(user=null,selectedId=null,
                     gate=if(f.code=="device_superadmin_not_supported")AuthGate.WEB_CONSOLE else AuthGate.SESSION_ENDED)
-                withContext(NonCancellable+Dispatchers.IO){tokens.replace(null)}
+                clearInstalled(expected)
             }
             throw f
         }
+        if(tokens.snapshot().epoch!=expected)rejectChangedSession()
         if (user.isSuperuser || user.role=="superadmin") {
             saveSelection(null)
             mutable.value=state.value.copy(user=null,selectedId=null,gate=AuthGate.WEB_CONSOLE)
-            withContext(NonCancellable+Dispatchers.IO){tokens.replace(null)}
+            clearInstalled(expected)
             throw ApiFailure(403,"Use the web console","device_superadmin_not_supported",null)
         }
+        if(state.value.user?.id!=null && state.value.user?.id!=user.id)onSessionEnded()
         val allowed=user.makerspaces.filter {it.source==AuthMembershipSourceEnum.membership}
         val selected=state.value.selectedId?.takeIf {id->allowed.any {it.id==id}}
             ?: readSelection()?.takeIf {id->allowed.any {it.id==id}} ?: allowed.singleOrNull()?.id
@@ -171,6 +217,7 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         if(!operation.tryLock()) return
         try {
             if(!ignoreThrottle && now()<retryAt) return
+            if(state.value.user!=null)requireInstalledEpoch()
             mutable.value=state.value.copy(busy=true,error=null,notice=null)
             block()
         } catch(cancelled:CancellationException) {throw cancelled}

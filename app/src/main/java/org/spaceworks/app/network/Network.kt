@@ -35,40 +35,71 @@ object ServerAddress {
 }
 // Local application state, not a transport model. Production uses a Keystore-backed TokenStore.
 data class TokenPair(val access: String, val refresh: String) { override fun toString() = "TokenPair(redacted)" }
-interface TokenStore { fun read(): TokenPair?; fun replace(pair: TokenPair?) }
-class MemoryTokenStore : TokenStore {
-    @Volatile private var pair: TokenPair? = null
-    override fun read() = pair
-    @Synchronized override fun replace(pair: TokenPair?) { this.pair = pair }
+data class TokenSnapshot(val epoch:Long,val pair:TokenPair?)
+interface TokenStore {
+    fun read():TokenPair?
+    /** A login/logout installs a new local session even when token text happens to match. */
+    fun replace(pair:TokenPair?)
+    fun snapshot():TokenSnapshot
+    /** Same-session rotation is atomic and cannot alter a later login/logout. */
+    fun rotateIfCurrent(expected:TokenSnapshot,pair:TokenPair?):Boolean
 }
-class RefreshCoordinator(private val store: TokenStore, private val rotate: suspend (String) -> TokenPair) {
-    private val mutex = Mutex()
-    suspend fun refresh(rejectedAccess: String): TokenPair? = mutex.withLock {
-        val current = store.read() ?: return@withLock null
-        if (current.access != rejectedAccess) return@withLock current
-        // Rotation may consume the one-use refresh token even if its caller leaves the screen.
+class MemoryTokenStore:TokenStore {
+    @Volatile private var pair:TokenPair?=null
+    private var epoch=0L
+    override fun read()=pair
+    @Synchronized override fun replace(pair:TokenPair?){epoch++;this.pair=pair}
+    @Synchronized override fun snapshot()=TokenSnapshot(epoch,pair)
+    @Synchronized override fun rotateIfCurrent(expected:TokenSnapshot,pair:TokenPair?):Boolean {
+        if(expected.pair==null || expected.epoch!=epoch || expected.pair!=this.pair)return false
+        if(pair==null)epoch++
+        this.pair=pair;return true
+    }
+}
+class RefreshCoordinator(private val store:TokenStore,private val rotate:suspend(String)->TokenPair) {
+    private val mutex=Mutex()
+    suspend fun refresh(rejectedAccess:String,expectedEpoch:Long):TokenPair?=mutex.withLock {
+        val expected=store.snapshot()
+        if(expected.epoch!=expectedEpoch)return@withLock null
+        val current=expected.pair?:return@withLock null
+        if(current.access!=rejectedAccess)return@withLock current
         kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-            try { rotate(current.refresh).also(store::replace) }
-            catch (failure: Exception) { store.replace(null); throw failure }
+            try {
+                val replacement=rotate(current.refresh)
+                if(store.rotateIfCurrent(expected,replacement))replacement else null
+            }catch(failure:Exception){store.rotateIfCurrent(expected,null);throw failure}
         }
     }
 }
-class RequestHeaders(private val store: TokenStore, private val makerspace: () -> String?) : Interceptor {
-    override fun intercept(chain: Interceptor.Chain): Response {
-        val request = chain.request().newBuilder()
+private data class SessionEpochTag(val epoch:Long)
+class RequestHeaders(private val store:TokenStore,private val makerspace:()->String?):Interceptor {
+    override fun intercept(chain:Interceptor.Chain):Response {
+        val snapshot=store.snapshot()
+        val expected=chain.request().tag(SessionEpochTag::class.java)?:SessionEpochTag(snapshot.epoch)
+        if(expected.epoch!=snapshot.epoch)throw java.io.IOException("Session changed")
+        val request=chain.request().newBuilder().tag(SessionEpochTag::class.java,expected)
             .removeHeader("Cookie").removeHeader("Origin").removeHeader("Referer")
             .removeHeader("Authorization").removeHeader("X-Makerspace-Id")
-        store.read()?.let { request.header("Authorization", "Bearer ${it.access}") }
-        makerspace()?.let { request.header("X-Makerspace-Id", it) }
+        snapshot.pair?.let {request.header("Authorization","Bearer ${it.access}")}
+        makerspace()?.let {request.header("X-Makerspace-Id",it)}
         return chain.proceed(request.build())
     }
 }
-class SessionAuthenticator(private val coordinator: RefreshCoordinator) : Authenticator {
-    override fun authenticate(route: Route?, response: Response): Request? {
-        if (response.priorResponse != null) return null
-        val rejected = response.request.header("Authorization")?.removePrefix("Bearer ") ?: return null
-        val pair = try { kotlinx.coroutines.runBlocking { coordinator.refresh(rejected) } } catch (_: Exception) { return null }
-        return pair?.let { response.request.newBuilder().header("Authorization", "Bearer ${it.access}").build() }
+/** Recheck every physical attempt, including the gap after an authenticator builds a retry. */
+private class SessionEpochGuard(private val store:TokenStore):Interceptor {
+    override fun intercept(chain:Interceptor.Chain):Response {
+        val epoch=chain.request().tag(SessionEpochTag::class.java)?.epoch
+        if(epoch==null || store.snapshot().epoch!=epoch)throw java.io.IOException("Session changed")
+        return chain.proceed(chain.request())
+    }
+}
+class SessionAuthenticator(private val coordinator:RefreshCoordinator):Authenticator {
+    override fun authenticate(route:Route?,response:Response):Request? {
+        if(response.priorResponse!=null)return null
+        val epoch=response.request.tag(SessionEpochTag::class.java)?.epoch?:return null
+        val rejected=response.request.header("Authorization")?.removePrefix("Bearer ")?:return null
+        val pair=try {kotlinx.coroutines.runBlocking {coordinator.refresh(rejected,epoch)}}catch(_:Exception){return null}
+        return pair?.let {response.request.newBuilder().header("Authorization","Bearer ${it.access}").build()}
     }
 }
 
@@ -140,7 +171,7 @@ object Pagination {
         next
     }
 }
-class ApiSession(val server: HttpUrl, store: TokenStore = MemoryTokenStore(), makerspace: () -> String? = { null }) {
+class ApiSession(val server: HttpUrl, private val store: TokenStore = MemoryTokenStore(), makerspace: () -> String? = { null }) {
     private val json = Json {
         ignoreUnknownKeys = true; explicitNulls = false
         serializersModule = SerializersModule {
@@ -155,9 +186,25 @@ class ApiSession(val server: HttpUrl, store: TokenStore = MemoryTokenStore(), ma
         .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
         .callTimeout(45,java.util.concurrent.TimeUnit.SECONDS)
         .addInterceptor(RestoreServiceResponse()).addNetworkInterceptor(PreventServiceReplay()).build()
-    private fun retrofit(client: OkHttpClient) = Retrofit.Builder().baseUrl(server)
-        .client(client).addConverterFactory(json.asConverterFactory("application/json".toMediaType())).build()
-    fun <T> publicApi(type: Class<T>): T = retrofit(baseClient).create(type)
+    private fun authenticatedCalls(client:OkHttpClient,onCall:(Call)->Unit={}):Call.Factory=Call.Factory {request->
+        // Capture before enqueue: a queued old mutation must never first-send as a newly signed-in account.
+        val tagged=request.newBuilder().tag(SessionEpochTag::class.java,SessionEpochTag(store.snapshot().epoch)).build()
+        client.newCall(tagged).also(onCall)
+    }
+    private fun retrofit(client:OkHttpClient,authenticated:Boolean=false)=Retrofit.Builder().baseUrl(server)
+        .callFactory(if(authenticated)authenticatedCalls(client)else client)
+        .addConverterFactory(json.asConverterFactory("application/json".toMediaType())).build()
+    fun <T> publicApi(type:Class<T>,onCall:(Call)->Unit={}):T=Retrofit.Builder().baseUrl(server)
+        .callFactory(Call.Factory {request->baseClient.newCall(request).also(onCall)})
+        .addConverterFactory(json.asConverterFactory("application/json".toMediaType())).build().create(type)
+    /** Authenticated account-global operation; no selected-maker header or fabricated maker ID. */
+    fun <T> globalApi(type:Class<T>,onCall:(Call)->Unit={}):T {
+        val global=client.newBuilder().addInterceptor {chain->
+            chain.proceed(chain.request().newBuilder().removeHeader("X-Makerspace-Id").build())
+        }.build()
+        return Retrofit.Builder().baseUrl(server).callFactory(authenticatedCalls(global,onCall))
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType())).build().create(type)
+    }
     fun <T> scopedApi(type: Class<T>, makerId: Int, onCall: (Call) -> Unit = {}): T {
         require(makerId > 0)
         val scoped = client.newBuilder().addInterceptor { chain ->
@@ -165,7 +212,7 @@ class ApiSession(val server: HttpUrl, store: TokenStore = MemoryTokenStore(), ma
         }.build()
         // Observe only this generated service instance's calls so streamed consumers can
         // cancel their socket without closing a ResponseBody concurrently with its reader.
-        val factory = Call.Factory { request -> scoped.newCall(request).also(onCall) }
+        val factory = authenticatedCalls(scoped,onCall)
         return Retrofit.Builder().baseUrl(server).callFactory(factory)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType())).build().create(type)
     }
@@ -181,10 +228,10 @@ class ApiSession(val server: HttpUrl, store: TokenStore = MemoryTokenStore(), ma
         TokenPair(result.access,result.refresh)
     }
     val client: OkHttpClient = baseClient.newBuilder().dispatcher(Dispatcher()).addInterceptor(RequestHeaders(store,makerspace))
-        .authenticator(SessionAuthenticator(coordinator)).build()
-    val auth = retrofit(client).create(AuthApi::class.java)
-    val deviceAuthenticated = retrofit(client).create(DeviceAuthApi::class.java)
-    val health: HealthApi = retrofit(client).create(HealthApi::class.java)
+        .authenticator(SessionAuthenticator(coordinator)).addNetworkInterceptor(SessionEpochGuard(store)).build()
+    val auth = retrofit(client,true).create(AuthApi::class.java)
+    val deviceAuthenticated = retrofit(client,true).create(DeviceAuthApi::class.java)
+    val health: HealthApi = retrofit(client,true).create(HealthApi::class.java)
     suspend fun checkHealth() {
         val response = health.apiV1HealthRetrieve()
         if (!response.isSuccessful) throw Errors.map(response.code(),response.errorBody()?.string(),response.headers()["Retry-After"])

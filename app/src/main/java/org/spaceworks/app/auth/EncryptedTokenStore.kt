@@ -7,6 +7,7 @@ import android.util.AtomicFile
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
+import org.spaceworks.app.network.TokenSnapshot
 import org.spaceworks.app.network.TokenPair
 import org.spaceworks.app.network.TokenStore
 import java.io.File
@@ -21,6 +22,7 @@ interface SessionCipher { fun seal(plain: ByteArray): ByteArray; fun open(sealed
 interface SessionFile { fun read(): ByteArray?; fun write(bytes: ByteArray); fun delete() }
 // Both tokens are one encrypted record. A failed disk write never publishes a half-rotated pair.
 class EncryptedTokenStore(private val file: SessionFile, private val cipher: SessionCipher) : TokenStore {
+    private var epoch=0L
     private var loaded = false
     private var cached: TokenPair? = null
     @Synchronized override fun read(): TokenPair? {
@@ -36,7 +38,19 @@ class EncryptedTokenStore(private val file: SessionFile, private val cipher: Ses
         }
         return cached
     }
-    @Synchronized override fun replace(pair: TokenPair?) {
+    @Synchronized override fun snapshot()=TokenSnapshot(epoch,read())
+    @Synchronized override fun replace(pair:TokenPair?) {
+        if(pair==null)epoch++
+        writePair(pair)
+        if(pair!=null)epoch++
+    }
+    @Synchronized override fun rotateIfCurrent(expected:TokenSnapshot,pair:TokenPair?):Boolean {
+        if(expected.pair==null || expected.epoch!=epoch || expected.pair!=read())return false
+        if(pair==null)epoch++
+        writePair(pair)
+        return true
+    }
+    private fun writePair(pair:TokenPair?) {
         if (pair == null) {
             // Destroy the key before deleting ciphertext: an interrupted/failed delete cannot restore a session.
             try {cipher.destroy()} finally {
@@ -50,6 +64,13 @@ class EncryptedTokenStore(private val file: SessionFile, private val cipher: Ses
         }
     }
     companion object {
+        private val shared=java.util.concurrent.ConcurrentHashMap<String,EncryptedTokenStore>()
+        /** Every controller in this process must share the origin's epoch/atomic rotation lock. */
+        fun sharedAndroid(context:Context,origin:String):EncryptedTokenStore {
+            val scope=context.noBackupFilesDir.absolutePath+"\n"+origin
+            return shared.computeIfAbsent(scope){android(context,origin)}
+        }
+        // A fresh factory also permits actual Keystore restoration to be verified in instrumentation.
         fun android(context: Context, origin: String): EncryptedTokenStore {
             val key=MessageDigest.getInstance("SHA-256").digest(origin.encodeToByteArray()).joinToString("") { "%02x".format(it) }
             val atomic=AtomicFile(File(context.noBackupFilesDir,"session-$key.bin"))

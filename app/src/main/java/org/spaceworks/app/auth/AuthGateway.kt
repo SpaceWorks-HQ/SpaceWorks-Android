@@ -37,7 +37,7 @@ class DevelopmentAttestation(private val debug:Boolean,private val emulator:Bool
 }
 class GeneratedAuthGateway(private val session:ApiSession,private val appId:String,
     private val environment:EnvironmentEnum,private val attestation:AttestationProvider,
-    private val onNativeSignOut:suspend()->Unit={}):AuthGateway {
+    private val onNativeSignOut:suspend()->Unit={},private val onBeforeNativeSignOut:suspend()->Unit={}):AuthGateway {
     override suspend fun config()=session.platform.apiV1ConfigRetrieve().requireBody()
     override suspend fun login(username:String,password:String):DeviceLoginResult {
         val challenge=session.devicePublic.apiV1AuthDeviceAttestationChallengeCreate(DeviceIdentity(PlatformEnum.android,appId,environment)).requireBody()
@@ -50,7 +50,15 @@ class GeneratedAuthGateway(private val session:ApiSession,private val appId:Stri
         return (if(enrollment) session.mfa.apiV1AuthMfaConfirmCreate(input) else session.mfa.apiV1AuthMfaVerifyCreate(input)).requireBody()
     }
     override suspend fun me()=session.auth.apiV1AuthMeRetrieve().requireBody()
-    override suspend fun logout() {try {session.deviceAuthenticated.apiV1AuthDeviceLogoutCreate().requireBody()}finally {onNativeSignOut()}}
+    override suspend fun logout():Unit=withContext(kotlinx.coroutines.NonCancellable) {
+        // Remove associations while the grant is still usable; local sign-out always follows.
+        var cleanupFailure:Exception?=null
+        try {onBeforeNativeSignOut()}catch(f:Exception){cleanupFailure=f}
+        try {session.deviceAuthenticated.apiV1AuthDeviceLogoutCreate().requireBody()}
+        finally {onNativeSignOut()}
+        cleanupFailure?.let {throw it}
+        Unit
+    }
     override suspend fun changePassword(current:String,replacement:String) {session.auth.apiV1AuthChangePasswordCreate(ChangePassword(current,replacement)).requireBody()}
     override suspend fun forgotPassword(email:String)=session.authPublic.apiV1AuthForgotPasswordCreate(ForgotPasswordRequest(email)).requireBody().detail
     override suspend fun resetPassword(email:String,code:String,replacement:String)=session.authPublic.apiV1AuthResetPasswordCreate(ResetPasswordConfirmRequest.OtpResetPasswordConfirmValue(OtpResetPasswordConfirm(email,code,replacement))).requireBody().detail

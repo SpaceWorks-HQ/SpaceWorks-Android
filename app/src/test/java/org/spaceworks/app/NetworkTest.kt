@@ -26,7 +26,7 @@ class NetworkTest {
                 .setBody("""{"detail":"Rotation unavailable."}"""))
             server.enqueue(MockResponse().setBody("""{"access":"bogus","refresh":"replayed"}"""))
             val store = MemoryTokenStore().apply { replace(TokenPair("old", "single-use")) }
-            try { ApiSession(server.url("/"), store).coordinator.refresh("old"); fail("Must fail without replay") }
+            try { ApiSession(server.url("/"), store).coordinator.refresh("old",store.snapshot().epoch); fail("Must fail without replay") }
             catch (failure: ApiFailure) {
                 assertEquals(503, failure.status); assertEquals(0L, failure.retryAfterSeconds)
                 assertEquals("Rotation unavailable.", failure.detail)
@@ -102,7 +102,7 @@ class NetworkTest {
             server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST))
             val store=MemoryTokenStore().apply {replace(TokenPair("old","single-use-refresh"))}
             val session=ApiSession(server.url("/"),store)
-            try { session.coordinator.refresh("old");fail("Expected disconnection") } catch(_:java.io.IOException) { }
+            try { session.coordinator.refresh("old",store.snapshot().epoch);fail("Expected disconnection") } catch(_:java.io.IOException) { }
             assertEquals(1,server.requestCount)
             assertEquals("/api/v1/auth/device/refresh",server.takeRequest().path)
             assertNull(store.read())
@@ -136,9 +136,9 @@ class NetworkTest {
         val release=CompletableDeferred<Unit>()
         var calls=0
         val coordinator=RefreshCoordinator(store){calls++;started.complete(Unit);release.await();TokenPair("b","s")}
-        val caller=launch {coordinator.refresh("a")}
+        val caller=launch {coordinator.refresh("a",store.snapshot().epoch)}
         started.await();caller.cancel();release.complete(Unit);caller.join()
         assertEquals(TokenPair("b","s"),store.read())
-        assertEquals(TokenPair("b","s"),coordinator.refresh("a"));assertEquals(1,calls)
+        assertEquals(TokenPair("b","s"),coordinator.refresh("a",store.snapshot().epoch));assertEquals(1,calls)
     }
 }
