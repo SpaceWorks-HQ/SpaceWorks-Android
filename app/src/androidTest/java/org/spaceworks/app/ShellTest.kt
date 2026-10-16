@@ -10,7 +10,7 @@ class ShellTest {
     @get:Rule val compose=createComposeRule()
     @Test fun invalidConnectionRemainsAccessibleAtLargeFontScale() {
         val holder=ConnectionStateHolder("",false,false,{}, {})
-        compose.setContent { CompositionLocalProvider(LocalDensity provides Density(1f,2f)) {SpaceWorksApp(holder)} }
+        compose.setContent { val density=LocalDensity.current; CompositionLocalProvider(LocalDensity provides Density(density.density,2f)) {SpaceWorksApp(holder)} }
         compose.onNodeWithText("Dark mode").assertIsDisplayed().performClick()
         compose.onNodeWithText("Light mode").assertIsDisplayed()
         compose.onNodeWithTag("serverUrl").performTextInput("http://example.org")
