@@ -219,10 +219,13 @@ is authoritative. These are the rules the schema cannot express:
 - Card payments for makerspace services are real-world services, so no Apple/Google in-app purchase.
 
 **Evidence photos (staff issue/return)**
-- Request an upload (`/admin/makerspaces/{id}/uploads/evidence-url`), then upload **exactly as the
-  response says**: use its `method` (multipart **POST** with the returned `fields`, or **PUT**) and send
-  every returned header. Servers differ, so never hard-code PUT. Then pass the returned evidence id to
-  the issue/return call.
+- Request an upload (`/admin/makerspaces/{id}/uploads/evidence-url`), then upload exactly as the
+  response says:
+  - **`method` absent (the usual case):** multipart **POST** to the returned URL with **every** returned
+    `fields` entry, then the file as the last part.
+  - **`method: "PUT"`:** PUT the raw bytes to the URL with every returned header.
+  
+  Servers differ, so never hard-code either one. Then pass the returned evidence id to the issue/return call.
 - **Upload JPEG only** (convert HEIC on iOS), resize to ≤ 2048 px long edge, strip location EXIF.
   Allowed types: jpeg, png, webp. Keep files under 10 MB. The response doesn't state the limit yet, and an
   oversized upload is rejected by storage.
