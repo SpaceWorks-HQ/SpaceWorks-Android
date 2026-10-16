@@ -25,6 +25,9 @@ class OnboardingAuthTest {
     private fun screenshot(name:String){
         val output=InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("validation")!!
         output.mkdirs();File(output,"$name.png").outputStream().use {compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it)}
+        val screen=requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
+        File(output,"$name-screen.png").outputStream().use {screen.compress(Bitmap.CompressFormat.PNG,100,it)}
+        screen.recycle()
     }
     private fun demo(){
         compose.setContent {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}))}
@@ -103,7 +106,7 @@ class OnboardingAuthTest {
         compose.onNodeWithTag("previewPhone").performImeAction();waitText("Enter your verification code")
         compose.onNodeWithTag("previewCode").performTextInput("123456")
         compose.onNodeWithText("Verify").performScrollTo().performClick();waitText("Choose your makerspace")
-        compose.onNodeWithText("Demo mode · sample data").assertExists()
+        compose.onNodeWithText("Demo mode").assertExists()
         screenshot("ux-phone-preview-verified")
     }
     @Test fun compactSignInAtDoubleFontPreservesPasswordFocusAndShowsFieldErrors() {
@@ -122,5 +125,23 @@ class OnboardingAuthTest {
         compose.onNodeWithTag("username").performScrollTo().performTextClearance()
         compose.onNodeWithTag("submitSignIn").performScrollTo().performClick();waitText("Enter your email or username.")
         compose.onNodeWithTag("username").assertIsFocused();screenshot("ux-signin-320dp-font2-error")
+        val instrumentation=InstrumentationRegistry.getInstrumentation()
+        instrumentation.runOnMainSync {
+            val activity=androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+                .getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED).first()
+            activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+                .hideSoftInputFromWindow(activity.window.decorView.windowToken,0)
+        }
+        compose.waitUntil(5000) {
+            var shown=false
+            instrumentation.runOnMainSync {
+                val activity=androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+                    .getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED).first()
+                shown=androidx.core.view.ViewCompat.getRootWindowInsets(activity.window.decorView)
+                    ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime())==true
+            };!shown
+        }
+        compose.onNodeWithTag("submitSignIn").performScrollTo().assertIsDisplayed()
+        screenshot("ux-signin-320dp-font2-keyboard-hidden")
     }
 }

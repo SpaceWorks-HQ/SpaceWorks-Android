@@ -45,7 +45,7 @@ class ShellTest {
         waitText("Choose your makerspace");screenshot("a1-makerspace-picker")
         compose.onNodeWithText("Fab Lab Kochi").performClick()
         compose.onNodeWithText("Continue").performScrollTo().performClick()
-        waitText("Welcome, Meera Nair");screenshot("a1-home")
+        waitText("Welcome back, Meera Nair.");screenshot("a1-home")
         compose.onNodeWithText("Profile",useUnmergedTree=true).performClick()
         compose.onNodeWithText("Sign out").performScrollTo().performClick()
         compose.onAllNodesWithText("Sign out").onLast().performClick()

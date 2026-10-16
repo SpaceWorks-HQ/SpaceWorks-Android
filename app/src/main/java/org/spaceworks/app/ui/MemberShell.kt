@@ -22,7 +22,7 @@ fun makerspaceLabel(slug:String)=slug.split('-').joinToString(" "){it.replaceFir
 @Composable fun MakerspacePicker(bundle:AuthBundle) {
     val state by bundle.holder.state.collectAsStateWithLifecycle()
     val scope=rememberCoroutineScope()
-    var candidate by remember {mutableStateOf<Int?>(null)}
+    var candidate by remember(state.memberships.map {it.id}) {mutableStateOf<Int?>(null)}
     var signingOut by remember {mutableStateOf(false)}
     if(signingOut)SignOutConfirmation({signingOut=false},{signingOut=false;scope.launch {bundle.holder.signOut()}})
     AuthLayout(if(state.memberships.isEmpty())"No makerspace access yet" else "Choose your makerspace",if(state.memberships.isEmpty())"Ask your makerspace to add or reactivate your membership." else "Where would you like to make today?") {
@@ -52,47 +52,53 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
     var destination by rememberSaveable(state.selectedId){mutableIntStateOf(0)}
     var signingOut by remember {mutableStateOf(false)}
     var changingServer by remember {mutableStateOf(false)}
+    val member=bundle.member
+    val content=member?.state?.collectAsStateWithLifecycle()?.value
+    var clock by remember {mutableLongStateOf(System.currentTimeMillis())}
+    LaunchedEffect(content?.retryAtMillis) {
+        do {clock=System.currentTimeMillis();if(clock<(content?.retryAtMillis?:0))kotlinx.coroutines.delay(250)}while(clock<(content?.retryAtMillis?:0))
+    }
+    LaunchedEffect(member,state.selectedId) {state.selected?.let {member?.activate(org.spaceworks.app.member.MemberScope(it.id,it.slug))}}
     if(signingOut || changingServer)SignOutConfirmation({signingOut=false;changingServer=false},{
         val change=changingServer;signingOut=false;changingServer=false
-        scope.launch {bundle.holder.signOut();if(change)onChangeServer?.invoke()}
+        scope.launch {member?.clear();bundle.holder.signOut();if(change)onChangeServer?.invoke()}
     },changingServer)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val expanded=maxWidth>=600.dp
         Row {
-            if(expanded) NavigationRail(Modifier.fillMaxHeight()) {
-                destinations.forEachIndexed {index,title -> NavigationRailItem(selected=destination==index,onClick={destination=index},icon={Icon(destinationIcons[index],null)},label={Text(title)},colors=NavigationRailItemDefaults.colors(selectedIconColor=MaterialTheme.colorScheme.onPrimaryContainer,selectedTextColor=MaterialTheme.colorScheme.onPrimaryContainer,indicatorColor=MaterialTheme.colorScheme.primaryContainer)) }
+            if(expanded) NavigationRail(Modifier.fillMaxHeight().verticalScroll(rememberScrollState())) {
+                destinations.forEachIndexed {index,title -> NavigationRailItem(selected=destination==index,onClick={destination=index},icon={Icon(destinationIcons[index],null)},label={Text(title)},modifier=Modifier.heightIn(min=if(LocalDensity.current.fontScale>=1.6f)120.dp else 80.dp),colors=NavigationRailItemDefaults.colors(selectedIconColor=MaterialTheme.colorScheme.onPrimaryContainer,selectedTextColor=MaterialTheme.colorScheme.onPrimaryContainer,indicatorColor=MaterialTheme.colorScheme.primaryContainer)) }
             }
             Column(Modifier.weight(1f)) {
-                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-                    Text(destinations[destination],style=MaterialTheme.typography.headlineLarge)
-                    Text(state.selected?.slug.orEmpty().replace('-',' '),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                    when(destination) {
-                        0 -> {
-                            Text("Welcome, ${state.user?.displayName.orEmpty().ifBlank {state.user?.username.orEmpty()}}",style=MaterialTheme.typography.titleLarge)
-                            Text("Your makerspace is ready when you are.")
-                            OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                                Text("Make something meaningful",style=MaterialTheme.typography.titleMedium)
-                                Text("Find tools, plan a visit, and keep track of your activity here.")
-                                BrandTextButton("Browse inventory",{destination=1})
-                            }}
-                        }
-                        4 -> {
-                            Text(state.user?.displayName.orEmpty(),style=MaterialTheme.typography.titleLarge)
-                            Text(state.user?.email.orEmpty())
-                            Text("${state.selected?.roleName.orEmpty()} · Device session",style=MaterialTheme.typography.bodyMedium)
-                            if(state.memberships.size>1)state.memberships.filter {it.id!=state.selectedId}.forEach {membership ->
-                                BrandTextButton("Switch to ${membership.slug.replace('-',' ')}",{bundle.holder.select(membership.id)})
+                if(clock<(content?.retryAtMillis?:0))Text("Try again in ${((requireNotNull(content).retryAtMillis-clock+999)/1000).coerceAtLeast(0)}s.",Modifier.padding(16.dp),color=MaterialTheme.colorScheme.onPrimaryContainer)
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    when {
+                        destination==4 -> Box(Modifier.fillMaxSize(),contentAlignment=androidx.compose.ui.Alignment.TopCenter) {
+                            Column(Modifier.widthIn(max=640.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
+                                Text("Profile",style=MaterialTheme.typography.headlineLarge)
+                                Text(state.user?.displayName.orEmpty(),style=MaterialTheme.typography.titleLarge)
+                                Text(state.user?.email.orEmpty())
+                                Text("${state.selected?.roleName.orEmpty()} · ${makerspaceLabel(state.selected?.slug.orEmpty())}")
+                                if(content?.scope?.id==state.selectedId && member!=null)MemberProfileSummary(member)
+                                state.memberships.filter {it.id!=state.selectedId}.forEach {membership ->
+                                    BrandTextButton("Switch to ${makerspaceLabel(membership.slug)}",{bundle.holder.select(membership.id)},!state.busy)
+                                }
+                                BrandTextButton("Refresh account",{scope.launch {bundle.holder.foreground()}},!state.busy)
+                                if(state.user?.emailVerified==false && state.config?.emailEnabled==true)bundle.accounts?.let {BrandTextButton("Confirm your email",{it.open(AccountRoute.VERIFY_EMAIL,state.user?.email.orEmpty())})}
+                                onShowIntro?.let {BrandTextButton("Show introduction",it,!state.busy)}
+                                BrandButton("Sign out",{signingOut=true},!state.busy)
+                                onChangeServer?.let {BrandTextButton("Change server",{changingServer=true},!state.busy)}
                             }
-                            BrandTextButton("Refresh account",{scope.launch {bundle.holder.foreground()}},!state.busy)
-                            if(state.user?.emailVerified==false && state.config?.emailEnabled==true)bundle.accounts?.let {BrandTextButton("Confirm your email",{it.open(AccountRoute.VERIFY_EMAIL,state.user?.email.orEmpty())})}
-                            onShowIntro?.let {BrandTextButton("Show introduction",it,!state.busy)}
-                            BrandButton("Sign out",{signingOut=true},!state.busy)
-                            onChangeServer?.let {BrandTextButton("Change server",{changingServer=true},!state.busy)}
                         }
-                        else -> Text("This feature will connect to your makerspace in the next app phase.")
+                        member==null -> Text("Member information is unavailable for this build.",Modifier.padding(24.dp))
+                        content?.scope?.id!=state.selectedId -> Column(Modifier.padding(24.dp)) {LinearProgressIndicator(Modifier.fillMaxWidth());Text("Loading your makerspace…")}
+                        destination==0 -> MemberHome(member,state.user?.displayName.orEmpty().ifBlank {state.user?.username.orEmpty()},{destination=1},bundle.demo)
+                        destination==1 -> MemberInventory(member)
+                        destination==2 -> MemberActivityScreen(member)
+                        else -> MemberInboxScreen(member)
                     }
-                    BrandError(state.error)
                 }
+                state.error?.let {Box(Modifier.padding(horizontal=24.dp)){BrandError(it)}}
                 if(!expanded) NavigationBar(Modifier.heightIn(min=if(LocalDensity.current.fontScale>=1.6f)112.dp else 80.dp)) {
                     destinations.forEachIndexed {index,title -> NavigationBarItem(selected=destination==index,onClick={destination=index},icon={Icon(destinationIcons[index],null)},label={Text(title)},colors=NavigationBarItemDefaults.colors(selectedIconColor=MaterialTheme.colorScheme.onPrimaryContainer,selectedTextColor=MaterialTheme.colorScheme.onPrimaryContainer,indicatorColor=MaterialTheme.colorScheme.primaryContainer)) }
                 }

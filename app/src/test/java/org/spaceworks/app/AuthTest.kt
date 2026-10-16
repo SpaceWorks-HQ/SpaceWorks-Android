@@ -47,6 +47,13 @@ private class FakeAuth:AuthGateway {
     override suspend fun changePassword(current:String,replacement:String){changed=true}
 }
 class AuthTest {
+    @Test fun staleMakerspaceChoiceAfterForegroundRefreshNeverCrashesOrSelectsRemovedAccess()=runTest {
+        val api=FakeAuth();val holder=AuthStateHolder(api,MemoryTokenStore())
+        holder.initialize();holder.signIn("member","pass");holder.verify("123456")
+        api.who=api.who.copy(makerspaces=emptyList());holder.foreground();holder.select(1)
+        assertNull(holder.state.value.selectedId);assertTrue(holder.state.value.memberships.isEmpty())
+        assertEquals("Your makerspace access changed. Choose again.",holder.state.value.error)
+    }
     @Test fun googleRequiresConfiguredProviderAndNativeTransportBeforeSdk()=runTest {
         val api=FakeAuth();val store=MemoryTokenStore();val holder=AuthStateHolder(api,store)
         var sdkCalls=0

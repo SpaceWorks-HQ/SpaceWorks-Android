@@ -105,7 +105,9 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         runOperation {refreshIdentity()}
     }
     fun select(id:Int) {
-        require(state.value.memberships.any {it.id==id})
+        if(state.value.memberships.none {it.id==id}) {
+            mutable.value=state.value.copy(error="Your makerspace access changed. Choose again.");return
+        }
         saveSelection(id);mutable.value=state.value.copy(selectedId=id)
     }
     fun dismissGate() {if(!state.value.busy)mutable.value=state.value.copy(gate=null,error=null)}

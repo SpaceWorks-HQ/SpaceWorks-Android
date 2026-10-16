@@ -36,17 +36,19 @@ class MainActivity:ComponentActivity() {
     val bundle=remember(connection.connected,connection.url,demo) {
         if(demo)demoFactory() else if(connection.connected)sessionFactory?.invoke(connection.url) else null
     }
+    val identity=bundle?.holder?.state?.collectAsStateWithLifecycle()?.value?.user
     MaterialTheme(colorScheme=if(dark)DarkScheme else LightScheme,
         shapes=Shapes(small=androidx.compose.foundation.shape.RoundedCornerShape(10.dp),medium=androidx.compose.foundation.shape.RoundedCornerShape(16.dp))) {
         Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
             Column(Modifier.safeDrawingPadding()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.SpaceBetween) {
-                    Text(stringResource(R.string.app_name),Modifier.weight(1f).padding(vertical=16.dp),style=MaterialTheme.typography.titleLarge)
+                    if(identity!=null)Text(stringResource(R.string.app_name),Modifier.weight(1f).padding(vertical=16.dp),style=MaterialTheme.typography.titleLarge)
+                    else Spacer(Modifier.weight(1f))
                     BrandTextButton(if(dark)"Light mode" else "Dark mode",{localDark=!dark;appearance?.setDark(localDark)})
                 }
                 if(demo) Surface(color=MaterialTheme.colorScheme.secondaryContainer) {
                     Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.SpaceBetween) {
-                        Text("Demo mode · sample data",Modifier.weight(1f).padding(vertical=16.dp),style=MaterialTheme.typography.labelLarge)
+                        Text("Demo mode",Modifier.weight(1f).padding(vertical=8.dp),style=MaterialTheme.typography.labelLarge)
                         BrandTextButton("Exit demo",{demo=false;onExitDemo()})
                     }
                 }
@@ -68,6 +70,7 @@ class MainActivity:ComponentActivity() {
     val scope=rememberCoroutineScope()
     val lifecycle=LocalLifecycleOwner.current
     LaunchedEffect(bundle) {if(!state.initialized)bundle.holder.initialize()}
+    LaunchedEffect(bundle,state.user?.id) {if(state.user==null)bundle.member?.clear()}
     LaunchedEffect(lifecycle,bundle) {lifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {bundle.holder.foreground();kotlinx.coroutines.awaitCancellation()}}
     when {
         bundle.demo && preview?.page!=null -> PreviewAuthScreen(requireNotNull(bundle.previewAuth))

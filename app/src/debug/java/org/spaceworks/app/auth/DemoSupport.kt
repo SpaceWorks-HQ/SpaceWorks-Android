@@ -10,7 +10,8 @@ object DemoSupport {
         val tokens=MemoryTokenStore()
         val gateway=DemoAuthGateway()
         val holder=AuthStateHolder(gateway,tokens)
-        return AuthBundle(holder,tokens,true,AccountStateHolder(gateway,{true},{holder.foreground()}),DemoAuthFlow(holder))
+        return AuthBundle(holder,tokens,true,AccountStateHolder(gateway,{true},{holder.foreground()}),DemoAuthFlow(holder),
+            org.spaceworks.app.member.MemberStateHolder(org.spaceworks.app.member.DemoMemberGateway(),onUnauthorized={holder.foreground()}))
     }
 }
 class DemoAuthGateway:AuthGateway {
