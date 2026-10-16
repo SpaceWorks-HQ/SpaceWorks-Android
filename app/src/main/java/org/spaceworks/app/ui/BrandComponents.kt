@@ -52,8 +52,8 @@ import org.spaceworks.app.R
                 }
             }
             Box(Modifier.weight(1f).fillMaxHeight(),contentAlignment=Alignment.TopCenter) {
-                Column(Modifier.widthIn(max=520.dp).fillMaxWidth().verticalScroll(rememberScrollState())
-                    .imePadding().padding(if(narrow)16.dp else 24.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
+                Column(Modifier.widthIn(max=520.dp).fillMaxWidth().imePadding().verticalScroll(rememberScrollState())
+                    .padding(if(narrow)16.dp else 24.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
                     Image(painterResource(R.drawable.ic_brand),null,Modifier.size(64.dp))
                     Text(title,style=MaterialTheme.typography.headlineLarge)
                     if(subtitle.isNotBlank())Text(subtitle,color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.bodyLarge)

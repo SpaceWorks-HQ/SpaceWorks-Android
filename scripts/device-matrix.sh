@@ -33,11 +33,23 @@ pathlib.Path('validation', sys.argv[1], 'configuration.json').write_text(
     json.dumps(dict(zip(keys, sys.argv[1:])), indent=2) + '\n', encoding='utf-8')
 PY
 # The tests own screenshot capture inside the app sandbox, while screens are visible.
-result=0
-./gradlew connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.deviceProfile=$profile" || result=$?
+# Ask AGP to collect that directory before its test cleanup uninstalls the app.
 app_id=$(python3 -c 'import json; print(json.load(open("branding/brand.json"))["android_application_id"])')
+result=0
+./gradlew connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.deviceProfile=$profile" "-Pandroid.testInstrumentationRunnerArguments.additionalTestOutputDir=/sdcard/Android/data/$app_id/files/validation" || result=$?
+mkdir -p "validation/$profile/screenshots"
+additional=app/build/outputs/connected_android_test_additional_output
+if [[ -d "$additional" ]]; then
+  while IFS= read -r -d '' screenshot; do
+    cp -- "$screenshot" "validation/$profile/screenshots/$(basename "$screenshot")"
+  done < <(find "$additional" -type f -name '*.png' -print0)
+fi
 if adb shell test -d "/sdcard/Android/data/$app_id/files/validation"; then
   adb pull "/sdcard/Android/data/$app_id/files/validation" "validation/$profile/screenshots"
 fi
 adb shell dumpsys window displays > "validation/$profile/display.txt"
+if [[ "$result" == 0 && -z "$(find "validation/$profile/screenshots" -type f -name '*.png' -print -quit)" ]]; then
+  echo 'UI tests passed but screenshot evidence was not collected.' >&2
+  result=1
+fi
 exit "$result"

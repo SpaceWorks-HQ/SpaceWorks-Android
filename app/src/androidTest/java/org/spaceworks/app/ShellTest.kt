@@ -31,7 +31,11 @@ class ShellTest {
         compose.onNodeWithText("Light mode").assertIsDisplayed()
         compose.onNodeWithTag("serverUrl").performTextInput("http://example.org")
         compose.onNodeWithText("Connect",useUnmergedTree=true).performScrollTo().performClick()
-        compose.onNodeWithTag("connectionError").performScrollTo().assertIsDisplayed()
+        waitText("Enter a valid HTTPS server URL.")
+        compose.waitUntil(5000) {
+            compose.onNodeWithTag("connectionError").performScrollTo()
+            try {compose.onNodeWithTag("connectionError").assertIsDisplayed();true}catch(_:AssertionError){false}
+        }
         screenshot("a1-server-error-dark-font2")
         compose.onNodeWithText("Sign in").assertDoesNotExist()
     }
