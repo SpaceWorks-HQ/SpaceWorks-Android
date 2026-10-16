@@ -36,17 +36,20 @@ val prepareBrand by tasks.registering(Exec::class) {
 }
 val prepareContract by tasks.registering(Exec::class) {
     inputs.files(rootProject.file("api/openapi.json"),rootProject.file("scripts/contract.py"))
-    outputs.file(layout.buildDirectory.file("generated/a0-openapi.json"))
+    outputs.file(layout.buildDirectory.file("generated/mobile-openapi.json"))
     commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3", rootProject.file("scripts/contract.py"))
 }
 openApiGenerate {
     generatorName.set("kotlin")
     library.set("jvm-retrofit2")
-    inputSpec.set(layout.buildDirectory.file("generated/a0-openapi.json").get().asFile.path)
+    inputSpec.set(layout.buildDirectory.file("generated/mobile-openapi.json").get().asFile.path)
     outputDir.set(layout.buildDirectory.dir("generated/openapi").get().asFile.path)
     apiPackage.set("org.spaceworks.generated.api")
     modelPackage.set("org.spaceworks.generated.model")
-    configOptions.set(mapOf("serializationLibrary" to "kotlinx_serialization", "useCoroutines" to "true", "dateLibrary" to "java8", "omitGradleWrapper" to "true", "useResponseAsReturnType" to "true"))
+    configOptions.set(mapOf("serializationLibrary" to "kotlinx_serialization", "generateOneOfAnyOfWrappers" to "true", "useCoroutines" to "true", "dateLibrary" to "java8", "omitGradleWrapper" to "true", "useResponseAsReturnType" to "true"))
+    typeMappings.set(mapOf("AnyType" to "JsonElement", "Any" to "JsonElement"))
+    importMappings.set(mapOf("JsonElement" to "kotlinx.serialization.json.JsonElement"))
+    languageSpecificPrimitives.set(listOf("JsonElement"))
     globalProperties.set(mapOf("apis" to "", "models" to "", "apiTests" to "false", "modelTests" to "false", "apiDocs" to "false", "modelDocs" to "false", "supportingFiles" to "CollectionFormats.kt,UUIDAdapter.kt,OffsetDateTimeAdapter.kt"))
 }
 tasks.named("openApiGenerate") { dependsOn(prepareContract); doFirst { delete(layout.buildDirectory.dir("generated/openapi")) } }
@@ -65,6 +68,17 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-kotlinx-serialization:2.11.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.google.android.play:integrity:1.6.0")
+    implementation(platform("com.google.firebase:firebase-bom:34.4.0"))
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("androidx.camera:camera-core:1.5.3")
+    implementation("androidx.camera:camera-camera2:1.5.3")
+    implementation("androidx.camera:camera-lifecycle:1.5.3")
+    implementation("androidx.camera:camera-view:1.5.3")
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation("com.stripe:stripe-android:22.8.1")
+    implementation("com.razorpay:checkout:1.6.41")
+    implementation("com.razorpay:standard-core") {version {strictly("1.7.20")}}
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
