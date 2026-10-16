@@ -18,6 +18,7 @@ private class FakeAuth:AuthGateway {
     var verifyGate:CompletableDeferred<Unit>?=null
     var calls=0
     var native=true
+    var grantId="00000000-0000-0000-0000-000000000001"
     var throttle=false
     var changed=false
     override suspend fun config()=PublicConfig(false,100)
@@ -29,7 +30,7 @@ private class FakeAuth:AuthGateway {
     override suspend fun enroll(challenge:String)=MFAEnrollment("secret","otpauth://demo","data:image/png;base64,")
     override suspend fun verify(challenge:String,code:String,enrollment:Boolean):MFACompleted {
         verifyGate?.await()
-        return MFACompleted(who,"access","device",refresh=if(native)"refresh" else null,deviceGrant=if(native)mapOf("id" to kotlinx.serialization.json.JsonPrimitive("device")) else null)
+        return MFACompleted(who,"access","device",refresh=if(native)"refresh" else null,deviceGrant=if(native)mapOf("id" to kotlinx.serialization.json.JsonPrimitive(grantId)) else null)
     }
     override suspend fun me():AuthUserPayload {identityFailure?.let {throw it};return who}
     override suspend fun logout() {}
@@ -45,6 +46,12 @@ class AuthTest {
     }
     @Test fun webMfaWithoutRefreshFailsClosed()=runTest {
         val api=FakeAuth().apply {native=false};val store=MemoryTokenStore();val holder=AuthStateHolder(api,store)
+        holder.initialize();holder.signIn("member","pass");holder.verify("123456")
+        assertNull(store.read());assertNull(holder.state.value.user)
+        assertTrue(holder.state.value.error!!.contains("device session"))
+    }
+    @Test fun malformedNativeGrantNeverPersistsMfaTokens()=runTest {
+        val api=FakeAuth().apply {grantId="not-a-grant"};val store=MemoryTokenStore();val holder=AuthStateHolder(api,store)
         holder.initialize();holder.signIn("member","pass");holder.verify("123456")
         assertNull(store.read());assertNull(holder.state.value.user)
         assertTrue(holder.state.value.error!!.contains("device session"))

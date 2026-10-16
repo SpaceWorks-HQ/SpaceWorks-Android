@@ -57,7 +57,9 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         val challenge=requireChallenge()
         ensure(code.trim().length in 6..64,"Enter your authenticator or recovery code.")
         val result=api.verify(challenge.challenge,code.trim(),challenge.enrollmentRequired)
-        ensure(result.surface!="verification_only" && !result.refresh.isNullOrBlank() && !result.deviceGrant.isNullOrEmpty(),
+        val grantId=(result.deviceGrant?.get("id") as? JsonPrimitive)?.contentOrNull
+        val validGrant=try {grantId!=null && java.util.UUID.fromString(grantId).toString()==grantId.lowercase()}catch(_:IllegalArgumentException){false}
+        ensure(result.surface!="verification_only" && !result.refresh.isNullOrBlank() && validGrant,
             "This server did not return a device session. Contact your makerspace.")
         persist(TokenPair(result.access,requireNotNull(result.refresh)))
         if (result.recoveryCodes.orEmpty().isNotEmpty()) mutable.value=state.value.copy(recoveryCodes=result.recoveryCodes.orEmpty())
@@ -90,7 +92,7 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         finally {
             saveSelection(null)
             mutable.value=AuthState(initialized=true,config=state.value.config,
-                notice=if(failed) "Signed out on this device. Reconnect to revoke the server session." else "Signed out.")
+                notice=if(failed) "Signed out on this device. Server revocation could not be confirmed." else "Signed out.")
             withContext(NonCancellable+Dispatchers.IO){tokens.replace(null)}
         }
     }

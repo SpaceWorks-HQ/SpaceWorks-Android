@@ -28,7 +28,7 @@ class DemoAuthGateway:AuthGateway {
     override suspend fun verify(challenge:String,code:String,enrollment:Boolean):MFACompleted {
         delay(250)
         if(code!="123456") throw ApiFailure(400,"Check the code and try again.","invalid_code",null)
-        return MFACompleted(me(),"demo-access","device",refresh="demo-refresh",deviceGrant=mapOf("id" to JsonPrimitive("demo")),recoveryCodes=if(enrollment) listOf("DEMO-001-ABCD","DEMO-002-EFGH","DEMO-003-IJKL") else null)
+        return MFACompleted(me(),"demo-access","device",refresh="demo-refresh",deviceGrant=mapOf("id" to JsonPrimitive("00000000-0000-0000-0000-000000000001")),recoveryCodes=if(enrollment) listOf("DEMO-001-ABCD","DEMO-002-EFGH","DEMO-003-IJKL") else null)
     }
     override suspend fun me():AuthUserPayload=AuthUserPayload(
         id=1,username=username,email="meera@example.invalid",displayName=if(username.contains("staff")) "Arjun Rao" else "Meera Nair",
@@ -39,3 +39,4 @@ class DemoAuthGateway:AuthGateway {
     private fun membership(id:Int,slug:String)=AuthMembership(id,slug,"member",1,"Member","member",AuthMembershipSourceEnum.membership,emptyList(),false,false,false,false,null,false)
     private fun grant()=DeviceGrant(java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"),"android","org.spaceworks.app","development","active",java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"),java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"),java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"))
 }
+
