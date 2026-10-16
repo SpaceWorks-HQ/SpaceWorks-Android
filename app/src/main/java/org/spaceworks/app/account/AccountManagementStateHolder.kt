@@ -271,7 +271,9 @@ class AccountManagementStateHolder(
         if (apiFailure?.status == 401) { clear(); onSignedOut(); return }
         if (apiFailure?.status == 403) { clear(); onMembershipChanged(); return }
         val seconds = (apiFailure?.retryAfterSeconds ?: if (apiFailure?.status == 429) 60L else 0L).coerceIn(0, 86_400)
-        val retry = now() + seconds * 1000
+        // No server waiting period means no new deadline. A synthetic "now" deadline
+        // can disable otherwise editable fields until the UI's next clock tick.
+        val retry = if(seconds>0)now() + seconds * 1000 else state.value.retryAtMillis
         if (state.value.page == AccountPage.PHONE && seconds > 0) phoneCooldown.extend(retry)
         mutable.update { it.copy(error = apiFailure?.let { failureText.apiFailure(it) } ?: text(AccountCopy.CONNECTION_FAILED), retryAtMillis = maxOf(it.retryAtMillis, retry), phoneRetryAtMillis = phoneCooldown.untilMillis) }
     }

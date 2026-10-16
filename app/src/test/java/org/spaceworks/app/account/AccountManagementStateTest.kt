@@ -236,6 +236,16 @@ class AccountManagementStateTest {
         assertFalse(state.canRequest()); assertEquals(61000L, cooldown.untilMillis)
         state.startPhone("+91", "9876543210"); assertEquals(1, api.phoneSends)
     }
+    @Test fun invalidPhoneCodeWithoutRetryAfterStaysImmediatelyEditableAndRetryable() = runTest {
+        val api=FakeAccountGateway();val state=holder(api,now={1_000L})
+        state.open(AccountPage.PHONE);state.startPhone("+91","9876543210")
+        api.failure=ApiFailure(400,"Invalid or expired verification code.","invalid_code",null)
+        state.confirmPhone("000000")
+        assertEquals(0L,state.state.value.retryAtMillis);assertFalse(state.state.value.busy)
+        assertNotNull(state.state.value.pendingPhone);assertTrue(state.canRequest())
+        api.failure=null;state.confirmPhone("123456")
+        assertEquals(true,state.state.value.phone?.verified);assertNull(state.state.value.pendingPhone)
+    }
     @Test fun missingRetryAfterUsesConservativeCooldownWhileExplicitZeroRemainsValid() = runTest {
         val api = FakeAccountGateway(); var clock = 1000L
         val state = holder(api, now = { clock }); state.open(AccountPage.PHONE)
