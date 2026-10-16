@@ -1,4 +1,5 @@
 import groovy.json.JsonSlurper
+import java.net.URI
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -6,6 +7,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
     id("org.openapi.generator")
 }
+if(file("google-services.json").isFile)apply(plugin="com.google.gms.google-services")
 val brandFile = rootProject.file("branding/brand.json")
 val brand = JsonSlurper().parse(brandFile) as Map<*, *>
 android {
@@ -13,6 +15,8 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = brand["android_application_id"] as String
+        manifestPlaceholders["deepLinkHost"] = (brand["server_url"] as? String)?.let {URI(it).host} ?: "unconfigured.invalid"
+        manifestPlaceholders["deepLinkVerify"] = ((brand["server_url"] as? String)?.isNotBlank()==true).toString()
         minSdk = 26
         targetSdk = 36
         versionCode = 1

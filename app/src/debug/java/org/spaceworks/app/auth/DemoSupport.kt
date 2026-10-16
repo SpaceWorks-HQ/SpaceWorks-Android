@@ -9,14 +9,20 @@ object DemoSupport {
     fun create():AuthBundle {
         val tokens=MemoryTokenStore()
         val gateway=DemoAuthGateway()
-        val holder=AuthStateHolder(gateway,tokens)
+        var clearPrivate:()->Unit={}
+        val holder=AuthStateHolder(gateway,tokens,onSessionEnded={clearPrivate()})
         val workspace=org.spaceworks.app.actions.DemoMemberWorkspace(initialProfile={gateway.previewProfile()})
         val member=org.spaceworks.app.member.MemberStateHolder(workspace,onUnauthorized={holder.foreground()})
         val actions=org.spaceworks.app.actions.MemberActionsStateHolder(workspace,member,onUnauthorized={holder.foreground()},onProfileSaved={gateway.updatePreviewProfile(it);holder.foreground()},capabilities=workspace)
-        return AuthBundle(holder,tokens,true,AccountStateHolder(gateway,{true},{holder.foreground()}),DemoAuthFlow(holder),member,actions)
+        val push=org.spaceworks.app.notifications.DemoPushSupport.create()
+        val links=org.spaceworks.app.notifications.DemoPushSupport.links(holder)
+        clearPrivate={member.clear();actions.clear();links.clear();push.holder.pause()}
+        gateway.beforeSignOut={push.holder.disable(forgetConsent=false)}
+        return AuthBundle(holder,tokens,true,AccountStateHolder(gateway,{true},{holder.foreground()}),DemoAuthFlow(holder),member,actions,origin="https://demo.invalid/",push=push.holder,links=links,pushConfigured=true,sessionEpoch={tokens.snapshot().epoch},pushPreview=push.control)
     }
 }
 class DemoAuthGateway:AuthGateway {
+    var beforeSignOut:suspend()->Unit={}
     private var username="meera.demo"
     private val profileNames=mutableMapOf<String,String>()
     fun updatePreviewProfile(value:org.spaceworks.app.actions.ActionProfile){profileNames[username]=value.displayName.orEmpty()}
@@ -50,7 +56,7 @@ class DemoAuthGateway:AuthGateway {
     override suspend fun signUp(name:String,email:String,password:String,phone:String):String {registrations[email]=name;return "Account created"}
     override suspend fun confirmEmail(code:String):String {if(code!="123456")throw ApiFailure(400,"Invalid verification code.",null,null);verified=true;return "Your email is verified."}
     override suspend fun resendEmail()="If the details are valid, a verification email has been sent."
-    override suspend fun logout() {delay(100);profileNames.clear()}
+    override suspend fun logout() {beforeSignOut();delay(100);profileNames.clear()}
     override suspend fun changePassword(current:String,replacement:String) {delay(200);passwordChanged=true}
     private fun membership(id:Int,slug:String)=AuthMembership(id,slug,"member",1,"Member","member",AuthMembershipSourceEnum.membership,emptyList(),false,false,false,false,null,false)
     private fun grant()=DeviceGrant(java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"),"android","org.spaceworks.app","development","active",java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"),java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"),java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"))

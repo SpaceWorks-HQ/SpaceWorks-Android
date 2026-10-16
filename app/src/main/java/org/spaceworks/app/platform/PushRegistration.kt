@@ -29,69 +29,119 @@ import java.net.URI
 data class PushHint(val makerspaceId: Int, val feature: String?, val event: String?, val eventId: String?,
     val inboxRowId: Int?, val link: String?, val version: Int) {
     companion object {
-        fun from(data: Map<String, String>): PushHint? {
-            val makerspace = data["makerspace_id"]?.toIntOrNull()?.takeIf { it > 0 } ?: return null
-            return PushHint(makerspace, data["feature"], data["event"], data["event_id"],
-                data["inbox_row_id"]?.toIntOrNull()?.takeIf { it > 0 }, safeInAppPath(data["link"]), data["v"]?.toIntOrNull() ?: 1)
+        fun from(data: Map<String, *>): PushHint? {
+            val makerspace = decimalInteger(data["makerspace_id"])?.takeIf { it > 0 } ?: return null
+            // Only an absent version is legacy. Malformed/future versions cannot activate v2 routing.
+            val version = if (data.containsKey("v")) decimalInteger(data["v"]) ?: 0 else 1
+            val knownVersion = version == 1 || version == 2
+            return PushHint(makerspace,
+                if (knownVersion) boundedText(data["feature"]) else null,
+                if (knownVersion) boundedText(data["event"]) else null,
+                if (version == 2) boundedText(data["event_id"]) else null,
+                if (version == 2) decimalInteger(data["inbox_row_id"])?.takeIf { it > 0 } else null,
+                if (version == 2) safeInAppPath(data["link"] as? String) else null,
+                version)
         }
+
+        private fun decimalInteger(value: Any?): Int? = when (value) {
+            is String -> value.takeIf { it.isNotEmpty() && it.all { char -> char in '0'..'9' } }?.toIntOrNull()
+            is Byte -> value.toInt()
+            is Short -> value.toInt()
+            is Int -> value
+            is Long -> value.takeIf { it in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong() }?.toInt()
+            // Boolean IDs, floating point values and arbitrary objects are never identifiers.
+            else -> null
+        }
+
+        private fun boundedText(value: Any?): String? = (value as? String)?.takeIf {
+            it.isNotBlank() && it.length <= 256 && it.none(::isControl)
+        }
+
+        private fun isControl(char: Char): Boolean = char.isISOControl() || Character.getType(char) == Character.FORMAT.toInt()
 
         /** Returns paths only. The app router must additionally allowlist routes and active memberships. */
         fun safeInAppPath(value: String?): String? {
-            if (value == null || value.length > 2048 || !value.startsWith("/") || value.startsWith("//") ||
-                value.any { it == '\\' || it.isISOControl() }) return null
+            if (value == null || value.length > 2048 || value.toByteArray(Charsets.UTF_8).size > 2048 ||
+                !value.startsWith("/") || value.startsWith("//") ||
+                value.any { it == '\\' || it == '%' || isControl(it) }) return null
             return try {
                 val uri = URI(value)
                 val path = uri.path ?: return null
-                value.takeIf { uri.scheme == null && uri.rawAuthority == null && uri.fragment == null &&
-                    !path.startsWith("//") && path.none { it == '\\' || it == '%' || it.isISOControl() } &&
+                value.takeIf { uri.scheme == null && uri.rawAuthority == null && uri.query == null && uri.fragment == null &&
+                    !path.startsWith("//") && path.none { it == '\\' || it == '%' || isControl(it) } &&
                     path.split('/').none { it == "." || it == ".." } }
             } catch (_: Exception) { null }
         }
     }
 }
 
+/** Background delivery uses only a private consent/membership hint; content stays generic.
+ * A notification tap must freshly authenticate and authorize the route before showing data. */
 object NativePushEvents {
     private val mutableToken = MutableStateFlow<String?>(null)
     val token = mutableToken.asStateFlow()
-    private val mutableHints = MutableSharedFlow<PushHint>(replay = 1, extraBufferCapacity = 15, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    private val mutableHints = MutableSharedFlow<PushHint>(replay = 0, extraBufferCapacity = 16, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val hints = mutableHints.asSharedFlow()
-    internal fun updateToken(token: String) { if (token.isNotBlank()) mutableToken.value = token }
-    internal fun receive(hint: PushHint) { mutableHints.tryEmit(hint) }
-    internal fun clearToken() { mutableToken.value = null }
+    @Volatile private var loaded=false
+    @Volatile private var members:Set<Int> = emptySet()
+    @Volatile private var enabled=false
+    internal fun updateDelivery(active:Boolean,makers:Set<Int>) {
+        loaded=true;enabled=active;members=if(active)makers.filter {it>0}.toSet()else emptySet()
+        if(!active)mutableToken.value=null
+    }
+    @Synchronized fun configure(context:Context,active:Boolean,makers:Set<Int>) {
+        updateDelivery(active,makers)
+        val prefs=context.getSharedPreferences("native-push-delivery",Context.MODE_PRIVATE)
+        check(prefs.edit().putBoolean("active",active).putStringSet("makers",members.map(Int::toString).toSet()).commit())
+        if(!active)context.getSystemService(NotificationManager::class.java).cancelAll()
+    }
+    @Synchronized private fun load(context:Context) {
+        if(loaded)return
+        val prefs=context.getSharedPreferences("native-push-delivery",Context.MODE_PRIVATE)
+        val ids=prefs.getStringSet("makers",emptySet()).orEmpty().mapNotNull {it.toIntOrNull()?.takeIf {id->id>0}}.toSet()
+        updateDelivery(prefs.getBoolean("active",false),ids)
+    }
+    internal fun tokenAllowed(context:Context):Boolean {load(context);return enabled}
+    internal fun allowed(context:Context,makerId:Int):Boolean {load(context);return enabled&&makerId in members}
+    internal fun updateToken(token:String) {if(enabled && token.isNotBlank())mutableToken.value=token}
+    internal fun receive(hint:PushHint) {if(enabled && hint.makerspaceId in members)mutableHints.tryEmit(hint)}
+    internal fun clearToken(){mutableToken.value=null}
 }
 
 object FcmRegistration {
-    /** Call after explicit push setup/sign-in, then register using the generated API once per membership. */
-    suspend fun token(context: Context): String {
-        val messaging = configured(context)
+    fun configured(context:Context):Boolean=FirebaseApp.getApps(context).any {it.name==FirebaseApp.DEFAULT_APP_NAME}
+    /** Call only after explicit push setup/sign-in, then register once per verified membership. */
+    suspend fun token(context:Context):String {
+        if(!configured(context))throw PlatformUnavailable("Notifications are not configured for this build.")
+        val messaging=FirebaseMessaging.getInstance()
         try {
-            messaging.isAutoInitEnabled = true
+            messaging.isAutoInitEnabled=true
             return messaging.token.awaitPlatformTask().also(NativePushEvents::updateToken)
-        } catch (cancelled: CancellationException) { throw cancelled }
-        catch (_: Exception) { throw PlatformUnavailable("Notifications are unavailable. Try again later.") }
+        }catch(cancelled:CancellationException){throw cancelled}
+        catch(_:Exception){throw PlatformUnavailable("Notifications are unavailable. Try again later.")}
     }
-
-    /** The generated gateway must first remove the per-makerspace server registration IDs. */
-    suspend fun stop(context: Context) {
-        val messaging = configured(context)
-        messaging.isAutoInitEnabled = false
-        try { messaging.deleteToken().awaitPlatformTask() }
-        finally { NativePushEvents.clearToken() }
+    /** Pauses local delivery for an isolated demo without acquiring/deleting an SDK token. */
+    fun pause(context:Context) {
+        NativePushEvents.configure(context,false,emptySet())
+        if(configured(context))FirebaseMessaging.getInstance().isAutoInitEnabled=false
     }
-
-    private fun configured(context: Context): FirebaseMessaging {
-        if (FirebaseApp.getApps(context).none { it.name == FirebaseApp.DEFAULT_APP_NAME }) {
-            throw PlatformUnavailable("Notifications are not configured for this build.")
-        }
-        return FirebaseMessaging.getInstance()
+    /** The generated gateway first removes returned registration IDs while auth is available. */
+    suspend fun stop(context:Context) {
+        try {
+            pause(context)
+            if(configured(context))FirebaseMessaging.getInstance().deleteToken().awaitPlatformTask()
+        }finally {NativePushEvents.clearToken()}
     }
 }
 
 object NotificationAccess {
+    private const val CHANNEL="spaceworks_updates"
+    fun createChannel(context:Context) {context.getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(CHANNEL,"Makerspace updates",NotificationManager.IMPORTANCE_DEFAULT))}
+    fun channel():String=CHANNEL
     fun needsRuntimePermission(sdk: Int, permissionGranted: Boolean): Boolean = sdk >= 33 && !permissionGranted
     fun allowed(context: Context): Boolean =
         !needsRuntimePermission(Build.VERSION.SDK_INT, context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) &&
-            context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()
+            context.getSystemService(NotificationManager::class.java).let {it.areNotificationsEnabled() && (it.getNotificationChannel(CHANNEL)?.importance ?: NotificationManager.IMPORTANCE_DEFAULT)!=NotificationManager.IMPORTANCE_NONE}
 }
 
 /** Invoked by a visible user action; denial never prevents using the app. */
@@ -101,6 +151,7 @@ fun rememberNotificationPermissionRequest(onResult: (Boolean) -> Unit): () -> Un
     val result = rememberUpdatedState(onResult)
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { result.value(it && NotificationAccess.allowed(context)) }
     return {
+        NotificationAccess.createChannel(context)
         if (NotificationAccess.needsRuntimePermission(Build.VERSION.SDK_INT,
                 context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)) {
             launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -110,10 +161,11 @@ fun rememberNotificationPermissionRequest(onResult: (Boolean) -> Unit): () -> Un
 
 /** Declare exported=false with com.google.firebase.MESSAGING_EVENT in the app manifest. */
 class SpaceWorksMessagingService : FirebaseMessagingService() {
-    override fun onNewToken(token: String) { NativePushEvents.updateToken(token) }
+    override fun onNewToken(token: String) {if(NativePushEvents.tokenAllowed(this))NativePushEvents.updateToken(token)}
 
     override fun onMessageReceived(message: RemoteMessage) {
         val hint = PushHint.from(message.data) ?: return
+        if(!NativePushEvents.allowed(this,hint.makerspaceId))return
         NativePushEvents.receive(hint)
         if (!NotificationAccess.allowed(this)) return
         val launch = packageManager.getLaunchIntentForPackage(packageName) ?: return
@@ -122,18 +174,17 @@ class SpaceWorksMessagingService : FirebaseMessagingService() {
         val requestId = (hint.eventId ?: message.messageId ?: message.data.toSortedMap().toString()).hashCode()
         val pending = PendingIntent.getActivity(this, requestId, launch, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notifications = getSystemService(NotificationManager::class.java)
-        notifications.createNotificationChannel(NotificationChannel(CHANNEL, "Makerspace updates", NotificationManager.IMPORTANCE_DEFAULT))
-        val notification = android.app.Notification.Builder(this, CHANNEL)
-            .setSmallIcon(org.spaceworks.app.R.drawable.ic_brand)
-            .setContentTitle(message.notification?.title ?: applicationInfo.loadLabel(packageManager))
-            .setContentText(message.notification?.body ?: "Open your inbox for the latest update.")
-            .setStyle(android.app.Notification.BigTextStyle().bigText(message.notification?.body ?: "Open your inbox for the latest update."))
+        notifications.createNotificationChannel(NotificationChannel(NotificationAccess.channel(), "Makerspace updates", NotificationManager.IMPORTANCE_DEFAULT))
+        val notification = android.app.Notification.Builder(this, NotificationAccess.channel())
+            .setSmallIcon(android.R.drawable.ic_dialog_email)
+            .setContentTitle(applicationInfo.loadLabel(packageManager))
+            .setContentText("Open your inbox for the latest update.")
+            .setStyle(android.app.Notification.BigTextStyle().bigText("Open your inbox for the latest update."))
             .setContentIntent(pending).setAutoCancel(true).setGroup("makerspace-${hint.makerspaceId}").build()
         try { notifications.notify(requestId, notification) } catch (_: SecurityException) { /* Permission changed while receiving. */ }
     }
 
     companion object {
-        private const val CHANNEL = "spaceworks_updates"
         private const val PREFIX = "org.spaceworks.push."
         private fun putHint(intent: Intent, hint: PushHint) {
             intent.putExtra(PREFIX + "makerspace_id", hint.makerspaceId)

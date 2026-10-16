@@ -83,9 +83,10 @@ fun memberAvailability(item:InventoryItem):String=when {
         }
     }
 }
-@Composable fun MemberHome(holder:MemberStateHolder,name:String,onInventory:()->Unit,demo:Boolean=false) {
+@Composable fun MemberHome(holder:MemberStateHolder,name:String,onInventory:()->Unit,demo:Boolean=false,requestedExtra:Pair<Long,String>?=null) {
     val state by holder.state.collectAsStateWithLifecycle();val scope=rememberCoroutineScope()
     var extra by rememberSaveable(state.scope){mutableStateOf<String?>(null)}
+    LaunchedEffect(requestedExtra){extra=requestedExtra?.second}
     ProtectSecrets(!demo && extra=="card")
     LaunchedEffect(holder,state.scope) {kotlinx.coroutines.yield();if(holder.state.value.overview.value==null && !holder.state.value.overview.loading)holder.refreshOverview()}
     BackHandler(extra!=null){extra=null}
@@ -227,17 +228,19 @@ fun memberAvailability(item:InventoryItem):String=when {
         }
     }
 }
-@Composable fun MemberInboxScreen(holder:MemberStateHolder) {
+@Composable fun MemberInboxScreen(holder:MemberStateHolder,notifications:@Composable ()->Unit={},onOpenUpdate:(String)->Unit={},navigationSequence:Long=0) {
     val state by holder.state.collectAsStateWithLifecycle();val scope=rememberCoroutineScope()
     LaunchedEffect(holder,state.scope) {kotlinx.coroutines.yield();if(holder.state.value.inbox.value==null && !holder.state.value.inbox.loading)holder.refreshInbox()}
     var selected by remember(state.scope){mutableStateOf<InboxItem?>(null)}
     val listState=rememberLazyListState()
+    LaunchedEffect(navigationSequence){selected=null;if(navigationSequence>0)listState.scrollToItem(0)}
     BackHandler(selected!=null){selected=null}
     if(selected!=null)MemberPageColumn("Message") {
             val message=requireNotNull(selected)
             BrandTextButton("Back to Inbox",{selected=null})
             Text(message.title,style=MaterialTheme.typography.headlineMedium);Text(memberDate(message.createdAt));Text(message.summary)
             Text(if(message.readAt!=null)"Read" else "Unread",style=MaterialTheme.typography.labelLarge)
+            message.link?.takeIf {it.isNotBlank()}?.let {link->BrandButton("Open update",{onOpenUpdate(link)})}
             if(message.readAt==null)BrandButton("Mark as read",{scope.launch {if(holder.markRead(message.id))selected=null}},!state.inboxBusy)
             BrandError(state.inbox.error)
     } else MemberLazyPage("Inbox",state.inbox,listState,retry={scope.launch {holder.refreshInbox()}},key={it.id},header={
@@ -249,6 +252,7 @@ fun memberAvailability(item:InventoryItem):String=when {
             }
             BrandTextButton("Mark all as read",{scope.launch {holder.markAllRead()}},!state.inboxBusy && state.inbox.value?.items?.any {it.readAt==null}==true)
         }
+            notifications()
     },footer={
         Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
             if(state.inbox.value?.next!=null)BrandButton("Load more",{scope.launch {holder.moreInbox()}},!state.inbox.loading)

@@ -30,6 +30,7 @@ phase3_operations={
     'api_v1_member_makerspaces_account_profile_partial_update',
     'api_v1_notifications_preferences_retrieve','api_v1_notifications_preferences_partial_update',
 }
+phase3_operations |= {'api_v1_integrations_push_devices_create','api_v1_integrations_push_devices_destroy'}
 found=set()
 for path, item in s['paths'].items():
     operations={op.get('operationId') for op in item.values() if isinstance(op,dict)} & phase3_operations

@@ -64,7 +64,7 @@ import org.spaceworks.app.auth.*
             }
             PreviewAuthPage.CODE -> {
                 Text("${state.country} ${state.phone}")
-                BrandField(code,{code=it.filter {c->c in '0'..'9'}.take(6)},"Verification code",Modifier.testTag("previewCode"),!state.busy,role=FieldRole.ONE_TIME_CODE)
+                BrandField(code,{code=it.filter {c->c in '0'..'9'}.take(6)},"Verification code",Modifier.testTag("previewCode"),!state.busy,role=FieldRole.ONE_TIME_CODE,errorMessage=state.error)
                 Text("Demo code: 123456",style=MaterialTheme.typography.bodySmall)
                 BrandButton(if(state.busy)"Verifying…" else "Verify",{focus.clearFocus();keyboard?.hide();scope.launch {controller.verify(code);code=""}},!state.busy)
                 val seconds=((state.resendAt-now+999)/1000).coerceAtLeast(0)
@@ -74,7 +74,7 @@ import org.spaceworks.app.auth.*
             }
             null -> Unit
         }
-        BrandError(state.error)
+        if(state.page!=PreviewAuthPage.CODE)BrandError(state.error)
         state.notice?.let {Text(it)}
         BrandTextButton("Cancel preview",controller::cancel,!state.busy)
     }

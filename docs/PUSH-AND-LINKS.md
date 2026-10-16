@@ -1,0 +1,31 @@
+# Notifications and update links
+
+A4 uses only the published generated push registration and deletion operations. The DEBUG demo uses in-memory registration IDs and fixtures; it does not request OS permission, acquire an FCM token, call a server, or send notifications. Its separate scenarios cover permission denial, unavailable service, throttling, unknown payload versions and unauthorized makerspaces.
+
+## Deployment setup still required
+
+Supply the owner's Firebase Android app configuration as ignored `app/google-services.json`; the official Google Services4.5.0 plugin applies only when this file exists. Match the branded application ID and environment. Without configuration, Inbox remains usable and setup says notifications are unavailable for this build. No Analytics SDK is included. OS permission is requested only from the visible Enable notifications action; a blocked app/channel links to native notification settings.
+
+Set a fixed HTTPS `server_url` in `branding/brand.json` to register that exact host's App Link intent filter. The owner must publish the corresponding Digital Asset Links association for the actual package and signing certificate. Dynamic self-hosted server input does not register a wildcard App Link host. The `spaceworks:` custom scheme uses the server already selected by the user. No received URL can configure or replace that server.
+
+Live delivery is deferred with the owner backend/provider setup. Backend request [issue3](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/issues/3) also tracks native inbox/device eligibility and an origin-bound hint contract. Current hints have a maker ID but no deployment identity: a token left on an old deployment after offline sign-out cannot distinguish a new deployment with overlapping maker IDs. No uncontracted payload field was added. Production validation must include data-only FCM delivery; OS-rendered notification payloads can bypass an app service's presentation policy.
+
+## Consent, identity and cleanup
+
+Explicit consent is stored by a SHA-256 key of deployment and user ID. Private preferences contain only consent, returned registration IDs, maker IDs and token fingerprints. Raw FCM/access/refresh tokens and notification text/links are never persisted there. Active direct memberships determine registration scope. SDK token rotation reconciles each membership with immutable maker headers. Zero memberships disables delivery and stops token acquisition.
+
+Logout removes returned IDs before revoking the native grant, then stops FCM and clears local session/private state. Failed association removals retain only their IDs/fingerprints for that same account's future authenticated retry. A switch to another account never deletes the old account's records with the new account's credentials.429 stops the remaining batch and preserves the server deadline. An offline failure cannot be reported as confirmed server removal.
+
+Entering demo pauses the live delivery gate synchronously. Late token callbacks and an already-running registration cannot reopen it. Local consent or a cached membership hint alone does not authorize account content: an actual tap always validates current identity from the chosen deployment. The app service's OS notification text is generic and contains no event body. Background delivery needs deployment validation before release.
+
+## Native route allowlist
+
+Only selected-origin HTTPS, the DEBUG validated loopback origin, and the custom scheme are accepted. Credentials, external origins, queries/fragments, encoded/control/format characters, backslashes and traversal are refused. Allowed product paths are `/makerspaces/{positiveID}/` followed by `home`, `inventory[/positiveProductID]`, `activity`, `inbox`, `profile`, `payments[/positivePaymentID]`, `bookings[/UUID]`, `events[/UUID]`, `spaces[/UUID]`, or `registrations/{positiveRegistrationID}`. Unknown maker routes fall back to authorized Inbox. These are mobile product routes, not new backend operations.
+
+The exact existing web aliases `/m/{slug}/member` and `/m/{slug}/admin/notifications` resolve only against freshly authorized memberships. The member alias opens Home; the staff alias additionally needs native staff authority, currently unavailable in the pinned contract. A hint's maker cannot be overridden by its link. Missing `v` means1; only v2 may supply the extended event/inbox/link fields. Future or malformed versions fall back to an authorized maker Inbox. Unknown keys never grant authority.
+
+Every tapped hint freshly validates identity, selects the authorized scope, successfully refetches Inbox, then refetches its destination. A refused Inbox blocks target navigation. Booking/registration targets use actual returned scoped IDs; missing targets return to Activity. Current forms are retained with an explicit pending-update action. Links never automatically request, pay, book, issue, return or check in. A foreground receipt refreshes only the already selected maker's Inbox after fresh identity; it never switches the visible maker.
+
+## Validation
+
+The native journeys cover consent and a second-maker product update, denied scope and unknown-version fallback, denied permission/service recovery/off/logout, and an incoming intent that cannot change deployment. They capture full OS and Compose screenshots on CI phone/tablet devices. Unit cases cover every generated operation, strict URI/version parsing, per-account lifecycle, failed cleanup,429, stale routes, read-only destination lookup and cross-session credential isolation. Live FCM, association files, owner signing and backend delivery remain separate release gates.

@@ -1,6 +1,11 @@
 package org.spaceworks.app
 
 import android.os.Bundle
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.flow.first
+import org.spaceworks.app.notifications.*
+import org.spaceworks.app.platform.*
 import android.app.Activity
 import android.content.ContextWrapper
 import androidx.compose.ui.platform.LocalView
@@ -27,11 +32,16 @@ class MainActivity:ComponentActivity() {
     private val controller:AppController by viewModels()
     override fun onCreate(savedInstanceState:Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {SpaceWorksApp(controller.connection,controller::realSession,controller::demoSession,controller::clearDemo,controller.onboarding,controller.appearance)}
+        controller.receive(intent)
+        setContent {
+            val incoming by controller.incoming.collectAsStateWithLifecycle()
+            SpaceWorksApp(controller.connection,controller::realSession,controller::demoSession,controller::clearDemo,controller.onboarding,controller.appearance,incoming,controller::consumed)
+        }
     }
+    override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);controller.receive(intent)}
 }
 @Composable fun SpaceWorksApp(holder:ConnectionStateHolder,sessionFactory:((String)->AuthBundle)?=null,
-    demoFactory:()->AuthBundle?={DemoSupport.create()},onExitDemo:()->Unit={},onboarding:OnboardingStateHolder?=null,appearance:AppearanceStateHolder?=null) {
+    demoFactory:()->AuthBundle?={DemoSupport.create()},onExitDemo:()->Unit={},onboarding:OnboardingStateHolder?=null,appearance:AppearanceStateHolder?=null,incoming:PendingNativeIntent?=null,onIncomingConsumed:(Long)->Unit={}) {
     var localDark by rememberSaveable {mutableStateOf(false)}
     val dark=appearance?.dark?.collectAsStateWithLifecycle()?.value ?: localDark
     val view=LocalView.current
@@ -71,22 +81,60 @@ class MainActivity:ComponentActivity() {
                 when {
                     !introComplete -> OnboardingScreen({onboarding?.finish()},if(BuildConfig.DEBUG){{onboarding?.finish();demo=true}}else null)
                     !demo && !connection.connected -> ServerScreen(holder,connection,onDemo=if(BuildConfig.DEBUG){{demo=true}}else null)
-                    bundle!=null -> SessionContent(bundle,if(!holder.locked && !demo){{holder.changeServer()}} else null,onboarding?.let {{it.replay()}})
+                    bundle!=null -> SessionContent(bundle,if(!holder.locked && !demo){{holder.changeServer()}} else null,onboarding?.let {{it.replay()}},incoming,onIncomingConsumed)
                     else -> Text("Sign-in is not configured for this build.",Modifier.padding(24.dp))
                 }
             }
         }
     }
 }
-@Composable private fun SessionContent(bundle:AuthBundle,onChangeServer:(()->Unit)?,onShowIntro:(()->Unit)?) {
+@Composable private fun SessionContent(bundle:AuthBundle,onChangeServer:(()->Unit)?,onShowIntro:(()->Unit)?,incoming:PendingNativeIntent?,onIncomingConsumed:(Long)->Unit) {
     val state by bundle.holder.state.collectAsStateWithLifecycle()
     val account=bundle.accounts?.state?.collectAsStateWithLifecycle()?.value
     val preview=bundle.previewAuth?.state?.collectAsStateWithLifecycle()?.value
     val scope=rememberCoroutineScope()
     val lifecycle=LocalLifecycleOwner.current
+    val context=LocalContext.current
+    val links=bundle.links?.state?.collectAsStateWithLifecycle()?.value
+    var pushError by remember(bundle){mutableStateOf<String?>(null)}
+    suspend fun activatePush() {
+        val user=bundle.holder.state.value.user?:return
+        if(user.mustChangePassword)return
+        try {
+            bundle.push?.activate(PushAccount(AndroidPushPersistence.accountKey(bundle.origin,user.id),bundle.holder.state.value.memberships.map {it.id}.toSet()),bundle.demo || NotificationAccess.allowed(context))
+        }catch(cancelled:kotlinx.coroutines.CancellationException){throw cancelled}
+        catch(_:Exception){pushError="Notifications are unavailable. Try again later.";bundle.push?.pause()}
+    }
+    LaunchedEffect(bundle,incoming?.sequence) {
+        if(!bundle.demo && incoming!=null) {
+            when(incoming){is PendingNativeIntent.Link->bundle.links?.offer(incoming.raw);is PendingNativeIntent.Hint->bundle.links?.offer(incoming.hint)}
+            onIncomingConsumed(incoming.sequence)
+        }
+    }
+    LaunchedEffect(bundle,links?.pending,links?.pendingLegacy,state.user?.id) {
+        if(state.user!=null && (links?.pending!=null || links?.pendingLegacy!=null)) {
+            bundle.holder.state.first {!it.busy}
+            bundle.links?.resolve()
+        }
+    }
+    LaunchedEffect(bundle,state.user?.id,state.memberships.map {it.id}) {activatePush()}
+    LaunchedEffect(bundle) {
+        if(!bundle.demo)NativePushEvents.hints.collect {hint->
+            // Receipt refreshes the current Inbox; it never changes the visible makerspace.
+            if(bundle.holder.state.value.user!=null && bundle.holder.state.value.selectedId==hint.makerspaceId && bundle.holder.authorizeMakerspace(hint.makerspaceId) && bundle.holder.state.value.selectedId==hint.makerspaceId)bundle.member?.refreshInbox()
+        }
+    }
+    LaunchedEffect(bundle) {
+        if(!bundle.demo)NativePushEvents.token.collect {token->
+            if(token!=null && bundle.holder.state.value.user!=null)try {bundle.push?.rotated(token)}catch(cancelled:kotlinx.coroutines.CancellationException){throw cancelled}catch(_:Exception){pushError="Notifications are unavailable. Try again later."}
+        }
+    }
+
     LaunchedEffect(bundle) {if(!state.initialized)bundle.holder.initialize()}
-    LaunchedEffect(bundle,state.user?.id) {if(state.user==null){bundle.member?.clear();bundle.actions?.clear()}}
-    LaunchedEffect(lifecycle,bundle) {lifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {bundle.holder.foreground();kotlinx.coroutines.awaitCancellation()}}
+    LaunchedEffect(bundle,state.user?.id,state.selectedId) {if(state.user==null || state.selectedId==null){bundle.member?.clear();bundle.actions?.clear()};if(state.user==null)bundle.push?.pause()}
+    LaunchedEffect(lifecycle,bundle) {lifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {bundle.holder.foreground();activatePush();kotlinx.coroutines.awaitCancellation()}}
+    links?.error?.let {Box(Modifier.padding(horizontal=24.dp)){BrandError(it)}}
+    pushError?.let {Box(Modifier.padding(horizontal=24.dp)){BrandError(it)}}
     when {
         bundle.demo && preview?.page!=null -> PreviewAuthScreen(requireNotNull(bundle.previewAuth))
         account?.route!=null -> AccountFlowScreen(requireNotNull(bundle.accounts),bundle.demo)
