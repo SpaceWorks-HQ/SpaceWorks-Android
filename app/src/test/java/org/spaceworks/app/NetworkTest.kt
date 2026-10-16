@@ -10,6 +10,43 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class NetworkTest {
+    @Test(timeout=15000) fun serviceRetryAfterZeroNeverReplaysHealthOrRefresh() = runBlocking {
+        for (status in listOf(408, 421, 503)) MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(status).setHeader("Retry-After", "0")
+                .setHeader("X-Original", "preserved").setBody("""{"detail":"Wait for the server."}"""))
+            server.enqueue(MockResponse().setBody("""{"status":"ok"}"""))
+            val response = ApiSession(server.url("/")).health.apiV1HealthRetrieve()
+            assertEquals(status, response.code()); assertEquals("0", response.headers()["Retry-After"])
+            assertEquals("preserved", response.headers()["X-Original"])
+            assertEquals("Wait for the server.", Errors.map(response.code(), response.errorBody()?.string()).detail)
+            assertEquals(1, server.requestCount)
+        }
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(503).setHeader("Retry-After", "0")
+                .setBody("""{"detail":"Rotation unavailable."}"""))
+            server.enqueue(MockResponse().setBody("""{"access":"bogus","refresh":"replayed"}"""))
+            val store = MemoryTokenStore().apply { replace(TokenPair("old", "single-use")) }
+            try { ApiSession(server.url("/"), store).coordinator.refresh("old"); fail("Must fail without replay") }
+            catch (failure: ApiFailure) {
+                assertEquals(503, failure.status); assertEquals(0L, failure.retryAfterSeconds)
+                assertEquals("Rotation unavailable.", failure.detail)
+            }
+            assertEquals(1, server.requestCount); assertNull(store.read())
+        }
+    }
+    @Test(timeout=10000) fun serviceRetryAfterZeroNeverReplaysMutation() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(503).setHeader("Retry-After", "0")
+                .setBody("""{"detail":"Not changed."}"""))
+            server.enqueue(MockResponse().setBody("""{"detail":"Changed twice."}"""))
+            val session = ApiSession(server.url("/"))
+            val response = session.auth.apiV1AuthChangePasswordCreate(
+                org.spaceworks.generated.model.ChangePassword("old-password", "new-password"))
+            assertEquals(503, response.code()); assertEquals("0", response.headers()["Retry-After"])
+            assertEquals(1, server.requestCount)
+            assertEquals("POST", server.takeRequest().method)
+        }
+    }
     @Test fun healthUsesGeneratedClientAndSanitizedHeaders() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody("""{"status":"ok"}"""))

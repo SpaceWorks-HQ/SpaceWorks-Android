@@ -14,6 +14,7 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import org.spaceworks.generated.api.AuthApi
 import org.spaceworks.generated.api.MFAApi
 import org.spaceworks.generated.api.PlatformApi
+import org.spaceworks.generated.api.SocialAuthApi
 import org.spaceworks.generated.api.HealthApi
 import org.spaceworks.generated.api.DeviceAuthApi
 import org.spaceworks.generated.model.DeviceRefresh
@@ -66,6 +67,31 @@ class SessionAuthenticator(private val coordinator: RefreshCoordinator) : Authen
         val rejected = response.request.header("Authorization")?.removePrefix("Bearer ") ?: return null
         val pair = try { kotlinx.coroutines.runBlocking { coordinator.refresh(rejected) } } catch (_: Exception) { return null }
         return pair?.let { response.request.newBuilder().header("Authorization", "Bearer ${it.access}").build() }
+    }
+}
+
+// OkHttp retries selected HTTP responses independently of retryOnConnectionFailure. Hide those
+// statuses only from its follow-up interceptor, then restore the exact response for Retrofit.
+// Metadata is a local request tag: nothing extra is sent to the deployment.
+private data class OriginalResponse(val code: Int, val message: String, val headers: Headers)
+private class ServiceResponseState { var original: OriginalResponse? = null }
+private class PreventServiceReplay : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val response = chain.proceed(chain.request())
+        if (response.code !in setOf(408, 421, 503)) return response
+        checkNotNull(chain.request().tag(ServiceResponseState::class.java)).original =
+            OriginalResponse(response.code, response.message, response.headers)
+        return response.newBuilder().code(503).header("Retry-After", "1").build()
+    }
+}
+private class RestoreServiceResponse : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val local = ServiceResponseState()
+        val request = chain.request().newBuilder().tag(ServiceResponseState::class.java, local).build()
+        val response = chain.proceed(request)
+        val original = local.original ?: return response
+        return response.newBuilder().code(original.code).message(original.message).headers(original.headers)
+            .request(response.request.newBuilder().tag(ServiceResponseState::class.java, null).build()).build()
     }
 }
 data class ApiFailure(val status: Int, val detail: String, val code: String?, val retryAfterSeconds: Long?) : Exception(detail)
@@ -121,12 +147,15 @@ class ApiSession(val server: HttpUrl, store: TokenStore = MemoryTokenStore(), ma
     }
     // Redirects are surfaced to callers; credentials never follow another origin.
     private val baseClient = OkHttpClient.Builder().cookieJar(CookieJar.NO_COOKIES)
-        .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build()
+        .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
+        .addInterceptor(RestoreServiceResponse()).addNetworkInterceptor(PreventServiceReplay()).build()
     private fun retrofit(client: OkHttpClient) = Retrofit.Builder().baseUrl(server)
         .client(client).addConverterFactory(json.asConverterFactory("application/json".toMediaType())).build()
     val devicePublic = retrofit(baseClient).create(DeviceAuthApi::class.java)
     val platform = retrofit(baseClient).create(PlatformApi::class.java)
     val mfa = retrofit(baseClient).create(MFAApi::class.java)
+    val authPublic = retrofit(baseClient).create(AuthApi::class.java)
+    val socialPublic = retrofit(baseClient).create(SocialAuthApi::class.java)
     private val refreshApi = devicePublic
     val coordinator = RefreshCoordinator(store) { refresh ->
         val response = refreshApi.apiV1AuthDeviceRefreshCreate(DeviceRefresh(refresh))
