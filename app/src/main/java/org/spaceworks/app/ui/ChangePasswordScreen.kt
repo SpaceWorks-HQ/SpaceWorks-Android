@@ -11,12 +11,13 @@ import org.spaceworks.app.auth.AuthBundle
     var current by remember {mutableStateOf("")}
     var replacement by remember {mutableStateOf("")}
     var confirmation by remember {mutableStateOf("")}
-    AuthLayout("Choose a new password","Update your temporary password before opening your makerspace.") {
+    ProtectSecrets(!bundle.demo)
+    AuthLayout("Choose a new password","Replace your temporary password to continue.") {
         BrandField(current,{current=it},"Current password",enabled=!state.busy,secret=true)
-        BrandField(replacement,{replacement=it},"New password",enabled=!state.busy,secret=true)
-        BrandField(confirmation,{confirmation=it},"Confirm new password",enabled=!state.busy,secret=true)
+        BrandField(replacement,{replacement=it},"New password",enabled=!state.busy,secret=true,role=FieldRole.NEW_PASSWORD)
+        BrandField(confirmation,{confirmation=it},"Confirm password",enabled=!state.busy,secret=true,role=FieldRole.NEW_PASSWORD)
         BrandError(state.error)
-        BrandButton("Update password",{scope.launch {bundle.holder.changePassword(current,replacement,confirmation);current="";replacement="";confirmation=""}},!state.busy)
+        BrandButton("Update password",{scope.launch {bundle.holder.changePassword(current,replacement,confirmation);if(bundle.holder.state.value.user==null){current="";replacement="";confirmation=""}}},!state.busy)
         BrandTextButton("Sign out",{scope.launch {bundle.holder.signOut()}},!state.busy)
     }
 }

@@ -14,10 +14,11 @@ import org.spaceworks.app.*
     val scope=rememberCoroutineScope()
     val focus=LocalFocusManager.current
     val keyboard=LocalSoftwareKeyboardController.current
-    AuthLayout("Connect to your Space Works server","Your makerspace will share its server URL with you.") {
-        BrandField(state.url,holder::edit,"Server URL",Modifier.testTag("serverUrl"),!state.connecting,readOnly=holder.locked)
+    val connect:()->Unit={focus.clearFocus();keyboard?.hide();scope.launch {holder.connect()}}
+    AuthLayout("Connect to your makerspace","Enter the server address provided by your makerspace.") {
+        BrandField(state.url,holder::edit,"Server address",Modifier.testTag("serverUrl"),!state.connecting,readOnly=holder.locked,role=FieldRole.SERVER,onDone={if(!state.connecting)connect()})
         state.error?.let {Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.testTag("connectionError").semantics {liveRegion=LiveRegionMode.Polite})}
-        BrandButton(if(state.connecting)"Connecting…" else "Connect",{focus.clearFocus();keyboard?.hide();scope.launch {holder.connect()}},!state.connecting)
+        BrandButton(if(state.connecting)"Connecting…" else "Connect",connect,!state.connecting)
         onDemo?.let {BrandTextButton("Explore demo",it)}
     }
 }

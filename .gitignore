@@ -10,3 +10,5 @@ google-services.json
 /.local/
 /.kotlin/
 /validation/
+__pycache__/
+*.pyc

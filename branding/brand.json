@@ -7,5 +7,11 @@
   "support_url": null,
   "privacy_url": null,
   "theme_tokens": "design/tokens/tokens.json",
-  "app_icon": "branding/app-icon.svg"
+  "app_icon": "branding/app-icon.svg",
+  "logo_symbol": "design/logo/symbol.svg",
+  "logo_symbol_reversed": "design/logo/symbol-reversed.svg",
+  "logo_symbol_one_colour_ink": "design/logo/symbol-one-colour-ink.svg",
+  "logo_stacked": "design/logo/lockup-stacked.svg",
+  "logo_stacked_reversed": "design/logo/lockup-stacked-reversed.svg",
+  "logo_stacked_one_colour_ink": "design/logo/lockup-stacked-one-colour-ink.svg"
 }

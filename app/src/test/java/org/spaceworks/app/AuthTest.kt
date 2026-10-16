@@ -21,7 +21,17 @@ private class FakeAuth:AuthGateway {
     var grantId="00000000-0000-0000-0000-000000000001"
     var throttle=false
     var changed=false
-    override suspend fun config()=PublicConfig(false,100)
+    var googleEnabled=false
+    var googleReady=true
+    var socialRefresh:String?="social-refresh"
+    override val nativeSocialReady get()=googleReady
+    override suspend fun config()=PublicConfig(false,100,socialAuth=if(googleEnabled)mapOf("google" to
+        kotlinx.serialization.json.buildJsonObject {put("enabled",kotlinx.serialization.json.JsonPrimitive(true));put("web_client_id",kotlinx.serialization.json.JsonPrimitive("server-web-client"))}) else null)
+    override suspend fun google(clientId:String,credential:suspend(String,String)->String):SocialLoginResponse {
+        calls++;assertEquals("server-web-client",clientId)
+        assertEquals("sdk-token",credential(clientId,"fresh-server-nonce"))
+        return SocialLoginResponse("social-access",emptyMap(),"authenticated",socialRefresh,mapOf("id" to kotlinx.serialization.json.JsonPrimitive(grantId)))
+    }
     override suspend fun login(username:String,password:String):DeviceLoginResult {
         calls++
         if(throttle)throw ApiFailure(429,"Wait",null,60)
@@ -37,6 +47,34 @@ private class FakeAuth:AuthGateway {
     override suspend fun changePassword(current:String,replacement:String){changed=true}
 }
 class AuthTest {
+    @Test fun googleRequiresConfiguredProviderAndNativeTransportBeforeSdk()=runTest {
+        val api=FakeAuth();val store=MemoryTokenStore();val holder=AuthStateHolder(api,store)
+        var sdkCalls=0
+        holder.initialize();holder.googleSignIn {_,_->sdkCalls++;"sdk-token"}
+        assertEquals(0,sdkCalls);assertEquals(0,api.calls)
+        api.googleEnabled=true;api.googleReady=false;holder.initialize();holder.googleSignIn {_,_->sdkCalls++;"sdk-token"}
+        assertEquals(0,sdkCalls);assertEquals(0,api.calls);assertNull(store.read())
+    }
+    @Test fun googlePublishesNativePairOnlyAfterIdentityAndRejectsBrowserSession()=runTest {
+        val api=FakeAuth().apply {googleEnabled=true};val store=MemoryTokenStore();val holder=AuthStateHolder(api,store)
+        holder.initialize();holder.googleSignIn {client,nonce->assertEquals("server-web-client",client);assertEquals("fresh-server-nonce",nonce);"sdk-token"}
+        assertEquals(TokenPair("social-access","social-refresh"),store.read());assertNotNull(holder.state.value.user)
+        holder.signOut();api.socialRefresh=null;holder.googleSignIn {_,_->"sdk-token"}
+        assertNull(store.read());assertNull(holder.state.value.user);assertTrue(holder.state.value.error!!.contains("device session"))
+    }
+    @Test fun cancelledGoogleChooserIsNeutralAndNeverPersistsSession()=runTest {
+        val api=FakeAuth().apply {googleEnabled=true};val store=MemoryTokenStore();val holder=AuthStateHolder(api,store)
+        holder.initialize();holder.googleSignIn {_,_->throw AuthCancelled()}
+        assertNull(store.read());assertNull(holder.state.value.error);assertEquals("Sign-in cancelled.",holder.state.value.notice)
+    }
+    @Test fun foregroundRevocationShowsSessionGateButOfflineKeepsCurrentIdentity()=runTest {
+        val api=FakeAuth();val store=MemoryTokenStore();val holder=AuthStateHolder(api,store)
+        holder.initialize();holder.signIn("member","pass");holder.verify("123456")
+        api.identityFailure=IOException();holder.foreground();assertNotNull(holder.state.value.user);assertNull(holder.state.value.gate)
+        api.identityFailure=ApiFailure(401,"Expired",null,null);holder.foreground()
+        assertNull(holder.state.value.user);assertNull(store.read());assertEquals(AuthGate.SESSION_ENDED,holder.state.value.gate)
+        holder.dismissGate();assertNull(holder.state.value.gate)
+    }
     @Test fun nativeMfaPersistsPairAndSelectsOnlyEligibleMembership()=runTest {
         val api=FakeAuth();val store=MemoryTokenStore();val holder=AuthStateHolder(api,store)
         holder.initialize();holder.signIn("member","pass");assertNull(store.read())
@@ -73,7 +111,7 @@ class AuthTest {
     @Test fun expiryAndRateLimitPreventRequestsButAllowLocalSignout()=runTest {
         var now=0L;val api=FakeAuth();val store=MemoryTokenStore();val holder=AuthStateHolder(api,store,now={now})
         holder.initialize();holder.signIn("member","pass");now=301000;holder.verify("123456")
-        assertEquals("Your sign-in expired. Start again.",holder.state.value.error)
+        assertEquals("Your verification session expired. Sign in to request a new one.",holder.state.value.error)
         holder.cancelMfa();api.throttle=true;holder.signIn("member","pass");holder.signIn("member","pass")
         assertEquals(2,api.calls);store.replace(TokenPair("a","r"));holder.signOut();assertNull(store.read())
     }

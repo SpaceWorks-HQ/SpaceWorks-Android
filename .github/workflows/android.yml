@@ -4,7 +4,7 @@ on:
   pull_request:
   workflow_dispatch:
 concurrency:
-  group: android-${{ github.ref }}
+  group: android-${{ github.event_name == 'workflow_dispatch' && format('full-{0}', github.run_id) || format('{0}-{1}', github.event.pull_request.head.repo.full_name || github.repository, github.head_ref || github.ref_name) }}
   cancel-in-progress: true
 permissions:
   contents: read
@@ -25,8 +25,14 @@ jobs:
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
       - run: chmod +x gradlew
-      - run: ./gradlew lint test assembleDebug assembleRelease --stacktrace
+      - run: ./gradlew lint test assembleDebug assembleRelease bundleRelease --stacktrace
+      - name: Verify native library and APK 16 KB alignment
+        run: |
+          python3 -m unittest discover -s scripts/tests -v
+          python3 scripts/check_native_packaging.py app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/release/app-release-unsigned.apk
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -35,6 +41,8 @@ jobs:
             app/build/reports
             app/build/outputs/apk/debug
             app/build/outputs/apk/release
+            app/build/outputs/bundle/release
+            validation/native-packaging.json
   ui:
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -42,7 +50,7 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        device: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["compact","phone","large","tablet","tablet-landscape","large-tablet"]' || '["phone","tablet"]') }}
+        device: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["compact","small-phone","phone","large","tablet","tablet-landscape","large-tablet"]' || '["phone","tablet"]') }}
     name: UI (${{ matrix.device }})
     steps:
       - uses: actions/checkout@v4
@@ -57,6 +65,8 @@ jobs:
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -67,6 +77,8 @@ jobs:
         with:
           api-level: 35
           arch: x86_64
+          target: google_apis
+          profile: ${{ contains(matrix.device, 'tablet') && 'pixel_tablet' || 'pixel_6' }}
           script: bash scripts/device-matrix.sh ${{ matrix.device }}
       - uses: actions/upload-artifact@v4
         if: always()

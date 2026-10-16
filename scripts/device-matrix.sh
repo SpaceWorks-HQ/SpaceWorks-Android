@@ -3,7 +3,8 @@
 set -euo pipefail
 profile="${1:?device profile required}"
 case "$profile" in
-  compact) size=720x1280; density=320; font=1; rotation=0; night=no ;;
+  compact) size=640x1136; density=320; font=1; rotation=0; night=no ;;
+  small-phone) size=720x1280; density=320; font=1; rotation=0; night=no ;;
   phone) size=1080x2400; density=420; font=1; rotation=0; night=no ;;
   large) size=1440x3120; density=480; font=1.3; rotation=0; night=yes ;;
   tablet) size=1600x2560; density=320; font=1; rotation=0; night=no ;;
@@ -11,6 +12,8 @@ case "$profile" in
   large-tablet) size=2048x2732; density=320; font=2; rotation=0; night=no ;;
   *) echo "Unknown device profile: $profile" >&2; exit 2 ;;
 esac
+animation_scale=1
+if [[ "$profile" == large-tablet ]]; then animation_scale=0; fi
 mkdir -p "validation/$profile"
 cleanup() {
   adb shell wm size reset || true
@@ -18,6 +21,9 @@ cleanup() {
   adb shell settings put system font_scale 1 || true
   adb shell settings put system accelerometer_rotation 1 || true
   adb shell cmd uimode night auto || true
+  for setting in window_animation_scale transition_animation_scale animator_duration_scale; do
+    adb shell settings put global "$setting" 1 || true
+  done
 }
 trap cleanup EXIT
 adb shell wm size "$size"
@@ -26,9 +32,22 @@ adb shell settings put system font_scale "$font"
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation "$rotation"
 adb shell cmd uimode night "$night"
-python3 - "$profile" "$size" "$density" "$font" "$rotation" "$night" <<'PY'
+for setting in window_animation_scale transition_animation_scale animator_duration_scale; do
+  adb shell settings put global "$setting" "$animation_scale"
+  adb shell settings get global "$setting" >> "validation/$profile/animation-settings.txt"
+done
+adb shell wm size > "validation/$profile/window-size.txt"
+adb shell wm density > "validation/$profile/window-density.txt"
+python3 - "$profile" "$size" <<'PY'
+import pathlib, re, sys
+reported = pathlib.Path('validation', sys.argv[1], 'window-size.txt').read_text()
+sizes = re.findall(r'(?:Physical|Override) size: (\d+x\d+)', reported)
+if not sizes or sizes[-1] != sys.argv[2]:
+    raise SystemExit(f'Display size was clamped: requested {sys.argv[2]}, reported {reported!r}')
+PY
+python3 - "$profile" "$size" "$density" "$font" "$rotation" "$night" "$animation_scale" <<'PY'
 import json, pathlib, sys
-keys = ['profile', 'physical_size_override', 'density', 'font_scale', 'rotation', 'night']
+keys = ['profile', 'physical_size_override', 'density', 'font_scale', 'rotation', 'night', 'animation_scale']
 pathlib.Path('validation', sys.argv[1], 'configuration.json').write_text(
     json.dumps(dict(zip(keys, sys.argv[1:])), indent=2) + '\n', encoding='utf-8')
 PY

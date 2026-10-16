@@ -10,40 +10,57 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import org.spaceworks.app.auth.AuthBundle
+import org.spaceworks.app.auth.AccountRoute
+
+fun makerspaceLabel(slug:String)=slug.split('-').joinToString(" "){it.replaceFirstChar(Char::uppercase)}
 
 @Composable fun MakerspacePicker(bundle:AuthBundle) {
     val state by bundle.holder.state.collectAsStateWithLifecycle()
     val scope=rememberCoroutineScope()
-    AuthLayout("Choose a makerspace",if(state.memberships.isEmpty())"You haven’t joined a makerspace yet." else "Where would you like to make today?") {
+    var candidate by remember {mutableStateOf<Int?>(null)}
+    var signingOut by remember {mutableStateOf(false)}
+    if(signingOut)SignOutConfirmation({signingOut=false},{signingOut=false;scope.launch {bundle.holder.signOut()}})
+    AuthLayout(if(state.memberships.isEmpty())"No makerspace access yet" else "Choose your makerspace",if(state.memberships.isEmpty())"Ask your makerspace to add or reactivate your membership." else "Where would you like to make today?") {
         state.memberships.forEach {membership ->
-            OutlinedCard(onClick={bundle.holder.select(membership.id)},modifier=Modifier.fillMaxWidth().heightIn(min=72.dp)) {
+            OutlinedCard(onClick={candidate=membership.id},modifier=Modifier.fillMaxWidth().heightIn(min=72.dp).semantics {selected=candidate==membership.id;role=Role.RadioButton}) {
                 Column(Modifier.padding(16.dp)) {
-                    Text(membership.slug.replace('-',' ').replaceFirstChar {it.uppercase()},style=MaterialTheme.typography.titleMedium)
+                    Text(makerspaceLabel(membership.slug),style=MaterialTheme.typography.titleMedium)
                     Text(membership.roleName,style=MaterialTheme.typography.bodyMedium)
+                    if(candidate==membership.id)Text("Selected",style=MaterialTheme.typography.labelMedium)
                 }
             }
         }
-        if(state.memberships.isEmpty())Text("Ask your makerspace team about joining. Your account is signed in, and you can check again after they add your membership.")
+        candidate?.let {BrandButton("Continue",{bundle.holder.select(it)},!state.busy)}
+        if(state.user?.emailVerified==false && state.config?.emailEnabled==true)bundle.accounts?.let {BrandTextButton("Confirm your email",{it.open(AccountRoute.VERIFY_EMAIL,state.user?.email.orEmpty())})}
         BrandError(state.error)
-        BrandTextButton("Refresh memberships",{scope.launch {bundle.holder.foreground()}},!state.busy)
-        BrandTextButton("Sign out",{scope.launch {bundle.holder.signOut()}},!state.busy)
+        BrandTextButton("Refresh access",{scope.launch {bundle.holder.foreground()}},!state.busy)
+        if(state.memberships.isEmpty())BrandTextButton("Use another account",{signingOut=true},!state.busy)
+        BrandTextButton("Sign out",{signingOut=true},!state.busy)
     }
 }
 
 private val destinations=listOf("Home","Inventory","Activity","Inbox","Profile")
 private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Icons.Outlined.DateRange,Icons.Outlined.Email,Icons.Outlined.Person)
-@Composable fun MemberShell(bundle:AuthBundle,onChangeServer:(()->Unit)?) {
+@Composable fun MemberShell(bundle:AuthBundle,onChangeServer:(()->Unit)?,onShowIntro:(()->Unit)?=null) {
     val state by bundle.holder.state.collectAsStateWithLifecycle()
     val scope=rememberCoroutineScope()
     var destination by rememberSaveable(state.selectedId){mutableIntStateOf(0)}
+    var signingOut by remember {mutableStateOf(false)}
+    var changingServer by remember {mutableStateOf(false)}
+    if(signingOut || changingServer)SignOutConfirmation({signingOut=false;changingServer=false},{
+        val change=changingServer;signingOut=false;changingServer=false
+        scope.launch {bundle.holder.signOut();if(change)onChangeServer?.invoke()}
+    },changingServer)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val expanded=maxWidth>=600.dp
         Row {
             if(expanded) NavigationRail(Modifier.fillMaxHeight()) {
-                destinations.forEachIndexed {index,title -> NavigationRailItem(selected=destination==index,onClick={destination=index},icon={Icon(destinationIcons[index],null)},label={Text(title)}) }
+                destinations.forEachIndexed {index,title -> NavigationRailItem(selected=destination==index,onClick={destination=index},icon={Icon(destinationIcons[index],null)},label={Text(title)},colors=NavigationRailItemDefaults.colors(selectedIconColor=MaterialTheme.colorScheme.onPrimaryContainer,selectedTextColor=MaterialTheme.colorScheme.onPrimaryContainer,indicatorColor=MaterialTheme.colorScheme.primaryContainer)) }
             }
             Column(Modifier.weight(1f)) {
                 Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
@@ -67,17 +84,26 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
                                 BrandTextButton("Switch to ${membership.slug.replace('-',' ')}",{bundle.holder.select(membership.id)})
                             }
                             BrandTextButton("Refresh account",{scope.launch {bundle.holder.foreground()}},!state.busy)
-                            BrandButton("Sign out",{scope.launch {bundle.holder.signOut()}},!state.busy)
-                            onChangeServer?.let {BrandTextButton("Change server",{scope.launch {bundle.holder.signOut();it()}},!state.busy)}
+                            if(state.user?.emailVerified==false && state.config?.emailEnabled==true)bundle.accounts?.let {BrandTextButton("Confirm your email",{it.open(AccountRoute.VERIFY_EMAIL,state.user?.email.orEmpty())})}
+                            onShowIntro?.let {BrandTextButton("Show introduction",it,!state.busy)}
+                            BrandButton("Sign out",{signingOut=true},!state.busy)
+                            onChangeServer?.let {BrandTextButton("Change server",{changingServer=true},!state.busy)}
                         }
                         else -> Text("This feature will connect to your makerspace in the next app phase.")
                     }
                     BrandError(state.error)
                 }
-                if(!expanded) NavigationBar {
-                    destinations.forEachIndexed {index,title -> NavigationBarItem(selected=destination==index,onClick={destination=index},icon={Icon(destinationIcons[index],null)},label={Text(title)}) }
+                if(!expanded) NavigationBar(Modifier.heightIn(min=if(LocalDensity.current.fontScale>=1.6f)112.dp else 80.dp)) {
+                    destinations.forEachIndexed {index,title -> NavigationBarItem(selected=destination==index,onClick={destination=index},icon={Icon(destinationIcons[index],null)},label={Text(title)},colors=NavigationBarItemDefaults.colors(selectedIconColor=MaterialTheme.colorScheme.onPrimaryContainer,selectedTextColor=MaterialTheme.colorScheme.onPrimaryContainer,indicatorColor=MaterialTheme.colorScheme.primaryContainer)) }
                 }
             }
         }
     }
+}
+
+@Composable private fun SignOutConfirmation(onDismiss:()->Unit,onConfirm:()->Unit,changeServer:Boolean=false) {
+    AlertDialog(onDismissRequest=onDismiss,title={Text(if(changeServer)"Change server?" else "Sign out?")},
+        text={Text(if(changeServer)"Continuing signs out this account before choosing another server." else "You'll need to sign in again to use this account.")},
+        confirmButton={TextButton(onClick=onConfirm,colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.error)){Text(if(changeServer)"Continue" else "Sign out")}},
+        dismissButton={BrandTextButton("Cancel",onDismiss)})
 }
