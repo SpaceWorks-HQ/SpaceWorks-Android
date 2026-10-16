@@ -18,8 +18,11 @@ class ConnectionStateHolder(initialUrl: String, val locked: Boolean, private val
     suspend fun connect() {
         if (state.value.connecting || now() < retryAt) return
         mutable.value = state.value.copy(connecting = true, error = null)
+        val url = try { ServerAddress.parse(state.value.url,debug) } catch (_: IllegalArgumentException) {
+            mutable.value = state.value.copy(connecting=false,error="Enter a valid HTTPS server URL.")
+            return
+        }
         try {
-            val url = ServerAddress.parse(state.value.url,debug)
             health(url)
             save(url.toString())
             mutable.value = state.value.copy(url = url.toString(), connecting = false, connected = true)
@@ -28,7 +31,7 @@ class ConnectionStateHolder(initialUrl: String, val locked: Boolean, private val
             throw cancelled
         } catch (failure: Exception) {
             if (failure is ApiFailure && failure.status == 429) retryAt = now() + (failure.retryAfterSeconds ?: 60L) * 1000L
-            mutable.value = state.value.copy(connecting = false, error = failure.message ?: "Couldn't connect. Try again.")
+            mutable.value = state.value.copy(connecting = false, error = (failure as? ApiFailure)?.detail ?: "Couldn't connect. Try again.")
         }
     }
 }

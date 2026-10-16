@@ -15,7 +15,7 @@ class ConnectionStateTest {
         val holder=ConnectionStateHolder("http://example.org",false,false,{calls++;error("Unavailable")},{fail("Should not save")})
         holder.connect();assertEquals(0,calls);assertFalse(holder.state.value.connected)
         holder.edit("https://example.org");holder.connect();assertEquals(1,calls)
-        assertEquals("Unavailable",holder.state.value.error);assertFalse(holder.state.value.connecting)
+        assertEquals("Couldn't connect. Try again.",holder.state.value.error);assertFalse(holder.state.value.connecting)
     }
     @Test fun retryAfterBlocksRepeatedHealthUntilDeadline() = runBlocking {
         var now=0L
