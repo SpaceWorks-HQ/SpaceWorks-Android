@@ -127,7 +127,8 @@ private class RestoreServiceResponse : Interceptor {
             .request(response.request.newBuilder().tag(ServiceResponseState::class.java, null).build()).build()
     }
 }
-data class ApiFailure(val status: Int, val detail: String, val code: String?, val retryAfterSeconds: Long?) : Exception(detail)
+data class ApiFailure(val status: Int, val detail: String, val code: String?, val retryAfterSeconds: Long?,
+    val localCopy: org.spaceworks.app.platform.MobileCopyKey? = null) : Exception(detail)
 object Errors {
     private val json = Json { ignoreUnknownKeys = true }
     fun map(status: Int, body: String?, retryAfter: String? = null, now: Instant = Instant.now()): ApiFailure {
@@ -143,25 +144,26 @@ object Errors {
         val fieldDetail = if(status==400) envelope?.filterKeys {it!="code"&&it!="detail"}?.entries
             ?.flatMap {(field,value)->messages(value,field)}?.groupBy({it.first},{it.second})?.entries
             ?.joinToString("\n") {(path,parts)->"$path: ${parts.joinToString(" ")}"}?.takeIf {it.isNotBlank()} else null
-        val detail = when (code) {
-            "device_superadmin_not_supported" -> "Use the web console"
-            "payment_rail_conflict" -> "Finish this payment on the web."
-            "payments_unavailable" -> "Online payment is unavailable. Try again later or pay at the desk."
-            else -> serverDetail?.takeIf { it.isNotBlank() } ?: fieldDetail ?: when(status) {
-                400 -> "Check the details and try again."
-                401 -> "Please sign in again."
-                403 -> "You do not have permission to do this."
-                404 -> "This item wasn't found."
-                409 -> "This changed. Refresh and try again."
-                429 -> "Too many requests. Try again later."
-                503 -> "The server is unavailable. Try again later."
-                else -> "Couldn't connect. Try again."
+        val localCopy = when (code) {
+            "device_superadmin_not_supported" -> org.spaceworks.app.copy.CoreStrings.CORE_USE_THE_WEB_CONSOLE
+            "payment_rail_conflict" -> org.spaceworks.app.copy.CoreStrings.CORE_FINISH_THIS_PAYMENT_ON_THE_WEB
+            "payments_unavailable" -> org.spaceworks.app.copy.CoreStrings.CORE_ONLINE_PAYMENT_IS_UNAVAILABLE_TRY_AGAIN_LATER_OR_PAY_AT_THE
+            else -> if (!serverDetail.isNullOrBlank() || fieldDetail != null) null else when(status) {
+                400 -> org.spaceworks.app.copy.CoreStrings.CORE_CHECK_THE_DETAILS_AND_TRY_AGAIN
+                401 -> org.spaceworks.app.copy.CoreStrings.CORE_PLEASE_SIGN_IN_AGAIN
+                403 -> org.spaceworks.app.copy.CoreStrings.CORE_YOU_DO_NOT_HAVE_PERMISSION_TO_DO_THIS
+                404 -> org.spaceworks.app.copy.CoreStrings.CORE_THIS_ITEM_WASN_T_FOUND
+                409 -> org.spaceworks.app.copy.CoreStrings.CORE_THIS_CHANGED_REFRESH_AND_TRY_AGAIN
+                429 -> org.spaceworks.app.copy.CoreStrings.CORE_TOO_MANY_REQUESTS_TRY_AGAIN_LATER
+                503 -> org.spaceworks.app.copy.CoreStrings.CORE_THE_SERVER_IS_UNAVAILABLE_TRY_AGAIN_LATER
+                else -> org.spaceworks.app.copy.CoreStrings.CORE_COULDN_T_CONNECT_TRY_AGAIN
             }
         }
+        val detail = localCopy?.english ?: serverDetail?.takeIf { it.isNotBlank() } ?: fieldDetail ?: org.spaceworks.app.copy.CoreStrings.CORE_COULDN_T_CONNECT_TRY_AGAIN.english
         val seconds = retryAfter?.toLongOrNull()?.coerceAtLeast(0) ?: try {
             retryAfter?.let { (ZonedDateTime.parse(it, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().epochSecond - now.epochSecond).coerceAtLeast(0) }
         } catch (_: Exception) { null }
-        return ApiFailure(status,detail,code,seconds)
+        return ApiFailure(status,detail,code,seconds,localCopy)
     }
 }
 object Pagination {

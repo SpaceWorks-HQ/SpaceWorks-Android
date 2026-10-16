@@ -1,5 +1,11 @@
 package org.spaceworks.app.member
 
+import org.spaceworks.app.platform.MobileText
+import org.spaceworks.app.platform.MobileCopyException
+import org.spaceworks.app.platform.failure
+import org.spaceworks.app.copy.CoreStrings
+import org.spaceworks.app.copy.apiFailure
+
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
@@ -25,7 +31,10 @@ interface MemberPreviewControl {fun scenario(value:MemberPreviewScenario)}
 
 /** Immutable screen state; all transport values come through a generated-client gateway. */
 class MemberStateHolder(private val api:MemberGateway,private val now:()->Long=System::currentTimeMillis,
-    private val onUnauthorized:suspend()->Unit={}) {
+    private val onUnauthorized:suspend()->Unit={},private val text:MobileText=MobileText.ENGLISH) {
+    constructor(api:MemberGateway,now:()->Long=System::currentTimeMillis,onUnauthorized:suspend()->Unit)
+        :this(api,now,onUnauthorized,MobileText.ENGLISH)
+
     private val mutable=MutableStateFlow(MemberState())
     val state=mutable.asStateFlow()
     private val epoch=AtomicLong()
@@ -62,7 +71,7 @@ class MemberStateHolder(private val api:MemberGateway,private val now:()->Long=S
     private suspend fun failure(f:Exception,expected:Long):String {
         if(alive(expected) && f is ApiFailure && f.status==429)mutable.update {it.copy(retryAtMillis=now()+(f.retryAfterSeconds?:60)*1000)}
         if(alive(expected) && f is ApiFailure && f.status==401)onUnauthorized()
-        return if(f is ApiFailure)f.detail else "Couldn't connect. Try again."
+        return if(f is MobileCopyException)text.failure(f) else if(f is ApiFailure)text.apiFailure(f) else text(CoreStrings.CORE_COULDN_T_CONNECT_TRY_AGAIN)
     }
     private suspend fun <T> fetch(key:String,read:(MemberState)->MemberLoad<T>,write:(MemberState,MemberLoad<T>)->MemberState,
         clear:Boolean=false,valid:()->Boolean={true},operation:suspend(MemberScope)->T) {
@@ -72,7 +81,7 @@ class MemberStateHolder(private val api:MemberGateway,private val now:()->Long=S
         val request=counter.incrementAndGet()
         fun current()=alive(expected) && valid() && request==counter.get()
         if(!ready()) {
-            mutable.update {write(it,MemberLoad(if(clear)null else read(it).value,error="Try again after the timer finishes."))}
+            mutable.update {write(it,MemberLoad(if(clear)null else read(it).value,error=text(CoreStrings.CORE_TRY_AGAIN_AFTER_THE_TIMER_FINISHES)))}
             return
         }
         mutable.update {write(it,MemberLoad(if(clear)null else read(it).value,true))}
@@ -141,7 +150,7 @@ class MemberStateHolder(private val api:MemberGateway,private val now:()->Long=S
         val scope=state.value.scope ?: return false
         if(!ready() || !mutation.tryLock())return false
         val expected=epoch.get();mutable.update {it.copy(inboxBusy=true,notice=null)}
-        return try {block(scope);if(alive(expected)){refreshInbox();mutable.update {it.copy(notice="Inbox updated.")}};alive(expected)}
+        return try {block(scope);if(alive(expected)){refreshInbox();mutable.update {it.copy(notice=text(CoreStrings.CORE_INBOX_UPDATED))}};alive(expected)}
         catch(cancelled:CancellationException){throw cancelled}
         catch(f:Exception){val text=failure(f,expected);if(alive(expected))mutable.update {it.copy(inbox=it.inbox.copy(error=text))};false}
         finally {if(alive(expected))mutable.update {it.copy(inboxBusy=false)};mutation.unlock()}

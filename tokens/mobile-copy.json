@@ -1,0 +1,14 @@
+[
+  {
+    "catalog": "app/src/main/res/values/mobile_ui_strings.xml",
+    "package": "org.spaceworks.app.ui",
+    "object": "UiStrings",
+    "output": "app/src/main/java/org/spaceworks/app/ui/UiStrings.kt"
+  },
+  {
+    "catalog": "app/src/main/res/values/core_strings.xml",
+    "package": "org.spaceworks.app.copy",
+    "object": "CoreStrings",
+    "output": "app/src/main/java/org/spaceworks/app/copy/CoreStrings.kt"
+  }
+]

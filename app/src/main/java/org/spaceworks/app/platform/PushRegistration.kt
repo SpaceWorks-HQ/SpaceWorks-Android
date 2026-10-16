@@ -1,5 +1,7 @@
 package org.spaceworks.app.platform
 
+import org.spaceworks.app.R
+
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -112,13 +114,13 @@ object FcmRegistration {
     fun configured(context:Context):Boolean=FirebaseApp.getApps(context).any {it.name==FirebaseApp.DEFAULT_APP_NAME}
     /** Call only after explicit push setup/sign-in, then register once per verified membership. */
     suspend fun token(context:Context):String {
-        if(!configured(context))throw PlatformUnavailable("Notifications are not configured for this build.")
+        if(!configured(context))throw PlatformUnavailable(context.getString(R.string.mobile_notifications_are_not_configured_for_this_build))
         val messaging=FirebaseMessaging.getInstance()
         try {
             messaging.isAutoInitEnabled=true
             return messaging.token.awaitPlatformTask().also(NativePushEvents::updateToken)
         }catch(cancelled:CancellationException){throw cancelled}
-        catch(_:Exception){throw PlatformUnavailable("Notifications are unavailable. Try again later.")}
+        catch(_:Exception){throw PlatformUnavailable(context.getString(R.string.mobile_notifications_are_unavailable_try_again_later))}
     }
     /** Pauses local delivery for an isolated demo without acquiring/deleting an SDK token. */
     fun pause(context:Context) {
@@ -136,7 +138,7 @@ object FcmRegistration {
 
 object NotificationAccess {
     private const val CHANNEL="spaceworks_updates"
-    fun createChannel(context:Context) {context.getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(CHANNEL,"Makerspace updates",NotificationManager.IMPORTANCE_DEFAULT))}
+    fun createChannel(context:Context) {context.getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(CHANNEL,context.getString(R.string.mobile_makerspace_updates),NotificationManager.IMPORTANCE_DEFAULT))}
     fun channel():String=CHANNEL
     fun needsRuntimePermission(sdk: Int, permissionGranted: Boolean): Boolean = sdk >= 33 && !permissionGranted
     fun allowed(context: Context): Boolean =
@@ -174,12 +176,12 @@ class SpaceWorksMessagingService : FirebaseMessagingService() {
         val requestId = (hint.eventId ?: message.messageId ?: message.data.toSortedMap().toString()).hashCode()
         val pending = PendingIntent.getActivity(this, requestId, launch, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notifications = getSystemService(NotificationManager::class.java)
-        notifications.createNotificationChannel(NotificationChannel(NotificationAccess.channel(), "Makerspace updates", NotificationManager.IMPORTANCE_DEFAULT))
+        notifications.createNotificationChannel(NotificationChannel(NotificationAccess.channel(), getString(R.string.mobile_makerspace_updates), NotificationManager.IMPORTANCE_DEFAULT))
         val notification = android.app.Notification.Builder(this, NotificationAccess.channel())
             .setSmallIcon(android.R.drawable.ic_dialog_email)
             .setContentTitle(applicationInfo.loadLabel(packageManager))
-            .setContentText("Open your inbox for the latest update.")
-            .setStyle(android.app.Notification.BigTextStyle().bigText("Open your inbox for the latest update."))
+            .setContentText(getString(R.string.mobile_open_your_inbox_for_the_latest_update))
+            .setStyle(android.app.Notification.BigTextStyle().bigText(getString(R.string.mobile_open_your_inbox_for_the_latest_update)))
             .setContentIntent(pending).setAutoCancel(true).setGroup("makerspace-${hint.makerspaceId}").build()
         try { notifications.notify(requestId, notification) } catch (_: SecurityException) { /* Permission changed while receiving. */ }
     }

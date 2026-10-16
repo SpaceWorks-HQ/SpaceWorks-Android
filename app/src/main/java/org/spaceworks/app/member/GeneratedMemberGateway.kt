@@ -1,5 +1,11 @@
 package org.spaceworks.app.member
 
+import org.spaceworks.app.platform.MobileText
+import org.spaceworks.app.platform.MobileCopyException
+import org.spaceworks.app.platform.failure
+import org.spaceworks.app.copy.CoreStrings
+import org.spaceworks.app.copy.apiFailure
+
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import org.spaceworks.app.auth.requireBody
@@ -19,7 +25,7 @@ import org.spaceworks.generated.model.PublicProduct
 import java.util.Locale
 
 /** Generated operations only. Each authenticated API instance captures this request's scope header. */
-class GeneratedMemberGateway(private val session: ApiSession) : MemberGateway {
+class GeneratedMemberGateway(private val session: ApiSession,private val text:MobileText=MobileText.ENGLISH) : MemberGateway {
     override suspend fun inventory(scope: MemberScope, query: String, category: String?, next: String?): MemberPage<InventoryItem> {
         val page = page(next)
         val body = session.scopedApi(PublicInventoryApi::class.java, scope.id).apiV1PublicInventoryList(
@@ -43,7 +49,7 @@ class GeneratedMemberGateway(private val session: ApiSession) : MemberGateway {
         val filter = when (period.lowercase(Locale.ROOT)) {
             "upcoming" -> MemberBookingsApi.PeriodApiV1PublicMyBookingsRetrieve.upcoming
             "past" -> MemberBookingsApi.PeriodApiV1PublicMyBookingsRetrieve.past
-            else -> throw IllegalArgumentException("Choose upcoming or past bookings.")
+            else -> throw IllegalArgumentException(text(CoreStrings.CORE_CHOOSE_UPCOMING_OR_PAST_BOOKINGS))
         }
         val body = session.scopedApi(MemberBookingsApi::class.java, scope.id)
             .apiV1PublicMyBookingsRetrieve(scope.slug, page, filter).requireBody()
@@ -125,21 +131,21 @@ class GeneratedMemberGateway(private val session: ApiSession) : MemberGateway {
     /** Next links are never fetched. Validate origin, then pass only a positive page to a generated call. */
     private fun page(next: String?): Int {
         if (next == null) return 1
-        require(next.length <= 4096 && next.none { it.isISOControl() || it == '\\' }) { "The next page is invalid." }
-        val url = requireNotNull(Pagination.next(session.server, next)) { "The next page is invalid." }
-        require(url.fragment == null && url.queryParameterValues("page").size == 1) { "The next page is invalid." }
-        return positiveID(requireNotNull(url.queryParameter("page")) { "The next page is invalid." })
+        require(next.length <= 4096 && next.none { it.isISOControl() || it == '\\' }) { text(CoreStrings.CORE_THE_NEXT_PAGE_IS_INVALID) }
+        val url = requireNotNull(Pagination.next(session.server, next)) { text(CoreStrings.CORE_THE_NEXT_PAGE_IS_INVALID) }
+        require(url.fragment == null && url.queryParameterValues("page").size == 1) { text(CoreStrings.CORE_THE_NEXT_PAGE_IS_INVALID) }
+        return positiveID(requireNotNull(url.queryParameter("page")) { text(CoreStrings.CORE_THE_NEXT_PAGE_IS_INVALID) })
     }
 
     private fun positiveID(value: String): Int {
-        require(value.isNotEmpty() && value.all { it in '0'..'9' }) { "The identifier is invalid." }
-        return requireNotNull(value.toIntOrNull()?.takeIf { it > 0 }) { "The identifier is invalid." }
+        require(value.isNotEmpty() && value.all { it in '0'..'9' }) { text(CoreStrings.CORE_THE_IDENTIFIER_IS_INVALID) }
+        return requireNotNull(value.toIntOrNull()?.takeIf { it > 0 }) { text(CoreStrings.CORE_THE_IDENTIFIER_IS_INVALID) }
     }
 
     private fun inventoryItem(item: PublicProduct): InventoryItem {
         val stock = item.availability
         return InventoryItem(item.id.toString(), item.name, item.description, item.categoryId?.toString(), item.categoryName,
-            item.categorySlug, item.borrowingTerms, item.imageUrl?.toString(), stock?.label?.value ?: "Ask your makerspace about availability.",
+            item.categorySlug, item.borrowingTerms, item.imageUrl?.toString(), stock?.label?.value ?: text(CoreStrings.CORE_ASK_YOUR_MAKERSPACE_ABOUT_AVAILABILITY),
             stock?.mode?.value, stock?.takeIf { it.mode.value == "exact_count" }?.count?.takeIf { it >= 0 })
     }
 

@@ -1,5 +1,7 @@
 package org.spaceworks.app.ui
 
+import org.spaceworks.app.platform.*
+
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.layout.*
@@ -16,6 +18,8 @@ import org.spaceworks.app.platform.*
 /** Setup is an explicit task, independent of server communication preferences. */
 @Composable fun NotificationsPanel(holder:PushStateHolder,demo:Boolean,configured:Boolean,
     memberships:Map<Int,String>,preview:org.spaceworks.app.notifications.PushPreviewControl?=null,onPreview:(PushHint)->Unit) {
+    val copyText=rememberMobileText()
+
     val state by holder.state.collectAsStateWithLifecycle()
     val scope=rememberCoroutineScope()
     val context=LocalContext.current
@@ -26,48 +30,48 @@ import org.spaceworks.app.platform.*
     val request=rememberNotificationPermissionRequest {allowed->scope.launch {holder.enable(allowed)}}
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-            Text("Makerspace notifications",style=MaterialTheme.typography.titleMedium)
-            Text(if(demo)"Demo only. Changes stay in this preview. No notifications will be sent." else "Get updates about your requests, bookings and makerspace activity. You can keep using Inbox without notifications.")
+            Text(copyText(UiStrings.MOBILE_MAKERSPACE_NOTIFICATIONS),style=MaterialTheme.typography.titleMedium)
+            Text(if(demo)copyText(UiStrings.MOBILE_DEMO_ONLY_CHANGES_STAY_IN_THIS_PREVIEW_NO_NOTIFICATIONS_WILL_BE) else copyText(UiStrings.MOBILE_GET_UPDATES_ABOUT_YOUR_REQUESTS_BOOKINGS_AND_MAKERSPACE_ACTIVITY))
             when {
-                !demo && !configured -> Text("Notifications are not configured for this build.")
-                state.consent && !state.permission -> Text("Notifications are blocked in system settings. Inbox is still available.")
+                !demo && !configured -> Text(copyText(UiStrings.MOBILE_NOTIFICATIONS_ARE_NOT_CONFIGURED_FOR_THIS_BUILD))
+                state.consent && !state.permission -> Text(copyText(UiStrings.MOBILE_NOTIFICATIONS_ARE_BLOCKED_IN_SYSTEM_SETTINGS_INBOX_IS_STILL_AVAI))
                 state.registered.isNotEmpty() -> {
-                    Text("Notifications are on for:")
-                    state.registered.sorted().forEach {Text(memberships[it]?:"Makerspace $it")}
+                    Text(copyText(UiStrings.MOBILE_NOTIFICATIONS_ARE_ON_FOR))
+                    state.registered.sorted().forEach {Text(memberships[it]?:copyText(UiStrings.MOBILE_MAKERSPACE_VALUE,it))}
                 }
-                state.consent -> Text("Notification setup is waiting to finish.")
-                else -> Text("Notifications are off on this device.")
+                state.consent -> Text(copyText(UiStrings.MOBILE_NOTIFICATION_SETUP_IS_WAITING_TO_FINISH))
+                else -> Text(copyText(UiStrings.MOBILE_NOTIFICATIONS_ARE_OFF_ON_THIS_DEVICE))
             }
             if(state.busy)LinearProgressIndicator(Modifier.fillMaxWidth())
             BrandError(state.error)
-            if(clock<state.retryAtMillis)Text("Try again in ${((state.retryAtMillis-clock+999)/1000).coerceAtLeast(0)}s.")
+            if(clock<state.retryAtMillis)Text(copyText(UiStrings.MOBILE_TRY_AGAIN_IN_VALUES,((state.retryAtMillis-clock+999)/1000).coerceAtLeast(0)))
             if(demo || configured) {
-                BrandButton(when { !state.consent -> "Enable notifications"; state.error!=null -> "Retry notification setup"; else -> "Refresh notification setup" },{
+                BrandButton(when { !state.consent -> copyText(UiStrings.MOBILE_ENABLE_NOTIFICATIONS); state.error!=null -> copyText(UiStrings.MOBILE_RETRY_NOTIFICATION_SETUP); else -> copyText(UiStrings.MOBILE_REFRESH_NOTIFICATION_SETUP) },{
                     if(demo)scope.launch {holder.enable(true)}else request()
                 },ready)
-                if(state.consent || state.registered.isNotEmpty())BrandTextButton("Turn off notifications",{scope.launch {holder.disable()}},!state.busy)
-                if(!demo && !state.permission)BrandTextButton("Open notification settings",{
+                if(state.consent || state.registered.isNotEmpty())BrandTextButton(copyText(UiStrings.MOBILE_TURN_OFF_NOTIFICATIONS),{scope.launch {holder.disable()}},!state.busy)
+                if(!demo && !state.permission)BrandTextButton(copyText(UiStrings.MOBILE_OPEN_NOTIFICATION_SETTINGS),{
                     context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,context.packageName))
                 },!state.busy)
             }
             if(demo) {
-                BrandTextButton(if(previews)"Hide notification previews"else"Preview notification scenarios",{previews=!previews})
+                BrandTextButton(if(previews)copyText(UiStrings.MOBILE_HIDE_NOTIFICATION_PREVIEWS) else copyText(UiStrings.MOBILE_PREVIEW_NOTIFICATION_SCENARIOS),{previews=!previews})
                 if(previews) {
-                BrandTextButton("Preview denied permission",{scope.launch {holder.enable(false)}},!state.busy)
+                BrandTextButton(copyText(UiStrings.MOBILE_PREVIEW_DENIED_PERMISSION),{scope.launch {holder.enable(false)}},!state.busy)
                 preview?.let {control->
                     fun simulate(value:org.spaceworks.app.notifications.PushPreviewScenario){scope.launch {
                         control.scenario(org.spaceworks.app.notifications.PushPreviewScenario.NORMAL);holder.disable()
                         control.scenario(value);holder.enable(true)
                     }}
-                    BrandTextButton("Preview notification service unavailable",{simulate(org.spaceworks.app.notifications.PushPreviewScenario.UNAVAILABLE)},ready)
-                    BrandTextButton("Preview notification rate limit",{simulate(org.spaceworks.app.notifications.PushPreviewScenario.THROTTLED)},ready)
-                    BrandTextButton("Restore notification service",{control.scenario(org.spaceworks.app.notifications.PushPreviewScenario.NORMAL);scope.launch {holder.enable(true)}},ready)
+                    BrandTextButton(copyText(UiStrings.MOBILE_PREVIEW_NOTIFICATION_SERVICE_UNAVAILABLE),{simulate(org.spaceworks.app.notifications.PushPreviewScenario.UNAVAILABLE)},ready)
+                    BrandTextButton(copyText(UiStrings.MOBILE_PREVIEW_NOTIFICATION_RATE_LIMIT),{simulate(org.spaceworks.app.notifications.PushPreviewScenario.THROTTLED)},ready)
+                    BrandTextButton(copyText(UiStrings.MOBILE_RESTORE_NOTIFICATION_SERVICE),{control.scenario(org.spaceworks.app.notifications.PushPreviewScenario.NORMAL);scope.launch {holder.enable(true)}},ready)
                 }
-                Text("Notification tap previews",style=MaterialTheme.typography.labelLarge)
-                BrandTextButton("Preview another makerspace update",{onPreview(PushHint(2,"hardware","changed",null,null,"/makerspaces/2/inventory/201",2))},!state.busy)
-                BrandTextButton("Preview legacy update",{onPreview(PushHint(1,"hardware","changed",null,null,null,1))},!state.busy)
-                BrandTextButton("Preview unknown update version",{onPreview(PushHint(1,null,null,null,null,null,99))},!state.busy)
-                BrandTextButton("Preview unavailable makerspace",{onPreview(PushHint(999,null,null,null,null,"/makerspaces/999/inbox",2))},!state.busy)
+                Text(copyText(UiStrings.MOBILE_NOTIFICATION_TAP_PREVIEWS),style=MaterialTheme.typography.labelLarge)
+                BrandTextButton(copyText(UiStrings.MOBILE_PREVIEW_ANOTHER_MAKERSPACE_UPDATE),{onPreview(PushHint(2,"hardware","changed",null,null,"/makerspaces/2/inventory/201",2))},!state.busy)
+                BrandTextButton(copyText(UiStrings.MOBILE_PREVIEW_LEGACY_UPDATE),{onPreview(PushHint(1,"hardware","changed",null,null,null,1))},!state.busy)
+                BrandTextButton(copyText(UiStrings.MOBILE_PREVIEW_UNKNOWN_UPDATE_VERSION),{onPreview(PushHint(1,null,null,null,null,null,99))},!state.busy)
+                BrandTextButton(copyText(UiStrings.MOBILE_PREVIEW_UNAVAILABLE_MAKERSPACE),{onPreview(PushHint(999,null,null,null,null,"/makerspaces/999/inbox",2))},!state.busy)
                 }
             }
         }

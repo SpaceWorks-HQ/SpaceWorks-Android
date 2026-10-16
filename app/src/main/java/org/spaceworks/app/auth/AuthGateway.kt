@@ -1,5 +1,11 @@
 package org.spaceworks.app.auth
 
+import org.spaceworks.app.platform.MobileText
+import org.spaceworks.app.platform.MobileCopyException
+import org.spaceworks.app.platform.failure
+import org.spaceworks.app.copy.CoreStrings
+import org.spaceworks.app.copy.apiFailure
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
@@ -18,26 +24,29 @@ interface AuthGateway {
     suspend fun verify(challenge:String,code:String,enrollment:Boolean):MFACompleted
     suspend fun me():AuthUserPayload
     suspend fun logout()
-    suspend fun changePassword(current:String,replacement:String) {throw AuthMessage("Password updates are unavailable. Contact your makerspace.")}
-    suspend fun forgotPassword(email:String):String {throw AuthMessage("Password recovery is unavailable. Contact your makerspace.")}
-    suspend fun resetPassword(email:String,code:String,replacement:String):String {throw AuthMessage("Password recovery is unavailable. Contact your makerspace.")}
-    suspend fun signUp(name:String,email:String,password:String,phone:String):String {throw AuthMessage("Account registration is unavailable. Contact your makerspace.")}
-    suspend fun confirmEmail(code:String):String {throw AuthMessage("Email verification is unavailable. Contact your makerspace.")}
-    suspend fun resendEmail():String {throw AuthMessage("Email verification is unavailable. Contact your makerspace.")}
+    suspend fun changePassword(current:String,replacement:String) {throw MobileCopyException(CoreStrings.CORE_PASSWORD_UPDATES_ARE_UNAVAILABLE_CONTACT_YOUR_MAKERSPACE)}
+    suspend fun forgotPassword(email:String):String {throw MobileCopyException(CoreStrings.CORE_PASSWORD_RECOVERY_IS_UNAVAILABLE_CONTACT_YOUR_MAKERSPACE)}
+    suspend fun resetPassword(email:String,code:String,replacement:String):String {throw MobileCopyException(CoreStrings.CORE_PASSWORD_RECOVERY_IS_UNAVAILABLE_CONTACT_YOUR_MAKERSPACE)}
+    suspend fun signUp(name:String,email:String,password:String,phone:String):String {throw MobileCopyException(CoreStrings.CORE_ACCOUNT_REGISTRATION_IS_UNAVAILABLE_CONTACT_YOUR_MAKERSPACE)}
+    suspend fun confirmEmail(code:String):String {throw MobileCopyException(CoreStrings.CORE_EMAIL_VERIFICATION_IS_UNAVAILABLE_CONTACT_YOUR_MAKERSPACE)}
+    suspend fun resendEmail():String {throw MobileCopyException(CoreStrings.CORE_EMAIL_VERIFICATION_IS_UNAVAILABLE_CONTACT_YOUR_MAKERSPACE)}
     val nativeSocialReady:Boolean get()=false
-    suspend fun google(clientId:String,credential:suspend(String,String)->String):SocialLoginResponse {throw AuthMessage("Device sign-in is not configured for this build.")}
+    suspend fun google(clientId:String,credential:suspend(String,String)->String):SocialLoginResponse {throw MobileCopyException(CoreStrings.CORE_DEVICE_SIGN_IN_IS_NOT_CONFIGURED_FOR_THIS_BUILD)}
 }
 fun interface AttestationProvider { suspend fun attest(challenge:String):JsonElement }
-class DevelopmentAttestation(private val debug:Boolean,private val emulator:Boolean):AttestationProvider {
+class DevelopmentAttestation(private val debug:Boolean,private val emulator:Boolean,private val text:MobileText=MobileText.ENGLISH):AttestationProvider {
     val available get()=debug && emulator
     override suspend fun attest(challenge:String):JsonElement {
-        if(!debug || !emulator) throw AuthMessage("Device verification is unavailable for this build. Contact your makerspace.")
+        if(!debug || !emulator) throw AuthMessage(text(CoreStrings.CORE_DEVICE_VERIFICATION_IS_UNAVAILABLE_FOR_THIS_BUILD_CONTACT_YO))
         return buildJsonObject {put("type","development")}
     }
 }
 class GeneratedAuthGateway(private val session:ApiSession,private val appId:String,
     private val environment:EnvironmentEnum,private val attestation:AttestationProvider,
-    private val onNativeSignOut:suspend()->Unit={},private val onBeforeNativeSignOut:suspend()->Unit={}):AuthGateway {
+    private val onNativeSignOut:suspend()->Unit={},private val onBeforeNativeSignOut:suspend()->Unit={},private val text:MobileText=MobileText.ENGLISH):AuthGateway {
+    constructor(session:ApiSession,appId:String,environment:EnvironmentEnum,attestation:AttestationProvider,onNativeSignOut:suspend()->Unit={},onBeforeNativeSignOut:suspend()->Unit)
+        :this(session,appId,environment,attestation,onNativeSignOut,onBeforeNativeSignOut,MobileText.ENGLISH)
+
     override suspend fun config()=session.platform.apiV1ConfigRetrieve().requireBody()
     override suspend fun login(username:String,password:String):DeviceLoginResult {
         val challenge=session.devicePublic.apiV1AuthDeviceAttestationChallengeCreate(DeviceIdentity(PlatformEnum.android,appId,environment)).requireBody()

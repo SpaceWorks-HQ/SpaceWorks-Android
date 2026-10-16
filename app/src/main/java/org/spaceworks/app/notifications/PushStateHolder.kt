@@ -1,5 +1,11 @@
 package org.spaceworks.app.notifications
 
+import org.spaceworks.app.platform.MobileText
+import org.spaceworks.app.platform.MobileCopyException
+import org.spaceworks.app.platform.failure
+import org.spaceworks.app.copy.CoreStrings
+import org.spaceworks.app.copy.apiFailure
+
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
@@ -28,7 +34,10 @@ data class PushState(val consent:Boolean=false,val permission:Boolean=false,val 
 /** Serialized registration/cleanup. A caller cancellation cannot orphan a completed registration. */
 class PushStateHolder(private val api:PushGateway,private val provider:PushProvider,private val persistence:PushPersistence,
     private val now:()->Long=System::currentTimeMillis,
-    private val deliveryGate:(Boolean,Set<Int>)->Unit={_,_->}) {
+    private val deliveryGate:(Boolean,Set<Int>)->Unit={_,_->},private val text:MobileText=MobileText.ENGLISH) {
+    constructor(api:PushGateway,provider:PushProvider,persistence:PushPersistence,now:()->Long=System::currentTimeMillis,deliveryGate:(Boolean,Set<Int>)->Unit)
+        :this(api,provider,persistence,now,deliveryGate,MobileText.ENGLISH)
+
     private val mutable=MutableStateFlow(PushState());val state=mutable.asStateFlow()
     private val lock=Mutex();private val generation=AtomicLong();@Volatile private var account:PushAccount?=null
     @Volatile private var attached=false
@@ -57,7 +66,7 @@ class PushStateHolder(private val api:PushGateway,private val provider:PushProvi
             if(consent && permission && request==generation.get())synchronize(next,request,null)
             else if(!consent || !permission) {
                 val removed=cleanup(next,preserveConsent=true)
-                if(!removed)mutable.update {it.copy(error="Notifications are off on this device. Server removal could not be confirmed.")}
+                if(!removed)mutable.update {it.copy(error=text(CoreStrings.CORE_NOTIFICATIONS_ARE_OFF_ON_THIS_DEVICE_SERVER_REMOVAL_COULD_NO))}
             }
         }}
     }
@@ -84,7 +93,7 @@ class PushStateHolder(private val api:PushGateway,private val provider:PushProvi
         return lock.withLock {withContext(NonCancellable) {
             val current=account
             val success=if(current!=null)cleanup(current,preserveConsent=!forgetConsent)else {runCatching {provider.stop()}.isSuccess}
-            mutable.value=PushState(permission=permitted,error=if(success)null else "Notifications are off on this device. Server removal could not be confirmed.",retryAtMillis=current?.let {deadlines[it.key]}?:0)
+            mutable.value=PushState(permission=permitted,error=if(success)null else text(CoreStrings.CORE_NOTIFICATIONS_ARE_OFF_ON_THIS_DEVICE_SERVER_REMOVAL_COULD_NO),retryAtMillis=current?.let {deadlines[it.key]}?:0)
             success
         }}
     }
@@ -165,6 +174,6 @@ class PushStateHolder(private val api:PushGateway,private val provider:PushProvi
             val deadline=now()+(f.retryAfterSeconds?:60)*1000L;deadlines[accountKey]=deadline
             if(account?.key==accountKey)mutable.update {it.copy(retryAtMillis=deadline)}
         }
-        return if(f is ApiFailure)f.detail else "Notifications are unavailable. Try again later."
+        return if(f is MobileCopyException)text.failure(f) else if(f is ApiFailure)text.apiFailure(f) else text(CoreStrings.CORE_NOTIFICATIONS_ARE_UNAVAILABLE_TRY_AGAIN_LATER)
     }
 }

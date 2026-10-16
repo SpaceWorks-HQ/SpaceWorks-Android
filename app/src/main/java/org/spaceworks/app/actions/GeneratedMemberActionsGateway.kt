@@ -1,5 +1,11 @@
 package org.spaceworks.app.actions
 
+import org.spaceworks.app.platform.MobileText
+import org.spaceworks.app.platform.MobileCopyException
+import org.spaceworks.app.platform.failure
+import org.spaceworks.app.copy.CoreStrings
+import org.spaceworks.app.copy.apiFailure
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -24,12 +30,12 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 /** Every route, body and response is generated from the pinned owner contract. */
-class GeneratedMemberActionsGateway(private val session: ApiSession) : MemberActionsGateway {
+class GeneratedMemberActionsGateway(private val session: ApiSession,private val text:MobileText=MobileText.ENGLISH) : MemberActionsGateway {
     override suspend fun submitRequest(scope: MemberScope, purpose: String, lines: List<RequestLine>, idempotencyKey: String?): SubmittedRequest {
-        require(purpose.length <= 500 && lines.size in 1..20 && lines.map { it.productId }.distinct().size == lines.size) { "Review the request and its items." }
-        val items = lines.map { require(it.quantity in 1..99) { "Choose a quantity from 1 to 99." }; RequestItemInput(positiveID(it.productId), it.quantity) }
-        require(items.map { it.productId }.distinct().size == items.size) { "Each product can appear only once in the request." }
-        require(idempotencyKey == null || (idempotencyKey.isNotBlank() && idempotencyKey.length <= 256 && idempotencyKey.all { it in '!'..'~' })) { "The request reference is invalid." }
+        require(purpose.length <= 500 && lines.size in 1..20 && lines.map { it.productId }.distinct().size == lines.size) { text(CoreStrings.CORE_REVIEW_THE_REQUEST_AND_ITS_ITEMS) }
+        val items = lines.map { require(it.quantity in 1..99) { text(CoreStrings.CORE_CHOOSE_A_QUANTITY_FROM_1_TO_99) }; RequestItemInput(positiveID(it.productId), it.quantity) }
+        require(items.map { it.productId }.distinct().size == items.size) { text(CoreStrings.CORE_EACH_PRODUCT_CAN_APPEAR_ONLY_ONCE_IN_THE_REQUEST) }
+        require(idempotencyKey == null || (idempotencyKey.isNotBlank() && idempotencyKey.length <= 256 && idempotencyKey.all { it in '!'..'~' })) { text(CoreStrings.CORE_THE_REQUEST_REFERENCE_IS_INVALID) }
         val result = api(PublicRequestsApi::class.java, scope).apiV1PublicRequestsCreate(
             makerspaceSlug = scope.slug, requestSubmit = RequestSubmit(items = items, requestedFor = purpose), idempotencyKey = idempotencyKey).requireBody()
         return SubmittedRequest(result.publicToken.toString(), result.status)
@@ -45,7 +51,7 @@ class GeneratedMemberActionsGateway(private val session: ApiSession) : MemberAct
     override suspend fun space(scope: MemberScope, publicToken: String): ActionSpace {
         val id = uuid(publicToken)
         val result = api(PublicBookingsApi::class.java, scope).apiV1PublicSpacesList(scope.slug).requireBody().firstOrNull { it.publicToken == id }
-            ?: throw ApiFailure(404, "This space is unavailable. Refresh and try again.", "not_found", null)
+            ?: throw ApiFailure(404, text(CoreStrings.CORE_THIS_SPACE_IS_UNAVAILABLE_REFRESH_AND_TRY_AGAIN), "not_found", null)
         return ActionSpace(MemberSpace(result.publicToken.toString(), result.name, result.description, result.kind.value, result.capacity,
             result.location, result.imageUrl.takeIf(String::isNotBlank), result.approvalMode.value, result.showPublicAvailability), ActionForms.project(result.customForm))
     }
@@ -84,9 +90,9 @@ class GeneratedMemberActionsGateway(private val session: ApiSession) : MemberAct
     }
     override suspend fun register(scope: MemberScope, eventToken: String, answers: Map<String, JsonElement>, phone: String?, email: String?,
                                   inviteCode: String?, ticketId: String?, promoCode: String?): String {
-        require(phone == null || phone.length <= 64) { "Review the phone number." }
-        require(inviteCode == null || inviteCode.length <= 128) { "Review the invitation code." }
-        require(promoCode == null || promoCode.length <= 128) { "Review the promo code." }
+        require(phone == null || phone.length <= 64) { text(CoreStrings.CORE_REVIEW_THE_PHONE_NUMBER) }
+        require(inviteCode == null || inviteCode.length <= 128) { text(CoreStrings.CORE_REVIEW_THE_INVITATION_CODE) }
+        require(promoCode == null || promoCode.length <= 128) { text(CoreStrings.CORE_REVIEW_THE_PROMO_CODE) }
         val result = api(PublicEventsApi::class.java, scope).apiV1PublicEventsRegisterCreate(makerspaceSlug = scope.slug, publicToken = uuid(eventToken),
             publicEventRegistrationInput = PublicEventRegistrationInput(customAnswers = answerObject(answers), phone = phone,
                 email = email?.let { PublicEventRegistrationInputEmail.StringValue(it) }, inviteCode = inviteCode,
@@ -109,18 +115,18 @@ class GeneratedMemberActionsGateway(private val session: ApiSession) : MemberAct
                     val body = service.apiV1MemberMakerspacesEventRegistrationsQrRetrieve(id, scope.id).requireBody()
                     val bytes = body.use {
                         val type = it.contentType()
-                        require(type?.type == "image" && type.subtype == "svg+xml") { "The event check-in code is unavailable." }
-                        require(it.contentLength() <= QR_LIMIT) { "The event check-in code is too large." }
+                        require(type?.type == "image" && type.subtype == "svg+xml") { text(CoreStrings.CORE_THE_EVENT_CHECK_IN_CODE_IS_UNAVAILABLE) }
+                        require(it.contentLength() <= QR_LIMIT) { text(CoreStrings.CORE_THE_EVENT_CHECK_IN_CODE_IS_TOO_LARGE) }
                         val buffer = ByteArray(8192)
                         val output = ByteArrayOutputStream()
                         val input = it.byteStream()
                         while (true) {
                             val read = input.read(buffer, 0, minOf(buffer.size, QR_LIMIT - output.size() + 1))
                             if (read < 0) break
-                            require(read <= QR_LIMIT - output.size()) { "The event check-in code is too large." }
+                            require(read <= QR_LIMIT - output.size()) { text(CoreStrings.CORE_THE_EVENT_CHECK_IN_CODE_IS_TOO_LARGE) }
                             output.write(buffer, 0, read)
                         }
-                        output.toByteArray().also { value -> require(value.isNotEmpty()) { "The event check-in code is unavailable." } }
+                        output.toByteArray().also { value -> require(value.isNotEmpty()) { text(CoreStrings.CORE_THE_EVENT_CHECK_IN_CODE_IS_UNAVAILABLE) } }
                     }
                     continuation.resume(bytes)
                 } catch (failure: Exception) {
@@ -147,9 +153,9 @@ class GeneratedMemberActionsGateway(private val session: ApiSession) : MemberAct
     override suspend fun preferences(scope: MemberScope): List<ActionPreference> = preferences(
         api(PersonalNotificationsApi::class.java, scope).apiV1NotificationsPreferencesRetrieve(scope.id).requireBody())
     override suspend fun updatePreference(scope: MemberScope, feature: String, channel: String, enabled: Boolean, dailyDigest: Boolean?): List<ActionPreference> {
-        val family = requireNotNull(Feature9d8Enum.entries.firstOrNull { it.value == feature }) { "This notification family is unavailable." }
-        val delivery = requireNotNull(Channel673Enum.entries.firstOrNull { it.value == channel }) { "This notification channel is unavailable." }
-        require(dailyDigest == null || channel == "email") { "Daily digests apply to optional email messages." }
+        val family = requireNotNull(Feature9d8Enum.entries.firstOrNull { it.value == feature }) { text(CoreStrings.CORE_THIS_NOTIFICATION_FAMILY_IS_UNAVAILABLE) }
+        val delivery = requireNotNull(Channel673Enum.entries.firstOrNull { it.value == channel }) { text(CoreStrings.CORE_THIS_NOTIFICATION_CHANNEL_IS_UNAVAILABLE) }
+        require(dailyDigest == null || channel == "email") { text(CoreStrings.CORE_DAILY_DIGESTS_APPLY_TO_OPTIONAL_EMAIL_MESSAGES) }
         return preferences(api(PersonalNotificationsApi::class.java, scope).apiV1NotificationsPreferencesPartialUpdate(scope.id,
             PatchedPreferenceWrite(feature = family, channel = delivery, enabled = enabled, dailyDigest = dailyDigest)).requireBody())
     }
@@ -161,23 +167,23 @@ class GeneratedMemberActionsGateway(private val session: ApiSession) : MemberAct
     private fun preferences(value: PreferenceResponse) = value.cells.map { ActionPreference(it.feature.value, it.channel.value, it.enabled, it.available, it.mandatoryEvents, it.dailyDigest) }
     private fun interval(start: String, end: String): Pair<OffsetDateTime, OffsetDateTime> {
         val from = OffsetDateTime.parse(start); val until = OffsetDateTime.parse(end)
-        require(until.isAfter(from)) { "End time must be after start time." }; return from to until
+        require(until.isAfter(from)) { text(CoreStrings.CORE_END_TIME_MUST_BE_AFTER_START_TIME) }; return from to until
     }
     private fun positiveID(value: String): Int {
-        require(value.isNotEmpty() && value.all { it in '0'..'9' }) { "The identifier is invalid." }
-        return requireNotNull(value.toIntOrNull()?.takeIf { it > 0 }) { "The identifier is invalid." }
+        require(value.isNotEmpty() && value.all { it in '0'..'9' }) { text(CoreStrings.CORE_THE_IDENTIFIER_IS_INVALID) }
+        return requireNotNull(value.toIntOrNull()?.takeIf { it > 0 }) { text(CoreStrings.CORE_THE_IDENTIFIER_IS_INVALID) }
     }
     private fun uuid(value: String): UUID {
-        require(Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}").matches(value)) { "The record reference is invalid." }
+        require(Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}").matches(value)) { text(CoreStrings.CORE_THE_RECORD_REFERENCE_IS_INVALID) }
         return UUID.fromString(value)
     }
     private fun answerObject(answers: Map<String, JsonElement>): JsonObject? {
-        require(answers.size <= 100 && answers.keys.all { it.isNotBlank() && it.length <= 256 }) { "Review the additional answers." }
+        require(answers.size <= 100 && answers.keys.all { it.isNotBlank() && it.length <= 256 }) { text(CoreStrings.CORE_REVIEW_THE_ADDITIONAL_ANSWERS) }
         val result = JsonObject(answers)
-        require(result.toString().toByteArray().size <= 128 * 1024) { "The additional answers are too large." }
+        require(result.toString().toByteArray().size <= 128 * 1024) { text(CoreStrings.CORE_THE_ADDITIONAL_ANSWERS_ARE_TOO_LARGE) }
         return result.takeIf { answers.isNotEmpty() }
     }
-    private fun invalidForm() = ApiFailure(0, "This event form is unavailable. Refresh or contact your makerspace.", "invalid_event_form", null)
+    private fun invalidForm() = ApiFailure(0, text(CoreStrings.CORE_THIS_EVENT_FORM_IS_UNAVAILABLE_REFRESH_OR_CONTACT_YOUR_MAKER), "invalid_event_form", null)
     companion object { private const val QR_LIMIT = 512 * 1024 }
 }
 
@@ -205,14 +211,14 @@ object ActionForms {
         }
         return if (questions.map { it.id }.distinct().size == questions.size) ActionForm(questions) else ActionForm(emptyList(), false)
     }
-    fun errors(form: ActionForm, answers: Map<String, JsonElement>): Map<String, String> {
-        if (!form.supported) return mapOf("_form" to "This form is unavailable. Refresh or contact your makerspace.")
+    fun errors(form: ActionForm, answers: Map<String, JsonElement>, text:MobileText=MobileText.ENGLISH): Map<String, String> {
+        if (!form.supported) return mapOf("_form" to text(CoreStrings.CORE_THIS_FORM_IS_UNAVAILABLE_REFRESH_OR_CONTACT_YOUR_MAKERSPACE))
         val errors = linkedMapOf<String, String>()
         for (question in form.questions) {
             val value = answers[question.id]
             val primitive = value as? JsonPrimitive
             val empty = value == null || value == JsonNull || (primitive?.isString == true && primitive.content.isEmpty()) || (value is JsonArray && value.isEmpty())
-            if (empty) { if (question.required) errors[question.id] = "This question is required."; continue }
+            if (empty) { if (question.required) errors[question.id] = text(CoreStrings.CORE_THIS_QUESTION_IS_REQUIRED); continue }
             val string = primitive?.takeIf { it.isString }?.content
             val valid = when (question.type) {
                 "short_text" -> string != null && string.length <= 500
@@ -224,9 +230,9 @@ object ActionForms {
                 "multi_choice" -> value is JsonArray && value.all { entry -> entry is JsonPrimitive && entry.isString && entry.content in question.options } && value.distinct().size == value.size
                 else -> false
             }
-            if (!valid) errors[question.id] = if (question.type == "number") "Enter a valid number." else "Review this answer."
+            if (!valid) errors[question.id] = if (question.type == "number") text(CoreStrings.CORE_ENTER_A_VALID_NUMBER) else text(CoreStrings.CORE_REVIEW_THIS_ANSWER)
         }
-        if (answers.keys.any { key -> form.questions.none { it.id == key } }) errors["_form"] = "The form changed. Review the additional questions."
+        if (answers.keys.any { key -> form.questions.none { it.id == key } }) errors["_form"] = text(CoreStrings.CORE_THE_FORM_CHANGED_REVIEW_THE_ADDITIONAL_QUESTIONS)
         return errors
     }
 }

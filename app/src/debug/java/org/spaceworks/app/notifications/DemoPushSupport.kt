@@ -1,5 +1,7 @@
 package org.spaceworks.app.notifications
 
+import org.spaceworks.app.platform.MobileText
+
 import org.spaceworks.app.auth.AuthStateHolder
 import org.spaceworks.app.network.ApiFailure
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -7,7 +9,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 /** DEBUG fixtures own no Context, Firebase SDK, device token or disk state. */
 data class DemoPushBundle(val holder:PushStateHolder,val control:PushPreviewControl)
 object DemoPushSupport {
-    fun create():DemoPushBundle {
+    fun create(text:MobileText=MobileText.ENGLISH):DemoPushBundle {
+        val copyText=text
         val api=object:PushGateway,PushPreviewControl {
             var scenario=PushPreviewScenario.NORMAL
             override fun scenario(value:PushPreviewScenario){scenario=value}
@@ -30,7 +33,7 @@ object DemoPushSupport {
             override suspend fun records(account:String,value:List<PushRecord>){records[account]=value}
             override suspend fun clear(account:String){consent.remove(account);records.remove(account)}
         }
-        return DemoPushBundle(PushStateHolder(api,provider,persistence),api)
+        return DemoPushBundle(PushStateHolder(api,provider,persistence,text=copyText),api)
     }
-    fun links(holder:AuthStateHolder)=LinkStateHolder("https://demo.invalid/".toHttpUrl(),holder::authorizeMakerspace,holder::select,holder::authorizeSlug)
+    fun links(holder:AuthStateHolder,text:MobileText=MobileText.ENGLISH)=LinkStateHolder("https://demo.invalid/".toHttpUrl(),holder::authorizeMakerspace,holder::select,holder::authorizeSlug,text=text)
 }

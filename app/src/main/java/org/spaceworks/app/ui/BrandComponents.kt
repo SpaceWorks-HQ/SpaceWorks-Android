@@ -1,5 +1,7 @@
 package org.spaceworks.app.ui
 
+import org.spaceworks.app.platform.*
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -39,6 +41,8 @@ val BrandAccentFont=FontFamily(Font(R.font.unbounded,FontWeight.Medium))
 @Composable fun BrandField(value:String,onValueChange:(String)->Unit,label:String,modifier:Modifier=Modifier,
     enabled:Boolean=true,readOnly:Boolean=false,secret:Boolean=false,
     role:FieldRole=if(secret)FieldRole.PASSWORD else FieldRole.TEXT,onDone:(()->Unit)?=null,errorMessage:String?=null) {
+    val copyText=rememberMobileText()
+
     var visible by remember {mutableStateOf(false)}
     val fieldFocus=remember {FocusRequester()}
     val passwordIsVisible=visible
@@ -49,7 +53,7 @@ val BrandAccentFont=FontFamily(Font(R.font.unbounded,FontWeight.Medium))
         visualTransformation=if(secret && !visible) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=keyboard,autoCorrectEnabled=false,capitalization=if(role==FieldRole.NAME)KeyboardCapitalization.Words else KeyboardCapitalization.None,imeAction=if(onDone==null)ImeAction.Next else ImeAction.Done),
         keyboardActions=KeyboardActions(onNext={focus.moveFocus(FocusDirection.Next)},onDone={onDone?.invoke()}),
-        trailingIcon=if(secret) {{BrandTextButton(if(visible)"Hide" else "Show",{visible=!visible;fieldFocus.requestFocus()},modifier=Modifier.semantics {contentDescription=if(passwordIsVisible)"Hide password" else "Show password";stateDescription=if(passwordIsVisible)"Password visible" else "Password hidden"})}} else null,
+        trailingIcon=if(secret) {{BrandTextButton(if(visible)copyText(UiStrings.MOBILE_HIDE) else copyText(UiStrings.MOBILE_SHOW),{visible=!visible;fieldFocus.requestFocus()},modifier=Modifier.semantics {contentDescription=if(passwordIsVisible)copyText(UiStrings.MOBILE_HIDE_PASSWORD) else copyText(UiStrings.MOBILE_SHOW_PASSWORD);stateDescription=if(passwordIsVisible)copyText(UiStrings.MOBILE_PASSWORD_VISIBLE) else copyText(UiStrings.MOBILE_PASSWORD_HIDDEN)})}} else null,
         shape=RoundedCornerShape(10.dp),modifier=modifier.fillMaxWidth().focusRequester(fieldFocus).semantics {
             when(role){FieldRole.PHONE->contentType=ContentType.PhoneNumber;FieldRole.NAME->contentType=ContentType.PersonFullName;FieldRole.ONE_TIME_CODE->contentType=ContentType.SmsOtpCode;FieldRole.IDENTITY->contentType=ContentType.Username+ContentType.EmailAddress;FieldRole.EMAIL->contentType=ContentType.EmailAddress;FieldRole.PASSWORD->contentType=ContentType.Password;FieldRole.NEW_PASSWORD->contentType=ContentType.NewPassword;else->Unit}
         },
@@ -57,6 +61,8 @@ val BrandAccentFont=FontFamily(Font(R.font.unbounded,FontWeight.Medium))
             focusedLabelColor=MaterialTheme.colorScheme.onPrimaryContainer,cursorColor=MaterialTheme.colorScheme.onPrimaryContainer))
 }
 @Composable fun AuthLayout(title:String,subtitle:String,content:@Composable ColumnScope.()->Unit) {
+    val copyText=rememberMobileText()
+
     BoxWithConstraints(Modifier.fillMaxSize(),contentAlignment=Alignment.TopCenter) {
         val narrow=maxWidth<360.dp
         val compact=LocalDensity.current.fontScale>=1.6f || maxHeight<600.dp || WindowInsets.ime.getBottom(LocalDensity.current)>0
@@ -67,9 +73,9 @@ val BrandAccentFont=FontFamily(Font(R.font.unbounded,FontWeight.Medium))
                 Column(Modifier.fillMaxSize().padding(40.dp),verticalArrangement=Arrangement.Center) {
                     BrandLogo(width=280.dp)
                     Spacer(Modifier.height(32.dp))
-                    Text("Less searching.\nMore making.",style=MaterialTheme.typography.displaySmall,fontFamily=BrandAccentFont,color=MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text(copyText(UiStrings.MOBILE_LESS_SEARCHING_MORE_MAKING),style=MaterialTheme.typography.displaySmall,fontFamily=BrandAccentFont,color=MaterialTheme.colorScheme.onPrimaryContainer)
                     Spacer(Modifier.height(24.dp))
-                    Text("Tools, time and a place to make things happen.",style=MaterialTheme.typography.titleLarge)
+                    Text(copyText(UiStrings.MOBILE_TOOLS_TIME_AND_A_PLACE_TO_MAKE_THINGS_HAPPEN),style=MaterialTheme.typography.titleLarge)
                 }
             }
             Box(Modifier.weight(1f).fillMaxHeight(),contentAlignment=Alignment.TopCenter) {

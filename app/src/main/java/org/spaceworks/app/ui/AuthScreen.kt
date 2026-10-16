@@ -1,5 +1,7 @@
 package org.spaceworks.app.ui
 
+import org.spaceworks.app.platform.*
+
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.activity.compose.BackHandler
@@ -20,6 +22,8 @@ import org.spaceworks.app.auth.*
 import org.spaceworks.app.platform.GoogleIdentity
 
 @Composable fun AuthScreen(bundle:AuthBundle,onChangeServer:(()->Unit)?=null) {
+    val copyText=rememberMobileText()
+
     val holder=bundle.holder
     val state by holder.state.collectAsStateWithLifecycle()
     val account=bundle.accounts?.state?.collectAsStateWithLifecycle()?.value
@@ -54,109 +58,109 @@ import org.spaceworks.app.platform.GoogleIdentity
         if(!state.busy && state.recoveryCodes.isEmpty())scope.launch {holder.cancelMfa()}
     }
     val submit:()->Unit={
-        usernameError=if(username.isBlank())"Enter your email or username." else null
-        passwordError=if(password.isEmpty())"Enter your password." else null
+        usernameError=if(username.isBlank())copyText(UiStrings.MOBILE_ENTER_YOUR_EMAIL_OR_USERNAME) else null
+        passwordError=if(password.isEmpty())copyText(UiStrings.MOBILE_ENTER_YOUR_PASSWORD) else null
         when {usernameError!=null->usernameFocus.requestFocus();passwordError!=null->passwordFocus.requestFocus();else->{
             focus.clearFocus();keyboard?.hide();scope.launch {holder.signIn(username,password);if(holder.state.value.mfa!=null || holder.state.value.user!=null)password=""}
         }}
     }
     LaunchedEffect(holder) {if(!state.initialized)holder.initialize()}
     when {
-        state.gate!=null -> AuthLayout(if(state.gate==AuthGate.WEB_CONSOLE)"Use the web console" else "Sign in again",
-            if(state.gate==AuthGate.WEB_CONSOLE)"Superadmin accounts use the web console. Sign in here with a member account."
-            else "Your session ended. Sign in again to continue.") {
-            BrandButton("Back to sign in",holder::dismissGate,!state.busy)
-            onChangeServer?.let {BrandTextButton("Change server",it,!state.busy)}
+        state.gate!=null -> AuthLayout(if(state.gate==AuthGate.WEB_CONSOLE)copyText(UiStrings.MOBILE_USE_THE_WEB_CONSOLE) else copyText(UiStrings.MOBILE_SIGN_IN_AGAIN),
+            if(state.gate==AuthGate.WEB_CONSOLE)copyText(UiStrings.MOBILE_SUPERADMIN_ACCOUNTS_USE_THE_WEB_CONSOLE_SIGN_IN_HERE_WITH_A_MEMB)
+            else copyText(UiStrings.MOBILE_YOUR_SESSION_ENDED_SIGN_IN_AGAIN_TO_CONTINUE)) {
+            BrandButton(copyText(UiStrings.MOBILE_BACK_TO_SIGN_IN),holder::dismissGate,!state.busy)
+            onChangeServer?.let {BrandTextButton(copyText(UiStrings.MOBILE_CHANGE_SERVER),it,!state.busy)}
         }
-        state.expiredMfa -> AuthLayout("Sign in again","Your verification session expired. Sign in to request a new one.") {
-            BrandButton("Back to sign in",{scope.launch {holder.cancelMfa()}})
+        state.expiredMfa -> AuthLayout(copyText(UiStrings.MOBILE_SIGN_IN_AGAIN),copyText(UiStrings.MOBILE_YOUR_VERIFICATION_SESSION_EXPIRED_SIGN_IN_TO_REQUEST_A_NEW_ONE)) {
+            BrandButton(copyText(UiStrings.MOBILE_BACK_TO_SIGN_IN),{scope.launch {holder.cancelMfa()}})
         }
-        state.recoveryCodes.isNotEmpty() -> AuthLayout("Save your recovery codes","Keep these somewhere safe. You can use each code once if you lose access to your authenticator.") {
+        state.recoveryCodes.isNotEmpty() -> AuthLayout(copyText(UiStrings.MOBILE_SAVE_YOUR_RECOVERY_CODES),copyText(UiStrings.MOBILE_KEEP_THESE_SOMEWHERE_SAFE_YOU_CAN_USE_EACH_CODE_ONCE_IF_YOU_LOSE)) {
             SelectionContainer {Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {state.recoveryCodes.forEach {Text(it)}}}
             Row(Modifier.fillMaxWidth(),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
-                Checkbox(acknowledged,{acknowledged=it},Modifier.semantics {contentDescription="I've saved my recovery codes"})
-                Text("I've saved my recovery codes")
+                Checkbox(acknowledged,{acknowledged=it},Modifier.semantics {contentDescription=copyText(UiStrings.MOBILE_I_VE_SAVED_MY_RECOVERY_CODES)})
+                Text(copyText(UiStrings.MOBILE_I_VE_SAVED_MY_RECOVERY_CODES))
             }
             BrandError(state.error)
-            BrandButton("Continue",{scope.launch {holder.finishMfa()}},!state.busy && acknowledged)
+            BrandButton(copyText(UiStrings.MOBILE_CONTINUE),{scope.launch {holder.finishMfa()}},!state.busy && acknowledged)
         }
         state.mfa!=null -> {
             val mfa=requireNotNull(state.mfa)
             val enrollment=mfa.enrollmentRequired
-            AuthLayout(if(enrollment)"Add extra security" else if(recoveryEntry)"Use a recovery code" else "Check your authenticator",
-                if(enrollment)"Add this account to your authenticator app, then enter its six-digit code."
-                else if(recoveryEntry)"Enter one of the recovery codes you saved when you set up extra security."
-                else "Enter the six-digit code from your authenticator app.") {
-                if(enrollment && state.enrollment==null) BrandButton("Show setup code",{scope.launch {holder.enroll()}},!state.busy)
+            AuthLayout(if(enrollment)copyText(UiStrings.MOBILE_ADD_EXTRA_SECURITY) else if(recoveryEntry)copyText(UiStrings.MOBILE_USE_A_RECOVERY_CODE) else copyText(UiStrings.MOBILE_CHECK_YOUR_AUTHENTICATOR),
+                if(enrollment)copyText(UiStrings.MOBILE_ADD_THIS_ACCOUNT_TO_YOUR_AUTHENTICATOR_APP_THEN_ENTER_ITS_SIX_DI)
+                else if(recoveryEntry)copyText(UiStrings.MOBILE_ENTER_ONE_OF_THE_RECOVERY_CODES_YOU_SAVED_WHEN_YOU_SET_UP_EXTRA)
+                else copyText(UiStrings.MOBILE_ENTER_THE_SIX_DIGIT_CODE_FROM_YOUR_AUTHENTICATOR_APP)) {
+                if(enrollment && state.enrollment==null) BrandButton(copyText(UiStrings.MOBILE_SHOW_SETUP_CODE),{scope.launch {holder.enroll()}},!state.busy)
                 state.enrollment?.let {setup ->
                     val bitmap=remember(setup.qrDataUrl) {try {val bytes=Base64.decode(setup.qrDataUrl.substringAfter(','),Base64.DEFAULT);BitmapFactory.decodeByteArray(bytes,0,bytes.size)} catch(_:Exception){null}}
-                    bitmap?.let {Image(it.asImageBitmap(),"Scan to add Space Works to your authenticator",Modifier.sizeIn(maxWidth=224.dp,maxHeight=224.dp))}
-                    BrandTextButton("Can't scan the code?",{manualKey=!manualKey},!state.busy)
+                    bitmap?.let {Image(it.asImageBitmap(),copyText(UiStrings.MOBILE_SCAN_TO_ADD_SPACE_WORKS_TO_YOUR_AUTHENTICATOR),Modifier.sizeIn(maxWidth=224.dp,maxHeight=224.dp))}
+                    BrandTextButton(copyText(UiStrings.MOBILE_CAN_T_SCAN_THE_CODE),{manualKey=!manualKey},!state.busy)
                     if(manualKey) {
-                        SelectionContainer {Text("Setup key: ${setup.secret}")}
-                        BrandTextButton("Copy setup key",{
+                        SelectionContainer {Text(copyText(UiStrings.MOBILE_SETUP_KEY_VALUE,setup.secret))}
+                        BrandTextButton(copyText(UiStrings.MOBILE_COPY_SETUP_KEY),{
                             val clipboard=context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                            val clip=android.content.ClipData.newPlainText("Authenticator setup key",setup.secret)
+                            val clip=android.content.ClipData.newPlainText(copyText(UiStrings.MOBILE_AUTHENTICATOR_SETUP_KEY),setup.secret)
                             clip.description.extras=android.os.PersistableBundle().apply {putBoolean("android.content.extra.IS_SENSITIVE",true)}
                             clipboard.setPrimaryClip(clip)
                         },!state.busy)
                     }
                 }
                 if(!enrollment || state.enrollment!=null) {
-                    BrandField(code,{code=if(recoveryEntry)it.take(64) else it.filter {c->c in '0'..'9'}.take(6)},if(recoveryEntry)"Recovery code" else "Authentication code",Modifier.testTag("mfaCode"),!state.busy,role=if(recoveryEntry)FieldRole.TEXT else FieldRole.CODE)
-                    BrandButton(if(state.busy)"Verifying…" else if(enrollment)"Verify and continue" else "Verify",{
+                    BrandField(code,{code=if(recoveryEntry)it.take(64) else it.filter {c->c in '0'..'9'}.take(6)},if(recoveryEntry)copyText(UiStrings.MOBILE_RECOVERY_CODE) else copyText(UiStrings.MOBILE_AUTHENTICATION_CODE),Modifier.testTag("mfaCode"),!state.busy,role=if(recoveryEntry)FieldRole.TEXT else FieldRole.CODE)
+                    BrandButton(if(state.busy)copyText(UiStrings.MOBILE_VERIFYING) else if(enrollment)copyText(UiStrings.MOBILE_VERIFY_AND_CONTINUE) else copyText(UiStrings.MOBILE_VERIFY),{
                         focus.clearFocus();keyboard?.hide();scope.launch {holder.verify(code);code=""}
                     },!state.busy && if(recoveryEntry)code.trim().length in 6..64 else code.length==6)
                 }
-                if(!enrollment)BrandTextButton(if(recoveryEntry)"Use authenticator instead" else "Use a recovery code",{recoveryEntry=!recoveryEntry;code=""},!state.busy)
-                if(bundle.demo)Text("Demo code: 123456",style=MaterialTheme.typography.bodySmall)
+                if(!enrollment)BrandTextButton(if(recoveryEntry)copyText(UiStrings.MOBILE_USE_AUTHENTICATOR_INSTEAD) else copyText(UiStrings.MOBILE_USE_A_RECOVERY_CODE),{recoveryEntry=!recoveryEntry;code=""},!state.busy)
+                if(bundle.demo)Text(copyText(UiStrings.MOBILE_DEMO_CODE_123456),style=MaterialTheme.typography.bodySmall)
                 BrandError(state.error)
-                BrandTextButton("Back to sign in",{scope.launch {holder.cancelMfa()}},!state.busy)
+                BrandTextButton(copyText(UiStrings.MOBILE_BACK_TO_SIGN_IN),{scope.launch {holder.cancelMfa()}},!state.busy)
             }
         }
-        else -> AuthLayout("Welcome back.","Sign in to your makerspace account.") {
+        else -> AuthLayout(copyText(UiStrings.MOBILE_WELCOME_BACK),copyText(UiStrings.MOBILE_SIGN_IN_TO_YOUR_MAKERSPACE_ACCOUNT)) {
             if(!state.initialized) {
-                if(state.busy) {LinearProgressIndicator(Modifier.fillMaxWidth());Text("Checking sign-in methods…",Modifier.semantics {liveRegion=LiveRegionMode.Polite})}
+                if(state.busy) {LinearProgressIndicator(Modifier.fillMaxWidth());Text(copyText(UiStrings.MOBILE_CHECKING_SIGN_IN_METHODS),Modifier.semantics {liveRegion=LiveRegionMode.Polite})}
                 BrandError(state.error)
-                if(!state.busy)BrandButton("Try again",{scope.launch {holder.initialize()}})
+                if(!state.busy)BrandButton(copyText(UiStrings.MOBILE_TRY_AGAIN),{scope.launch {holder.initialize()}})
             } else {
                 state.googleClientId?.let {
                     if(holder.nativeSocialReady && !bundle.demo)GoogleSignInButton(!state.busy && retrySeconds==0L) {
-                        scope.launch {holder.googleSignIn {client,nonce->GoogleIdentity.credential(context.activity() ?: throw AuthMessage("This sign-in option isn't available on this device."),client,nonce)}}
+                        scope.launch {holder.googleSignIn {client,nonce->GoogleIdentity.credential(context.activity() ?: throw AuthMessage(copyText(UiStrings.MOBILE_THIS_SIGN_IN_OPTION_ISN_T_AVAILABLE_ON_THIS_DEVICE)),client,nonce)}}
                     }
-                    else if(!bundle.demo)Text("Google device sign-in is not configured for this build. Contact your makerspace.",style=MaterialTheme.typography.bodySmall)
-                    if(state.passwordEnabled && holder.nativeSocialReady)Text("or sign in with a password",style=MaterialTheme.typography.labelLarge)
+                    else if(!bundle.demo)Text(copyText(UiStrings.MOBILE_GOOGLE_DEVICE_SIGN_IN_IS_NOT_CONFIGURED_FOR_THIS_BUILD_CONTACT_Y),style=MaterialTheme.typography.bodySmall)
+                    if(state.passwordEnabled && holder.nativeSocialReady)Text(copyText(UiStrings.MOBILE_OR_SIGN_IN_WITH_A_PASSWORD),style=MaterialTheme.typography.labelLarge)
                 }
                 if(state.passwordEnabled) {
-                    BrandField(username,{username=it.take(254);usernameError=null},"Email or username",Modifier.testTag("username").focusRequester(usernameFocus),!state.busy,role=FieldRole.IDENTITY,errorMessage=usernameError)
-                    BrandField(password,{password=it.take(1024);passwordError=null},"Password",Modifier.testTag("password").focusRequester(passwordFocus),!state.busy,secret=true,onDone={if(!state.busy && retrySeconds==0L)submit()},errorMessage=passwordError)
-                    bundle.accounts?.let {accounts->BrandTextButton("Forgot password?",{accounts.open(AccountRoute.FORGOT_PASSWORD,username.takeIf {it.contains('@')}.orEmpty())},!state.busy)}
+                    BrandField(username,{username=it.take(254);usernameError=null},copyText(UiStrings.MOBILE_EMAIL_OR_USERNAME),Modifier.testTag("username").focusRequester(usernameFocus),!state.busy,role=FieldRole.IDENTITY,errorMessage=usernameError)
+                    BrandField(password,{password=it.take(1024);passwordError=null},copyText(UiStrings.MOBILE_PASSWORD),Modifier.testTag("password").focusRequester(passwordFocus),!state.busy,secret=true,onDone={if(!state.busy && retrySeconds==0L)submit()},errorMessage=passwordError)
+                    bundle.accounts?.let {accounts->BrandTextButton(copyText(UiStrings.MOBILE_FORGOT_PASSWORD),{accounts.open(AccountRoute.FORGOT_PASSWORD,username.takeIf {it.contains('@')}.orEmpty())},!state.busy)}
                     BrandError(state.error)
                     state.notice?.let {Text(it)}
                     account?.notice?.let {Text(it)}
-                    if(retrySeconds>0)Text("Try again in ${retrySeconds}s.",style=MaterialTheme.typography.bodySmall)
-                    BrandButton(if(state.busy)"Signing in…" else "Sign in",submit,!state.busy && retrySeconds==0L,Modifier.testTag("submitSignIn"))
+                    if(retrySeconds>0)Text(copyText(UiStrings.MOBILE_TRY_AGAIN_IN_VALUES,retrySeconds),style=MaterialTheme.typography.bodySmall)
+                    BrandButton(if(state.busy)copyText(UiStrings.MOBILE_SIGNING_IN) else copyText(UiStrings.MOBILE_SIGN_IN),submit,!state.busy && retrySeconds==0L,Modifier.testTag("submitSignIn"))
                     if(state.selfRegistrationEnabled)bundle.accounts?.let {accounts ->
-                        Text("New here?",style=MaterialTheme.typography.bodySmall)
-                        BrandTextButton("Create account",{accounts.open(AccountRoute.SIGN_UP)},!state.busy)
+                        Text(copyText(UiStrings.MOBILE_NEW_HERE),style=MaterialTheme.typography.bodySmall)
+                        BrandTextButton(copyText(UiStrings.MOBILE_CREATE_ACCOUNT),{accounts.open(AccountRoute.SIGN_UP)},!state.busy)
                     }
                 } else if(state.googleClientId==null || !holder.nativeSocialReady) {
-                    Text("Sign-in isn't available here",style=MaterialTheme.typography.titleMedium)
-                    Text("Ask your makerspace for help, or check the server address.")
-                    BrandButton("Try again",{scope.launch {holder.initialize()}},!state.busy)
+                    Text(copyText(UiStrings.MOBILE_SIGN_IN_ISN_T_AVAILABLE_HERE),style=MaterialTheme.typography.titleMedium)
+                    Text(copyText(UiStrings.MOBILE_ASK_YOUR_MAKERSPACE_FOR_HELP_OR_CHECK_THE_SERVER_ADDRESS))
+                    BrandButton(copyText(UiStrings.MOBILE_TRY_AGAIN),{scope.launch {holder.initialize()}},!state.busy)
                 }
             }
             if(bundle.demo) {
-                bundle.previewAuth?.let {BrandTextButton("Preview sign-in options",it::open,!state.busy)}
-                BrandTextButton("Demo scenarios",{scenarios=!scenarios},!state.busy)
+                bundle.previewAuth?.let {BrandTextButton(copyText(UiStrings.MOBILE_PREVIEW_SIGN_IN_OPTIONS),it::open,!state.busy)}
+                BrandTextButton(copyText(UiStrings.MOBILE_DEMO_SCENARIOS),{scenarios=!scenarios},!state.busy)
                 if(scenarios) {
-                    listOf("Member" to "meera.demo","Staff" to "staff.demo","Single makerspace" to "single.demo","Two-step" to "mfa.demo","Enrollment" to "enroll.demo","Expired verification" to "expired.demo","Unverified email" to "unverified.demo","No membership" to "empty.demo","Password renewal" to "temporary.demo","Offline" to "offline.demo","Cooldown" to "throttle.demo","Superadmin refusal" to "superadmin.demo").forEach {(label,identity)->
+                    listOf(copyText(UiStrings.MOBILE_MEMBER) to "meera.demo",copyText(UiStrings.MOBILE_STAFF) to "staff.demo",copyText(UiStrings.MOBILE_SINGLE_MAKERSPACE) to "single.demo",copyText(UiStrings.MOBILE_TWO_STEP) to "mfa.demo",copyText(UiStrings.MOBILE_ENROLLMENT) to "enroll.demo",copyText(UiStrings.MOBILE_EXPIRED_VERIFICATION) to "expired.demo",copyText(UiStrings.MOBILE_UNVERIFIED_EMAIL) to "unverified.demo",copyText(UiStrings.MOBILE_NO_MEMBERSHIP) to "empty.demo",copyText(UiStrings.MOBILE_PASSWORD_RENEWAL) to "temporary.demo",copyText(UiStrings.MOBILE_OFFLINE) to "offline.demo",copyText(UiStrings.MOBILE_COOLDOWN) to "throttle.demo",copyText(UiStrings.MOBILE_SUPERADMIN_REFUSAL) to "superadmin.demo").forEach {(label,identity)->
                         BrandTextButton(label,{username=identity;password="demo-password";scenarios=false},!state.busy)
                     }
                 }
-                Text("Sample data only. No account or server connection is needed.",style=MaterialTheme.typography.bodySmall)
+                Text(copyText(UiStrings.MOBILE_SAMPLE_DATA_ONLY_NO_ACCOUNT_OR_SERVER_CONNECTION_IS_NEEDED),style=MaterialTheme.typography.bodySmall)
             }
-            onChangeServer?.let {BrandTextButton("Change server",it,!state.busy)}
+            onChangeServer?.let {BrandTextButton(copyText(UiStrings.MOBILE_CHANGE_SERVER),it,!state.busy)}
         }
     }
 }

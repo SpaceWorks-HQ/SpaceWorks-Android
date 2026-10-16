@@ -1,5 +1,11 @@
 package org.spaceworks.app.auth
 
+import org.spaceworks.app.platform.MobileText
+import org.spaceworks.app.platform.MobileCopyException
+import org.spaceworks.app.platform.failure
+import org.spaceworks.app.copy.CoreStrings
+import org.spaceworks.app.copy.apiFailure
+
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,7 +41,10 @@ data class AuthState(val busy:Boolean=false,val initialized:Boolean=false,val co
 }
 class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
     private val readSelection:()->Int?={null},private val saveSelection:(Int?)->Unit={},
-    private val now:()->Long=System::currentTimeMillis,private val onSessionEnded:()->Unit={}) {
+    private val now:()->Long=System::currentTimeMillis,private val onSessionEnded:()->Unit={},private val text:MobileText=MobileText.ENGLISH) {
+    constructor(api:AuthGateway,tokens:TokenStore,readSelection:()->Int?={null},saveSelection:(Int?)->Unit={},now:()->Long=System::currentTimeMillis,onSessionEnded:()->Unit)
+        :this(api,tokens,readSelection,saveSelection,now,onSessionEnded,MobileText.ENGLISH)
+
     private val mutable=MutableStateFlow(AuthState())
     val state=mutable.asStateFlow()
     private val operation=Mutex()
@@ -51,14 +60,14 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
     }
     suspend fun signIn(username:String,password:String)=runOperation {
         mutable.value=state.value.copy(gate=null)
-        ensure(username.trim().isNotBlank() && password.isNotEmpty(),"Enter your email or username and password.")
-        ensure(state.value.config!=null && state.value.passwordEnabled,"Password sign-in is unavailable on this server.")
+        ensure(username.trim().isNotBlank() && password.isNotEmpty(),text(CoreStrings.CORE_ENTER_YOUR_EMAIL_OR_USERNAME_AND_PASSWORD))
+        ensure(state.value.config!=null && state.value.passwordEnabled,text(CoreStrings.CORE_PASSWORD_SIGN_IN_IS_UNAVAILABLE_ON_THIS_SERVER))
         when(val result=api.login(username.trim(),password)) {
             is DeviceLoginResult.DeviceTokenResponseValue -> {
                 acceptPair(TokenPair(result.value.access,result.value.refresh))
             }
             is DeviceLoginResult.MFAChallengeResponseValue -> {
-                ensure(result.value.mfaRequired,"Restart sign-in and try again.")
+                ensure(result.value.mfaRequired,text(CoreStrings.CORE_RESTART_SIGN_IN_AND_TRY_AGAIN))
                 challengeExpiresAt=now()+result.value.expiresIn.coerceAtLeast(0)*1000L
                 mutable.value=state.value.copy(mfa=result.value,enrollment=null,error=null,mfaExpiresAtMillis=challengeExpiresAt,expiredMfa=false)
             }
@@ -66,10 +75,10 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
     }
     suspend fun googleSignIn(credential:suspend(String,String)->String)=runOperation {
         mutable.value=state.value.copy(gate=null)
-        val client=state.value.googleClientId ?: throw AuthMessage("Google sign-in is not configured for this server.")
-        ensure(api.nativeSocialReady,"Device sign-in is not configured for this build. Contact your makerspace.")
+        val client=state.value.googleClientId ?: throw AuthMessage(text(CoreStrings.CORE_GOOGLE_SIGN_IN_IS_NOT_CONFIGURED_FOR_THIS_SERVER))
+        ensure(api.nativeSocialReady,text(CoreStrings.CORE_DEVICE_SIGN_IN_IS_NOT_CONFIGURED_FOR_THIS_BUILD_CONTACT_YOUR))
         val result=api.google(client,credential)
-        ensure(!result.refresh.isNullOrBlank() && validGrant(result.deviceGrant),"This server did not return a device session. Contact your makerspace.")
+        ensure(!result.refresh.isNullOrBlank() && validGrant(result.deviceGrant),text(CoreStrings.CORE_THIS_SERVER_DID_NOT_RETURN_A_DEVICE_SESSION_CONTACT_YOUR_MAK))
         acceptPair(TokenPair(result.access,requireNotNull(result.refresh)))
     }
     suspend fun enroll()=runOperation {
@@ -78,10 +87,10 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
     }
     suspend fun verify(code:String)=runOperation {
         val challenge=requireChallenge()
-        ensure(code.trim().length in 6..64,"Enter your authenticator or recovery code.")
+        ensure(code.trim().length in 6..64,text(CoreStrings.CORE_ENTER_YOUR_AUTHENTICATOR_OR_RECOVERY_CODE))
         val result=api.verify(challenge.challenge,code.trim(),challenge.enrollmentRequired)
         ensure(result.surface!="verification_only" && !result.refresh.isNullOrBlank() && validGrant(result.deviceGrant),
-            "This server did not return a device session. Contact your makerspace.")
+            text(CoreStrings.CORE_THIS_SERVER_DID_NOT_RETURN_A_DEVICE_SESSION_CONTACT_YOUR_MAK))
         persist(TokenPair(result.access,requireNotNull(result.refresh)))
         if (result.recoveryCodes.orEmpty().isNotEmpty()) mutable.value=state.value.copy(recoveryCodes=result.recoveryCodes.orEmpty())
         else finishMfaInternal()
@@ -129,7 +138,7 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
     }
     fun select(id:Int) {
         if(state.value.memberships.none {it.id==id}) {
-            mutable.value=state.value.copy(error="Your makerspace access changed. Choose again.");return
+            mutable.value=state.value.copy(error=text(CoreStrings.CORE_YOUR_MAKERSPACE_ACCESS_CHANGED_CHOOSE_AGAIN));return
         }
         saveSelection(id);mutable.value=state.value.copy(selectedId=id)
     }
@@ -141,31 +150,31 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         finally {
             if(tokens.snapshot().epoch==expected)saveSelection(null)
             mutable.value=AuthState(initialized=true,config=state.value.config,
-                notice=if(failed) "Signed out on this device. Server revocation could not be confirmed." else "Signed out.")
+                notice=if(failed) text(CoreStrings.CORE_SIGNED_OUT_ON_THIS_DEVICE_SERVER_REVOCATION_COULD_NOT_BE_CON) else text(CoreStrings.CORE_SIGNED_OUT))
             clearInstalled(expected)
         }
     }
     suspend fun changePassword(current:String,replacement:String,confirmation:String)=runOperation {
         val expected=installedEpoch
-        ensure(current.isNotEmpty() && replacement.isNotEmpty(),"Enter your current and new passwords.")
-        ensure(replacement.length>=8,"Use at least 8 characters.")
-        ensure(replacement==confirmation,"Passwords don't match.")
+        ensure(current.isNotEmpty() && replacement.isNotEmpty(),text(CoreStrings.CORE_ENTER_YOUR_CURRENT_AND_NEW_PASSWORDS))
+        ensure(replacement.length>=8,text(CoreStrings.CORE_USE_AT_LEAST_8_CHARACTERS))
+        ensure(replacement==confirmation,text(CoreStrings.CORE_PASSWORDS_DON_T_MATCH))
         api.changePassword(current,replacement)
         try {api.logout()} catch(cancelled:CancellationException){throw cancelled} catch(_:Exception) {/* Server changed the credential; local session is always discarded. */}
         finally {
             if(expected==null || tokens.snapshot().epoch==expected)saveSelection(null)
-            mutable.value=AuthState(initialized=true,config=state.value.config,notice="Password updated. Sign in again.")
+            mutable.value=AuthState(initialized=true,config=state.value.config,notice=text(CoreStrings.CORE_PASSWORD_UPDATED_SIGN_IN_AGAIN))
             clearInstalled(expected)
         }
     }
     private suspend fun persist(pair:TokenPair) {
-        ensure(pair.access.isNotBlank() && pair.refresh.isNotBlank(),"This server did not return a device session. Contact your makerspace.")
+        ensure(pair.access.isNotBlank() && pair.refresh.isNotBlank(),text(CoreStrings.CORE_THIS_SERVER_DID_NOT_RETURN_A_DEVICE_SESSION_CONTACT_YOUR_MAK))
         withContext(NonCancellable+Dispatchers.IO) {tokens.replace(pair);installedEpoch=tokens.snapshot().epoch}
     }
     private fun rejectChangedSession():Nothing {
         onSessionEnded()
         mutable.value=state.value.copy(user=null,selectedId=null,mfa=null,enrollment=null,recoveryCodes=emptyList(),gate=AuthGate.SESSION_ENDED)
-        throw AuthMessage("Your session changed. Sign in again.")
+        throw AuthMessage(text(CoreStrings.CORE_YOUR_SESSION_CHANGED_SIGN_IN_AGAIN))
     }
     private fun requireInstalledEpoch():Long {
         val expected=installedEpoch?:tokens.snapshot().epoch.also {installedEpoch=it}
@@ -195,7 +204,7 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
             saveSelection(null)
             mutable.value=state.value.copy(user=null,selectedId=null,gate=AuthGate.WEB_CONSOLE)
             clearInstalled(expected)
-            throw ApiFailure(403,"Use the web console","device_superadmin_not_supported",null)
+            throw ApiFailure(403,text(CoreStrings.CORE_USE_THE_WEB_CONSOLE),"device_superadmin_not_supported",null)
         }
         if(state.value.user?.id!=null && state.value.user?.id!=user.id)onSessionEnded()
         val allowed=user.makerspaces.filter {it.source==AuthMembershipSourceEnum.membership}
@@ -205,8 +214,8 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         mutable.value=state.value.copy(user=user,selectedId=selected,mfa=null,enrollment=null,error=null)
     }
     private fun requireChallenge():MFAChallengeResponse {
-        if(now()>=challengeExpiresAt){clearExpiredChallenge();throw AuthMessage("Your verification session expired. Sign in to request a new one.")}
-        return state.value.mfa ?: throw AuthMessage("Restart sign-in and try again.")
+        if(now()>=challengeExpiresAt){clearExpiredChallenge();throw AuthMessage(text(CoreStrings.CORE_YOUR_VERIFICATION_SESSION_EXPIRED_SIGN_IN_TO_REQUEST_A_NEW_O))}
+        return state.value.mfa ?: throw AuthMessage(text(CoreStrings.CORE_RESTART_SIGN_IN_AND_TRY_AGAIN))
     }
     private fun clearExpiredChallenge() {mutable.value=state.value.copy(mfa=null,enrollment=null,recoveryCodes=emptyList(),expiredMfa=true,mfaExpiresAtMillis=0,error=null)}
     private fun validGrant(grant:Map<String,JsonElement>?):Boolean {
@@ -221,12 +230,12 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
             mutable.value=state.value.copy(busy=true,error=null,notice=null)
             block()
         } catch(cancelled:CancellationException) {throw cancelled}
-        catch(_:AuthCancelled) {mutable.value=state.value.copy(error=null,notice="Sign-in cancelled.")}
+        catch(_:AuthCancelled) {mutable.value=state.value.copy(error=null,notice=text(CoreStrings.CORE_SIGN_IN_CANCELLED))}
         catch(f:Exception) {
             if(f is ApiFailure && f.status==429) retryAt=now()+(f.retryAfterSeconds?:60)*1000L
             mutable.value=state.value.copy(retryAtMillis=retryAt,
                 gate=if(f is ApiFailure && f.code=="device_superadmin_not_supported")AuthGate.WEB_CONSOLE else state.value.gate,
-                error=when(f){is ApiFailure->f.detail;is AuthMessage->f.message ?: "Couldn't connect. Try again.";else->"Couldn't connect. Try again."})
+                error=when(f){is MobileCopyException->text.failure(f);is ApiFailure->text.apiFailure(f);is AuthMessage->f.message ?: text(CoreStrings.CORE_COULDN_T_CONNECT_TRY_AGAIN);else->text(CoreStrings.CORE_COULDN_T_CONNECT_TRY_AGAIN)})
         } finally {mutable.value=state.value.copy(busy=false);operation.unlock()}
     }
 }

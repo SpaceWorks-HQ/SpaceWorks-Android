@@ -1,24 +1,27 @@
 package org.spaceworks.app.auth
 
+import org.spaceworks.app.platform.MobileText
+
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.*
 import org.spaceworks.app.network.*
 import org.spaceworks.generated.model.*
 
 object DemoSupport {
-    fun create():AuthBundle {
+    fun create(text:MobileText=MobileText.ENGLISH):AuthBundle {
+        val copyText=text
         val tokens=MemoryTokenStore()
         val gateway=DemoAuthGateway()
         var clearPrivate:()->Unit={}
-        val holder=AuthStateHolder(gateway,tokens,onSessionEnded={clearPrivate()})
+        val holder=AuthStateHolder(gateway,tokens,onSessionEnded={clearPrivate()},text=copyText)
         val workspace=org.spaceworks.app.actions.DemoMemberWorkspace(initialProfile={gateway.previewProfile()})
-        val member=org.spaceworks.app.member.MemberStateHolder(workspace,onUnauthorized={holder.foreground()})
-        val actions=org.spaceworks.app.actions.MemberActionsStateHolder(workspace,member,onUnauthorized={holder.foreground()},onProfileSaved={gateway.updatePreviewProfile(it);holder.foreground()},capabilities=workspace)
-        val push=org.spaceworks.app.notifications.DemoPushSupport.create()
-        val links=org.spaceworks.app.notifications.DemoPushSupport.links(holder)
+        val member=org.spaceworks.app.member.MemberStateHolder(workspace,onUnauthorized={holder.foreground()},text=copyText)
+        val actions=org.spaceworks.app.actions.MemberActionsStateHolder(workspace,member,onUnauthorized={holder.foreground()},onProfileSaved={gateway.updatePreviewProfile(it);holder.foreground()},capabilities=workspace,text=copyText)
+        val push=org.spaceworks.app.notifications.DemoPushSupport.create(text=copyText)
+        val links=org.spaceworks.app.notifications.DemoPushSupport.links(holder,text=copyText)
         clearPrivate={member.clear();actions.clear();links.clear();push.holder.pause()}
         gateway.beforeSignOut={push.holder.disable(forgetConsent=false)}
-        return AuthBundle(holder,tokens,true,AccountStateHolder(gateway,{true},{holder.foreground()}),DemoAuthFlow(holder),member,actions,origin="https://demo.invalid/",push=push.holder,links=links,pushConfigured=true,sessionEpoch={tokens.snapshot().epoch},pushPreview=push.control)
+        return AuthBundle(holder,tokens,true,AccountStateHolder(gateway,{true},{holder.foreground()},text=copyText),DemoAuthFlow(holder,text=copyText),member,actions,origin="https://demo.invalid/",push=push.holder,links=links,pushConfigured=true,sessionEpoch={tokens.snapshot().epoch},pushPreview=push.control)
     }
 }
 class DemoAuthGateway:AuthGateway {

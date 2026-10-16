@@ -63,6 +63,17 @@ val verifyNativeTemplates by tasks.registering(Exec::class) {
     doFirst {commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3",
         rootProject.file("scripts/tests/test_native_templates.py"), "--jar", nativeGeneratorJar.get())}
 }
+val verifyMobileCopy by tasks.registering(Exec::class) {
+    inputs.files(rootProject.file("tokens/mobile-copy.json"),rootProject.file("scripts/check_mobile_copy.py"),rootProject.file("scripts/generate_mobile_copy.py"))
+    inputs.files(fileTree("src/main/res/values") { include("*strings.xml") })
+    inputs.files(fileTree("src/main/java/org/spaceworks/app") { include("**/*Strings.kt") })
+    commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3",rootProject.file("scripts/check_mobile_copy.py"))
+}
+val testMobileCopyGenerator by tasks.registering(Exec::class) {
+    workingDir(rootProject.projectDir)
+    inputs.files(rootProject.file("scripts/generate_mobile_copy.py"),rootProject.file("scripts/tests/test_mobile_copy.py"))
+    commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3","-m","unittest","discover","-s","scripts/tests","-p","test_mobile_copy.py","-v")
+}
 openApiGenerate {
     workerIsolation.set("process")
     templateDir.set(nativeTemplateOutput.get().asFile.path)
@@ -88,8 +99,8 @@ openApiGenerate {
     globalProperties.set(mapOf("apis" to "", "models" to "", "apiTests" to "false", "modelTests" to "false", "apiDocs" to "false", "modelDocs" to "false", "supportingFiles" to "CollectionFormats.kt,UUIDAdapter.kt,OffsetDateTimeAdapter.kt,URIAdapter.kt,BigDecimalAdapter.kt"))
 }
 tasks.named("openApiGenerate") { dependsOn(prepareContract,prepareNativeTemplates); inputs.dir(nativeTemplateOutput); doFirst { delete(layout.buildDirectory.dir("generated/openapi")) } }
-tasks.named("preBuild") { dependsOn(prepareBrand,"openApiGenerate",verifyNativeTemplates) }
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach { dependsOn(prepareBrand,"openApiGenerate",verifyNativeTemplates) }
+tasks.named("preBuild") { dependsOn(prepareBrand,"openApiGenerate",verifyNativeTemplates,verifyMobileCopy,testMobileCopyGenerator) }
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach { dependsOn(prepareBrand,"openApiGenerate",verifyNativeTemplates,verifyMobileCopy,testMobileCopyGenerator) }
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2025.10.01"))
     implementation("androidx.activity:activity-compose:1.11.0")

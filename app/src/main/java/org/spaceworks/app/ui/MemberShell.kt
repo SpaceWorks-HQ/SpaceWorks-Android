@@ -1,5 +1,7 @@
 package org.spaceworks.app.ui
 
+import org.spaceworks.app.platform.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,34 +24,38 @@ import org.spaceworks.app.member.MemberScope
 fun makerspaceLabel(slug:String)=slug.split('-').joinToString(" "){it.replaceFirstChar(Char::uppercase)}
 
 @Composable fun MakerspacePicker(bundle:AuthBundle) {
+    val copyText=rememberMobileText()
+
     val state by bundle.holder.state.collectAsStateWithLifecycle()
     val scope=rememberCoroutineScope()
     var candidate by remember(state.memberships.map {it.id}) {mutableStateOf<Int?>(null)}
     var signingOut by remember {mutableStateOf(false)}
     if(signingOut)SignOutConfirmation({signingOut=false},{signingOut=false;scope.launch {bundle.holder.signOut()}})
-    AuthLayout(if(state.memberships.isEmpty())"No makerspace access yet" else "Choose your makerspace",if(state.memberships.isEmpty())"Ask your makerspace to add or reactivate your membership." else "Where would you like to make today?") {
+    AuthLayout(if(state.memberships.isEmpty())copyText(UiStrings.MOBILE_NO_MAKERSPACE_ACCESS_YET) else copyText(UiStrings.MOBILE_CHOOSE_YOUR_MAKERSPACE),if(state.memberships.isEmpty())copyText(UiStrings.MOBILE_ASK_YOUR_MAKERSPACE_TO_ADD_OR_REACTIVATE_YOUR_MEMBERSHIP) else copyText(UiStrings.MOBILE_WHERE_WOULD_YOU_LIKE_TO_MAKE_TODAY)) {
         state.memberships.forEach {membership ->
             val picked=candidate==membership.id
             OutlinedCard(onClick={candidate=membership.id},modifier=Modifier.fillMaxWidth().heightIn(min=72.dp).semantics {selected=picked;role=Role.RadioButton}) {
                 Column(Modifier.padding(16.dp)) {
                     Text(makerspaceLabel(membership.slug),style=MaterialTheme.typography.titleMedium)
                     Text(membership.roleName,style=MaterialTheme.typography.bodyMedium)
-                    if(candidate==membership.id)Text("Selected",style=MaterialTheme.typography.labelMedium)
+                    if(candidate==membership.id)Text(copyText(UiStrings.MOBILE_SELECTED),style=MaterialTheme.typography.labelMedium)
                 }
             }
         }
-        candidate?.let {BrandButton("Continue",{bundle.holder.select(it)},!state.busy)}
-        if(state.user?.emailVerified==false && state.config?.emailEnabled==true)bundle.accounts?.let {BrandTextButton("Confirm your email",{it.open(AccountRoute.VERIFY_EMAIL,state.user?.email.orEmpty())})}
+        candidate?.let {BrandButton(copyText(UiStrings.MOBILE_CONTINUE),{bundle.holder.select(it)},!state.busy)}
+        if(state.user?.emailVerified==false && state.config?.emailEnabled==true)bundle.accounts?.let {BrandTextButton(copyText(UiStrings.MOBILE_CONFIRM_YOUR_EMAIL),{it.open(AccountRoute.VERIFY_EMAIL,state.user?.email.orEmpty())})}
         BrandError(state.error)
-        BrandTextButton("Refresh access",{scope.launch {bundle.holder.foreground()}},!state.busy)
-        if(state.memberships.isEmpty())BrandTextButton("Use another account",{signingOut=true},!state.busy)
-        BrandTextButton("Sign out",{signingOut=true},!state.busy)
+        BrandTextButton(copyText(UiStrings.MOBILE_REFRESH_ACCESS),{scope.launch {bundle.holder.foreground()}},!state.busy)
+        if(state.memberships.isEmpty())BrandTextButton(copyText(UiStrings.MOBILE_USE_ANOTHER_ACCOUNT),{signingOut=true},!state.busy)
+        BrandTextButton(copyText(UiStrings.MOBILE_SIGN_OUT),{signingOut=true},!state.busy)
     }
 }
 
-private val destinations=listOf("Home","Inventory","Activity","Inbox","Profile")
+private val destinations=listOf(UiStrings.MOBILE_HOME,UiStrings.MOBILE_INVENTORY,UiStrings.MOBILE_ACTIVITY,UiStrings.MOBILE_INBOX,UiStrings.MOBILE_PROFILE)
 private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Icons.Outlined.DateRange,Icons.Outlined.Email,Icons.Outlined.Person)
 @Composable fun MemberShell(bundle:AuthBundle,onChangeServer:(()->Unit)?,onShowIntro:(()->Unit)?=null) {
+    val copyText=rememberMobileText()
+
     val state by bundle.holder.state.collectAsStateWithLifecycle()
     val scope=rememberCoroutineScope()
     var destination by rememberSaveable(state.selectedId){mutableIntStateOf(0)}
@@ -71,11 +77,11 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
         val expected=MemberScope(selected.id,selected.slug)
         if(readyScope!=expected || actionState?.scope!=expected || member==null || actions==null || route.destination.makerspaceId!=expected.id)return@LaunchedEffect
         fun current()=bundle.links?.state?.value?.delivered?.sequence==route.sequence && bundle.holder.state.value.selectedId==expected.id && bundle.holder.state.value.user!=null
-        val applier=MemberRouteApplier(member,actions,{navigate(it)},{homeExtra=route.sequence to it;destination=0})
+        val applier=MemberRouteApplier(member,actions,{navigate(it)},{homeExtra=route.sequence to it;destination=0},text=copyText)
         val error=applier.open(route,expected,::current)
         if(current()) {
             navigationError=error
-            if(error?.startsWith("Finish your current action")!=true)bundle.links?.consumed(route.sequence)
+            if(error==null || (!actions.state.value.busy && actions.state.value.route==null))bundle.links?.consumed(route.sequence)
         }
     }
     var clock by remember {mutableLongStateOf(System.currentTimeMillis())}
@@ -100,54 +106,54 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
         val expanded=maxWidth>=600.dp
         Row {
             if(expanded && actionState?.route==null) NavigationRail(Modifier.fillMaxHeight().verticalScroll(rememberScrollState())) {
-                destinations.forEachIndexed {index,title -> NavigationRailItem(selected=destination==index,onClick={navigate(index)},icon={Icon(destinationIcons[index],null)},label={Text(title)},modifier=Modifier.heightIn(min=if(LocalDensity.current.fontScale>=1.6f)120.dp else 80.dp),colors=NavigationRailItemDefaults.colors(selectedIconColor=MaterialTheme.colorScheme.onPrimaryContainer,selectedTextColor=MaterialTheme.colorScheme.onPrimaryContainer,indicatorColor=MaterialTheme.colorScheme.primaryContainer)) }
+                destinations.forEachIndexed {index,title -> NavigationRailItem(selected=destination==index,onClick={navigate(index)},icon={Icon(destinationIcons[index],null)},label={Text(copyText(title))},modifier=Modifier.heightIn(min=if(LocalDensity.current.fontScale>=1.6f)120.dp else 80.dp),colors=NavigationRailItemDefaults.colors(selectedIconColor=MaterialTheme.colorScheme.onPrimaryContainer,selectedTextColor=MaterialTheme.colorScheme.onPrimaryContainer,indicatorColor=MaterialTheme.colorScheme.primaryContainer)) }
             }
             Column(Modifier.weight(1f)) {
                 navigationError?.let {message->Column(Modifier.padding(16.dp)) {
                     BrandError(message)
                     if(links?.delivered!=null) {
-                        BrandTextButton("Open pending update",{scope.launch {
+                        BrandTextButton(copyText(UiStrings.MOBILE_OPEN_PENDING_UPDATE),{scope.launch {
                             val pending=bundle.links?.state?.value?.delivered?:return@launch
                             val expected=readyScope?:return@launch
                             if(member!=null && actions!=null) {
-                                val applier=MemberRouteApplier(member,actions,{navigate(it)},{homeExtra=pending.sequence to it;destination=0})
+                                val applier=MemberRouteApplier(member,actions,{navigate(it)},{homeExtra=pending.sequence to it;destination=0},text=copyText)
                                 navigationError=applier.open(pending,expected){bundle.links?.state?.value?.delivered?.sequence==pending.sequence && bundle.holder.state.value.selectedId==expected.id}
-                                if(navigationError?.startsWith("Finish your current action")!=true)bundle.links?.consumed(pending.sequence)
+                                if(navigationError==null || (!actions.state.value.busy && actions.state.value.route==null))bundle.links?.consumed(pending.sequence)
                             }
                         }},actionState?.route==null && actionState?.busy!=true)
-                        BrandTextButton("Dismiss update",{links?.delivered?.let {bundle.links?.consumed(it.sequence)};navigationError=null})
+                        BrandTextButton(copyText(UiStrings.MOBILE_DISMISS_UPDATE),{links?.delivered?.let {bundle.links?.consumed(it.sequence)};navigationError=null})
                     }
                 }}
-                if(clock<(content?.retryAtMillis?:0))Text("Try again in ${((requireNotNull(content).retryAtMillis-clock+999)/1000).coerceAtLeast(0)}s.",Modifier.padding(16.dp),color=MaterialTheme.colorScheme.onPrimaryContainer)
+                if(clock<(content?.retryAtMillis?:0))Text(copyText(UiStrings.MOBILE_TRY_AGAIN_IN_VALUES,((requireNotNull(content).retryAtMillis-clock+999)/1000).coerceAtLeast(0)),Modifier.padding(16.dp),color=MaterialTheme.colorScheme.onPrimaryContainer)
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     when {
-                        actionState?.route!=null && actionState.scope?.id!=state.selectedId -> Text("Loading your makerspace…",Modifier.padding(24.dp))
+                        actionState?.route!=null && actionState.scope?.id!=state.selectedId -> Text(copyText(UiStrings.MOBILE_LOADING_YOUR_MAKERSPACE),Modifier.padding(24.dp))
                         actionState?.route!=null && actions!=null -> MemberActionsScreen(actions,bundle.demo,{})
                         destination==4 -> Box(Modifier.fillMaxSize(),contentAlignment=androidx.compose.ui.Alignment.TopCenter) {
                             Column(Modifier.widthIn(max=640.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
-                                Text("Profile",style=MaterialTheme.typography.headlineLarge)
+                                Text(copyText(UiStrings.MOBILE_PROFILE),style=MaterialTheme.typography.headlineLarge)
                                 Text(state.user?.displayName.orEmpty(),style=MaterialTheme.typography.titleLarge)
                                 Text(state.user?.email.orEmpty())
-                                Text("${state.selected?.roleName.orEmpty()} · ${makerspaceLabel(state.selected?.slug.orEmpty())}")
+                                Text(copyText(UiStrings.MOBILE_VALUE_VALUE_C1AACD,state.selected?.roleName.orEmpty(),makerspaceLabel(state.selected?.slug.orEmpty())))
                                 if(content?.scope?.id==state.selectedId && member!=null)MemberProfileSummary(member)
                                 state.memberships.filter {it.id!=state.selectedId}.forEach {membership ->
-                                    BrandTextButton("Switch to ${makerspaceLabel(membership.slug)}",{bundle.links?.clear();bundle.holder.select(membership.id)},!state.busy)
+                                    BrandTextButton(copyText(UiStrings.MOBILE_SWITCH_TO_VALUE,makerspaceLabel(membership.slug)),{bundle.links?.clear();bundle.holder.select(membership.id)},!state.busy)
                                 }
                                 actions?.takeIf {actionState?.scope?.id==state.selectedId}?.let {action->
-                                    if(actionState?.capabilities?.value?.selfService==true)BrandTextButton("Edit profile",{scope.launch {action.openProfile()}})
-                                    if(actionState?.capabilities?.value?.memberPreferences==true)BrandTextButton("Communication preferences",{scope.launch {action.openPreferences()}})
+                                    if(actionState?.capabilities?.value?.selfService==true)BrandTextButton(copyText(UiStrings.MOBILE_EDIT_PROFILE),{scope.launch {action.openProfile()}})
+                                    if(actionState?.capabilities?.value?.memberPreferences==true)BrandTextButton(copyText(UiStrings.MOBILE_COMMUNICATION_PREFERENCES),{scope.launch {action.openPreferences()}})
                                     if(actionState?.capabilities?.loading==true)LinearProgressIndicator(Modifier.fillMaxWidth())
-                                    actionState?.capabilities?.error?.let {BrandError(it);BrandTextButton("Retry makerspace settings",{scope.launch {action.refreshCapabilities()}})}
+                                    actionState?.capabilities?.error?.let {BrandError(it);BrandTextButton(copyText(UiStrings.MOBILE_RETRY_MAKERSPACE_SETTINGS),{scope.launch {action.refreshCapabilities()}})}
                                 }
-                                BrandTextButton("Refresh account",{scope.launch {bundle.holder.foreground()}},!state.busy)
-                                if(state.user?.emailVerified==false && state.config?.emailEnabled==true)bundle.accounts?.let {BrandTextButton("Confirm your email",{it.open(AccountRoute.VERIFY_EMAIL,state.user?.email.orEmpty())})}
-                                onShowIntro?.let {BrandTextButton("Show introduction",it,!state.busy)}
-                                BrandButton("Sign out",{signingOut=true},!state.busy)
-                                onChangeServer?.let {BrandTextButton("Change server",{changingServer=true},!state.busy)}
+                                BrandTextButton(copyText(UiStrings.MOBILE_REFRESH_ACCOUNT),{scope.launch {bundle.holder.foreground()}},!state.busy)
+                                if(state.user?.emailVerified==false && state.config?.emailEnabled==true)bundle.accounts?.let {BrandTextButton(copyText(UiStrings.MOBILE_CONFIRM_YOUR_EMAIL),{it.open(AccountRoute.VERIFY_EMAIL,state.user?.email.orEmpty())})}
+                                onShowIntro?.let {BrandTextButton(copyText(UiStrings.MOBILE_SHOW_INTRODUCTION),it,!state.busy)}
+                                BrandButton(copyText(UiStrings.MOBILE_SIGN_OUT),{signingOut=true},!state.busy)
+                                onChangeServer?.let {BrandTextButton(copyText(UiStrings.MOBILE_CHANGE_SERVER),{changingServer=true},!state.busy)}
                             }
                         }
-                        member==null -> Text("Member information is unavailable for this build.",Modifier.padding(24.dp))
-                        content?.scope?.id!=state.selectedId -> Column(Modifier.padding(24.dp)) {LinearProgressIndicator(Modifier.fillMaxWidth());Text("Loading your makerspace…")}
+                        member==null -> Text(copyText(UiStrings.MOBILE_MEMBER_INFORMATION_IS_UNAVAILABLE_FOR_THIS_BUILD),Modifier.padding(24.dp))
+                        content?.scope?.id!=state.selectedId -> Column(Modifier.padding(24.dp)) {LinearProgressIndicator(Modifier.fillMaxWidth());Text(copyText(UiStrings.MOBILE_LOADING_YOUR_MAKERSPACE))}
                         destination==0 -> MemberHome(member,state.user?.displayName.orEmpty().ifBlank {state.user?.username.orEmpty()},{navigate(1)},bundle.demo,homeExtra)
                         destination==1 -> MemberInventory(member)
                         destination==2 -> MemberActivityScreen(member)
@@ -156,7 +162,7 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
                 }
                 state.error?.let {Box(Modifier.padding(horizontal=24.dp)){BrandError(it)}}
                 if(!expanded && actionState?.route==null) NavigationBar(Modifier.heightIn(min=if(LocalDensity.current.fontScale>=1.6f)112.dp else 80.dp)) {
-                    destinations.forEachIndexed {index,title -> NavigationBarItem(selected=destination==index,onClick={navigate(index)},icon={Icon(destinationIcons[index],null)},label={Text(title)},colors=NavigationBarItemDefaults.colors(selectedIconColor=MaterialTheme.colorScheme.onPrimaryContainer,selectedTextColor=MaterialTheme.colorScheme.onPrimaryContainer,indicatorColor=MaterialTheme.colorScheme.primaryContainer)) }
+                    destinations.forEachIndexed {index,title -> NavigationBarItem(selected=destination==index,onClick={navigate(index)},icon={Icon(destinationIcons[index],null)},label={Text(copyText(title))},colors=NavigationBarItemDefaults.colors(selectedIconColor=MaterialTheme.colorScheme.onPrimaryContainer,selectedTextColor=MaterialTheme.colorScheme.onPrimaryContainer,indicatorColor=MaterialTheme.colorScheme.primaryContainer)) }
                 }
             }
         }
@@ -165,8 +171,10 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
 }
 
 @Composable private fun SignOutConfirmation(onDismiss:()->Unit,onConfirm:()->Unit,changeServer:Boolean=false) {
-    AlertDialog(onDismissRequest=onDismiss,title={Text(if(changeServer)"Change server?" else "Sign out?")},
-        text={Text(if(changeServer)"Continuing signs out this account before choosing another server." else "You'll need to sign in again to use this account.")},
-        confirmButton={TextButton(onClick=onConfirm,colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.error)){Text(if(changeServer)"Continue" else "Sign out")}},
-        dismissButton={BrandTextButton("Cancel",onDismiss)})
+    val copyText=rememberMobileText()
+
+    AlertDialog(onDismissRequest=onDismiss,title={Text(if(changeServer)copyText(UiStrings.MOBILE_CHANGE_SERVER_9C8CC1) else copyText(UiStrings.MOBILE_SIGN_OUT_B11555))},
+        text={Text(if(changeServer)copyText(UiStrings.MOBILE_CONTINUING_SIGNS_OUT_THIS_ACCOUNT_BEFORE_CHOOSING_ANOTHER_SERVER) else copyText(UiStrings.MOBILE_YOU_LL_NEED_TO_SIGN_IN_AGAIN_TO_USE_THIS_ACCOUNT))},
+        confirmButton={TextButton(onClick=onConfirm,colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.error)){Text(if(changeServer)copyText(UiStrings.MOBILE_CONTINUE) else copyText(UiStrings.MOBILE_SIGN_OUT))}},
+        dismissButton={BrandTextButton(copyText(UiStrings.MOBILE_CANCEL),onDismiss)})
 }

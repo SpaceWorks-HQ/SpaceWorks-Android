@@ -1,5 +1,8 @@
 package org.spaceworks.app
 
+import org.spaceworks.app.ui.UiStrings
+import org.spaceworks.app.platform.rememberMobileText
+
 import android.os.Bundle
 import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
@@ -42,6 +45,8 @@ class MainActivity:ComponentActivity() {
 }
 @Composable fun SpaceWorksApp(holder:ConnectionStateHolder,sessionFactory:((String)->AuthBundle)?=null,
     demoFactory:()->AuthBundle?={DemoSupport.create()},onExitDemo:()->Unit={},onboarding:OnboardingStateHolder?=null,appearance:AppearanceStateHolder?=null,incoming:PendingNativeIntent?=null,onIncomingConsumed:(Long)->Unit={}) {
+    val copyText=rememberMobileText()
+
     var localDark by rememberSaveable {mutableStateOf(false)}
     val dark=appearance?.dark?.collectAsStateWithLifecycle()?.value ?: localDark
     val view=LocalView.current
@@ -69,12 +74,12 @@ class MainActivity:ComponentActivity() {
                 Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.SpaceBetween) {
                     if(identity!=null)Text(stringResource(R.string.app_name),Modifier.weight(1f).padding(vertical=16.dp),style=MaterialTheme.typography.titleLarge)
                     else Spacer(Modifier.weight(1f))
-                    BrandTextButton(if(dark)"Light mode" else "Dark mode",{localDark=!dark;appearance?.setDark(localDark)})
+                    BrandTextButton(if(dark)copyText(UiStrings.MOBILE_LIGHT_MODE) else copyText(UiStrings.MOBILE_DARK_MODE),{localDark=!dark;appearance?.setDark(localDark)})
                 }
                 if(demo) Surface(color=MaterialTheme.colorScheme.secondaryContainer) {
                     Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.SpaceBetween) {
-                        Text("Demo mode",Modifier.weight(1f).padding(vertical=8.dp),style=MaterialTheme.typography.labelLarge)
-                        BrandTextButton("Exit demo",{demo=false;onExitDemo()})
+                        Text(copyText(UiStrings.MOBILE_DEMO_MODE),Modifier.weight(1f).padding(vertical=8.dp),style=MaterialTheme.typography.labelLarge)
+                        BrandTextButton(copyText(UiStrings.MOBILE_EXIT_DEMO),{demo=false;onExitDemo()})
                     }
                 }
                 LaunchedEffect(holder,introComplete) {if(introComplete && holder.state.value.url.isNotBlank() && !demo)holder.connect()}
@@ -82,13 +87,15 @@ class MainActivity:ComponentActivity() {
                     !introComplete -> OnboardingScreen({onboarding?.finish()},if(BuildConfig.DEBUG){{onboarding?.finish();demo=true}}else null)
                     !demo && !connection.connected -> ServerScreen(holder,connection,onDemo=if(BuildConfig.DEBUG){{demo=true}}else null)
                     bundle!=null -> SessionContent(bundle,if(!holder.locked && !demo){{holder.changeServer()}} else null,onboarding?.let {{it.replay()}},incoming,onIncomingConsumed)
-                    else -> Text("Sign-in is not configured for this build.",Modifier.padding(24.dp))
+                    else -> Text(copyText(UiStrings.MOBILE_SIGN_IN_IS_NOT_CONFIGURED_FOR_THIS_BUILD),Modifier.padding(24.dp))
                 }
             }
         }
     }
 }
 @Composable private fun SessionContent(bundle:AuthBundle,onChangeServer:(()->Unit)?,onShowIntro:(()->Unit)?,incoming:PendingNativeIntent?,onIncomingConsumed:(Long)->Unit) {
+    val copyText=rememberMobileText()
+
     val state by bundle.holder.state.collectAsStateWithLifecycle()
     val account=bundle.accounts?.state?.collectAsStateWithLifecycle()?.value
     val preview=bundle.previewAuth?.state?.collectAsStateWithLifecycle()?.value
@@ -103,7 +110,7 @@ class MainActivity:ComponentActivity() {
         try {
             bundle.push?.activate(PushAccount(AndroidPushPersistence.accountKey(bundle.origin,user.id),bundle.holder.state.value.memberships.map {it.id}.toSet()),bundle.demo || NotificationAccess.allowed(context))
         }catch(cancelled:kotlinx.coroutines.CancellationException){throw cancelled}
-        catch(_:Exception){pushError="Notifications are unavailable. Try again later.";bundle.push?.pause()}
+        catch(_:Exception){pushError=copyText(UiStrings.MOBILE_NOTIFICATIONS_ARE_UNAVAILABLE_TRY_AGAIN_LATER);bundle.push?.pause()}
     }
     LaunchedEffect(bundle,incoming?.sequence) {
         if(!bundle.demo && incoming!=null) {
@@ -126,7 +133,7 @@ class MainActivity:ComponentActivity() {
     }
     LaunchedEffect(bundle) {
         if(!bundle.demo)NativePushEvents.token.collect {token->
-            if(token!=null && bundle.holder.state.value.user!=null)try {bundle.push?.rotated(token)}catch(cancelled:kotlinx.coroutines.CancellationException){throw cancelled}catch(_:Exception){pushError="Notifications are unavailable. Try again later."}
+            if(token!=null && bundle.holder.state.value.user!=null)try {bundle.push?.rotated(token)}catch(cancelled:kotlinx.coroutines.CancellationException){throw cancelled}catch(_:Exception){pushError=copyText(UiStrings.MOBILE_NOTIFICATIONS_ARE_UNAVAILABLE_TRY_AGAIN_LATER)}
         }
     }
 

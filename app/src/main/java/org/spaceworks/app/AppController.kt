@@ -19,6 +19,7 @@ sealed interface PendingNativeIntent {
 }
 class AppController(application:Application):AndroidViewModel(application) {
     companion object {private val sessions=java.util.concurrent.ConcurrentHashMap<String,AuthBundle>()}
+    private val copyText=MobileText.resources(application)
     private val prefs=application.getSharedPreferences("deployment",0)
     private val fixed=BuildConfig.SERVER_URL
     private val incomingMutable=MutableStateFlow<PendingNativeIntent?>(null)
@@ -36,12 +37,12 @@ class AppController(application:Application):AndroidViewModel(application) {
     val onboarding=OnboardingStateHolder(prefs.getBoolean("intro.complete",false)){prefs.edit().putBoolean("intro.complete",it).apply()}
     val appearance=AppearanceStateHolder(prefs.getBoolean("theme.dark",false)){prefs.edit().putBoolean("theme.dark",it).apply()}
     val connection=ConnectionStateHolder(fixed.ifBlank {prefs.getString("server","")?:""},fixed.isNotBlank(),BuildConfig.DEBUG,
-        health={ApiSession(it).checkHealth()},save={prefs.edit().putString("server",it).apply()})
+        health={ApiSession(it).checkHealth()},save={prefs.edit().putString("server",it).apply()},text=copyText)
     private var demo:AuthBundle?=null
     fun demoSession():AuthBundle?=demo ?: run {
         sessions.values.forEach {it.push?.pause()}
         FcmRegistration.pause(getApplication())
-        DemoSupport.create()?.also {demo=it}
+        DemoSupport.create(text=copyText)?.also {demo=it}
     }
     fun clearDemo(){demo?.push?.pause();demo=null}
     fun realSession(origin:String):AuthBundle {
@@ -59,21 +60,21 @@ class AppController(application:Application):AndroidViewModel(application) {
         val session=ApiSession(ServerAddress.parse(origin,BuildConfig.DEBUG),store){holder.state.value.selectedId?.toString()}
         val environment=if(BuildConfig.DEBUG)EnvironmentEnum.development else EnvironmentEnum.production
         val emulator=Build.FINGERPRINT.startsWith("generic") || Build.MODEL.contains("Emulator") || Build.MODEL.contains("sdk_gphone") || Build.PRODUCT.startsWith("sdk_")
-        val gateway=GeneratedAuthGateway(session,BuildConfig.APPLICATION_ID,environment,DevelopmentAttestation(BuildConfig.DEBUG,emulator),
+        val gateway=GeneratedAuthGateway(session,BuildConfig.APPLICATION_ID,environment,DevelopmentAttestation(BuildConfig.DEBUG,emulator,text=copyText),
             onNativeSignOut={try {GoogleIdentity.clear(application)}catch(cancelled:kotlinx.coroutines.CancellationException){throw cancelled}catch(_:Exception){}},
-            onBeforeNativeSignOut={push?.disable(forgetConsent=false)})
+            onBeforeNativeSignOut={push?.disable(forgetConsent=false)},text=copyText)
         holder=AuthStateHolder(gateway,store,
             readSelection={prefs.getInt("space.$origin",-1).takeIf {it>0}},
             saveSelection={id->prefs.edit().apply {if(id==null)remove("space.$origin")else putInt("space.$origin",id)}.apply()},
-            onSessionEnded={member?.clear();actions?.clear();links?.clear();push?.pause()})
-        links=LinkStateHolder(session.server,holder::authorizeMakerspace,holder::select,holder::authorizeSlug)
+            onSessionEnded={member?.clear();actions?.clear();links?.clear();push?.pause()},text=copyText)
+        links=LinkStateHolder(session.server,holder::authorizeMakerspace,holder::select,holder::authorizeSlug,text=copyText)
         push=PushStateHolder(GeneratedPushGateway(session,environment),object:PushProvider {
             override suspend fun token()=FcmRegistration.token(application)
             override suspend fun stop()=FcmRegistration.stop(application)
-        },AndroidPushPersistence(application.getSharedPreferences("push-registration",0)),deliveryGate={enabled,ids->NativePushEvents.configure(application,enabled,ids)})
-        val accounts=AccountStateHolder(gateway,{holder.state.value.selfRegistrationEnabled},{holder.foreground()})
-        member=org.spaceworks.app.member.MemberStateHolder(org.spaceworks.app.member.GeneratedMemberGateway(session),onUnauthorized={holder.foreground()})
-        actions=org.spaceworks.app.actions.MemberActionsStateHolder(org.spaceworks.app.actions.GeneratedMemberActionsGateway(session),requireNotNull(member),onUnauthorized={holder.foreground()},onProfileSaved={holder.foreground()},capabilities=org.spaceworks.app.actions.GeneratedMakerCapabilitiesGateway(session))
+        },AndroidPushPersistence(application.getSharedPreferences("push-registration",0)),deliveryGate={enabled,ids->NativePushEvents.configure(application,enabled,ids)},text=copyText)
+        val accounts=AccountStateHolder(gateway,{holder.state.value.selfRegistrationEnabled},{holder.foreground()},text=copyText)
+        member=org.spaceworks.app.member.MemberStateHolder(org.spaceworks.app.member.GeneratedMemberGateway(session,text=copyText),onUnauthorized={holder.foreground()},text=copyText)
+        actions=org.spaceworks.app.actions.MemberActionsStateHolder(org.spaceworks.app.actions.GeneratedMemberActionsGateway(session,text=copyText),requireNotNull(member),onUnauthorized={holder.foreground()},onProfileSaved={holder.foreground()},capabilities=org.spaceworks.app.actions.GeneratedMakerCapabilitiesGateway(session,text=copyText),text=copyText)
         return AuthBundle(holder,store,accounts=accounts,member=member,actions=actions,origin=session.server.toString(),push=push,links=links,pushConfigured=FcmRegistration.configured(application),sessionEpoch={store.snapshot().epoch})
     }
 }
