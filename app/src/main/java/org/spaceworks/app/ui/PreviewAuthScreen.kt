@@ -56,7 +56,8 @@ import org.spaceworks.app.auth.*
                     BrandTextButton("Country code: ${state.country}",{countries=true},!state.busy)
                     DropdownMenu(countries,{countries=false}) {listOf("India +91" to "+91","United States +1" to "+1","United Kingdom +44" to "+44").forEach {(label,value)->DropdownMenuItem(text={Text(label)},onClick={controller.country(value);countries=false})}}
                 }
-                BrandField(state.phone,controller::phone,"Phone number",Modifier.testTag("previewPhone"),!state.busy,role=FieldRole.PHONE)
+                BrandField(state.phone,controller::phone,"Phone number",Modifier.testTag("previewPhone"),!state.busy,role=FieldRole.PHONE,
+                    onDone={if(!state.busy && now>=state.resendAt){focus.clearFocus();keyboard?.hide();controller.sendCode()}})
                 Text("We'll send a verification code. In this demo, no SMS is sent.")
                 BrandButton("Send code",{focus.clearFocus();keyboard?.hide();controller.sendCode()},!state.busy && now>=state.resendAt)
                 if(now<state.resendAt)Text("Try again in ${((state.resendAt-now+999)/1000).coerceAtLeast(0)}s.")

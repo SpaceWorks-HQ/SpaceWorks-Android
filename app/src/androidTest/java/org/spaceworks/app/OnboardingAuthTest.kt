@@ -18,7 +18,10 @@ import java.io.File
 
 class OnboardingAuthTest {
     @get:Rule val compose=createComposeRule()
-    private fun waitText(text:String){compose.waitUntil(10000){compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()}}
+    private fun waitText(text:String){
+        try {compose.waitUntil(10000){compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()}}
+        catch(f:Throwable){screenshot("ux-failure-${text.filter {it.isLetterOrDigit()}.take(40)}");throw f}
+    }
     private fun screenshot(name:String){
         val output=InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("validation")!!
         output.mkdirs();File(output,"$name.png").outputStream().use {compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it)}
@@ -78,11 +81,11 @@ class OnboardingAuthTest {
         compose.onNodeWithTag("mfaCode").performTextInput("123456")
         compose.onNodeWithText("Verify").performScrollTo().performClick();waitText("Choose your makerspace")
     }
-    @Test fun phonePreviewShowsInvalidExpiredAndVerifiedStates() {
+    @Test fun phonePreviewShowsInvalidExpiredStatesAndSsoCompletes() {
         demo();compose.onNodeWithText("Preview sign-in options").performScrollTo().performClick()
         compose.onNodeWithText("Preview Phone").performScrollTo().performClick()
         compose.onNodeWithTag("previewPhone").performTextInput("9876543210")
-        compose.onNodeWithText("Send code").performScrollTo().performClick();waitText("Enter your verification code")
+        compose.onNodeWithTag("previewPhone").assertTextContains("9876543210").performImeAction();waitText("Enter your verification code")
         compose.onNodeWithTag("previewCode").performTextInput("000000")
         compose.onNodeWithText("Verify",substring=false).performScrollTo().performClick();waitText("That code didn't work. Check it and try again.")
         screenshot("ux-phone-preview-code-error")
@@ -92,6 +95,16 @@ class OnboardingAuthTest {
         compose.onNodeWithText("Preview sign-in options").performScrollTo().performClick()
         compose.onNodeWithText("Preview Makerspace SSO").performScrollTo().performClick()
         compose.onNodeWithText("Continue with sample account").performScrollTo().performClick();waitText("Choose your makerspace")
+    }
+    @Test fun phonePreviewValidCodeCreatesOnlyTheDemoMemberSession() {
+        demo();compose.onNodeWithText("Preview sign-in options").performScrollTo().performClick()
+        compose.onNodeWithText("Preview Phone").performScrollTo().performClick()
+        compose.onNodeWithTag("previewPhone").performTextInput("9876543210")
+        compose.onNodeWithTag("previewPhone").performImeAction();waitText("Enter your verification code")
+        compose.onNodeWithTag("previewCode").performTextInput("123456")
+        compose.onNodeWithText("Verify").performScrollTo().performClick();waitText("Choose your makerspace")
+        compose.onNodeWithText("Demo mode · sample data").assertExists()
+        screenshot("ux-phone-preview-verified")
     }
     @Test fun compactSignInAtDoubleFontPreservesPasswordFocusAndShowsFieldErrors() {
         compose.setContent {
