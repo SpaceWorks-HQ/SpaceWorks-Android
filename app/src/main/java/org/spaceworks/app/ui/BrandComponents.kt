@@ -34,7 +34,7 @@ import org.spaceworks.app.R
 @Composable fun BrandError(message:String?) {message?.let {
     Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.fillMaxWidth().semantics {liveRegion=LiveRegionMode.Polite})
 }}
-enum class FieldRole { TEXT, NAME, IDENTITY, EMAIL, PHONE, PASSWORD, NEW_PASSWORD, SERVER, CODE, ONE_TIME_CODE }
+enum class FieldRole { TEXT, NAME, IDENTITY, EMAIL, PHONE, PASSWORD, NEW_PASSWORD, SERVER, CODE, ONE_TIME_CODE, NUMBER }
 val BrandAccentFont=FontFamily(Font(R.font.unbounded,FontWeight.Medium))
 @Composable fun BrandField(value:String,onValueChange:(String)->Unit,label:String,modifier:Modifier=Modifier,
     enabled:Boolean=true,readOnly:Boolean=false,secret:Boolean=false,
@@ -42,7 +42,7 @@ val BrandAccentFont=FontFamily(Font(R.font.unbounded,FontWeight.Medium))
     var visible by remember {mutableStateOf(false)}
     val fieldFocus=remember {FocusRequester()}
     val focus=LocalFocusManager.current
-    val keyboard=when(role){FieldRole.PHONE->KeyboardType.Phone;FieldRole.EMAIL,FieldRole.IDENTITY->KeyboardType.Email;FieldRole.SERVER->KeyboardType.Uri;FieldRole.CODE,FieldRole.ONE_TIME_CODE->KeyboardType.Number;FieldRole.PASSWORD,FieldRole.NEW_PASSWORD->KeyboardType.Password;else->KeyboardType.Text}
+    val keyboard=when(role){FieldRole.NUMBER->KeyboardType.Decimal;FieldRole.PHONE->KeyboardType.Phone;FieldRole.EMAIL,FieldRole.IDENTITY->KeyboardType.Email;FieldRole.SERVER->KeyboardType.Uri;FieldRole.CODE,FieldRole.ONE_TIME_CODE->KeyboardType.Number;FieldRole.PASSWORD,FieldRole.NEW_PASSWORD->KeyboardType.Password;else->KeyboardType.Text}
     OutlinedTextField(value=value,onValueChange=onValueChange,label={Text(label)},singleLine=true,enabled=enabled,readOnly=readOnly,
         isError=errorMessage!=null,supportingText=errorMessage?.let {{Text(it,Modifier.semantics {liveRegion=LiveRegionMode.Polite})}},
         visualTransformation=if(secret && !visible) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,

@@ -82,7 +82,7 @@ class DemoMemberGateway:MemberGateway,MemberPreviewControl {
     }
     override suspend fun spaces(scope:MemberScope):List<MemberSpace> {
         available();return if(scenario==MemberPreviewScenario.EMPTY)emptyList() else listOf(
-            MemberSpace("00000000-0000-0000-0000-000000000031","Electronics bench","A shared bench for circuits, soldering and small assemblies.","workstation",2,"Ground floor",null,"automatic",true),
+            MemberSpace("00000000-0000-0000-0000-000000000031","Electronics bench","A shared bench for circuits, soldering and small assemblies.","workstation",2,"Ground floor",null,"instant",true),
             MemberSpace("00000000-0000-0000-0000-000000000032","Project room","A quiet place to plan and work with your project team.","room",6,"First floor",null,"manual",true))
     }
 }

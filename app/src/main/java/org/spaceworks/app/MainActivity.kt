@@ -70,7 +70,7 @@ class MainActivity:ComponentActivity() {
     val scope=rememberCoroutineScope()
     val lifecycle=LocalLifecycleOwner.current
     LaunchedEffect(bundle) {if(!state.initialized)bundle.holder.initialize()}
-    LaunchedEffect(bundle,state.user?.id) {if(state.user==null)bundle.member?.clear()}
+    LaunchedEffect(bundle,state.user?.id) {if(state.user==null){bundle.member?.clear();bundle.actions?.clear()}}
     LaunchedEffect(lifecycle,bundle) {lifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {bundle.holder.foreground();kotlinx.coroutines.awaitCancellation()}}
     when {
         bundle.demo && preview?.page!=null -> PreviewAuthScreen(requireNotNull(bundle.previewAuth))

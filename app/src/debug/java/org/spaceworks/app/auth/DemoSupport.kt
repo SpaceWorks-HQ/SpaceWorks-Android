@@ -10,12 +10,17 @@ object DemoSupport {
         val tokens=MemoryTokenStore()
         val gateway=DemoAuthGateway()
         val holder=AuthStateHolder(gateway,tokens)
-        return AuthBundle(holder,tokens,true,AccountStateHolder(gateway,{true},{holder.foreground()}),DemoAuthFlow(holder),
-            org.spaceworks.app.member.MemberStateHolder(org.spaceworks.app.member.DemoMemberGateway(),onUnauthorized={holder.foreground()}))
+        val workspace=org.spaceworks.app.actions.DemoMemberWorkspace(initialProfile={gateway.previewProfile()})
+        val member=org.spaceworks.app.member.MemberStateHolder(workspace,onUnauthorized={holder.foreground()})
+        val actions=org.spaceworks.app.actions.MemberActionsStateHolder(workspace,member,onUnauthorized={holder.foreground()},onProfileSaved={gateway.updatePreviewProfile(it);holder.foreground()},capabilities=workspace)
+        return AuthBundle(holder,tokens,true,AccountStateHolder(gateway,{true},{holder.foreground()}),DemoAuthFlow(holder),member,actions)
     }
 }
 class DemoAuthGateway:AuthGateway {
     private var username="meera.demo"
+    private val profileNames=mutableMapOf<String,String>()
+    fun updatePreviewProfile(value:org.spaceworks.app.actions.ActionProfile){profileNames[username]=value.displayName.orEmpty()}
+    fun previewProfile():org.spaceworks.app.actions.ActionProfile {val name=profileNames[username]?:registrations[username]?:if(username.contains("staff"))"Arjun Rao"else"Meera Nair";return org.spaceworks.app.actions.ActionProfile(name,name.substringBefore(" "),name.substringAfter(" ",""),"")}
     private var verified=false
     private var passwordChanged=false
     private val registrations=mutableMapOf<String,String>()
@@ -37,7 +42,7 @@ class DemoAuthGateway:AuthGateway {
         return MFACompleted(me(),"demo-access","device",refresh="demo-refresh",deviceGrant=mapOf("id" to JsonPrimitive("00000000-0000-0000-0000-000000000001")),recoveryCodes=if(enrollment) listOf("DEMO-001-ABCD","DEMO-002-EFGH","DEMO-003-IJKL") else null)
     }
     override suspend fun me():AuthUserPayload=AuthUserPayload(
-        id=1,username=username,email="meera@example.invalid",displayName=registrations[username] ?: if(username.contains("staff")) "Arjun Rao" else "Meera Nair",
+        id=1,username=username,email="meera@example.invalid",displayName=profileNames[username] ?: registrations[username] ?: if(username.contains("staff")) "Arjun Rao" else "Meera Nair",
         phone="",emailVerified=!username.contains("unverified") || verified,role="member",isSuperuser=username.contains("superadmin"),mustChangePassword=username.contains("temporary") && !passwordChanged,
         makerspaces=if(username.contains("empty") || registrations.containsKey(username))emptyList() else if(username.contains("single"))listOf(membership(1,"fab-lab-kochi")) else listOf(membership(1,"fab-lab-kochi"),membership(2,"maker-space-bengaluru")))
     override suspend fun forgotPassword(email:String):String {if(email.contains("unavailable"))throw ApiFailure(503,"Recovery unavailable","recovery_unavailable",null);return "If the details are valid, a verification email has been sent."}
@@ -45,7 +50,7 @@ class DemoAuthGateway:AuthGateway {
     override suspend fun signUp(name:String,email:String,password:String,phone:String):String {registrations[email]=name;return "Account created"}
     override suspend fun confirmEmail(code:String):String {if(code!="123456")throw ApiFailure(400,"Invalid verification code.",null,null);verified=true;return "Your email is verified."}
     override suspend fun resendEmail()="If the details are valid, a verification email has been sent."
-    override suspend fun logout() {delay(100)}
+    override suspend fun logout() {delay(100);profileNames.clear()}
     override suspend fun changePassword(current:String,replacement:String) {delay(200);passwordChanged=true}
     private fun membership(id:Int,slug:String)=AuthMembership(id,slug,"member",1,"Member","member",AuthMembershipSourceEnum.membership,emptyList(),false,false,false,false,null,false)
     private fun grant()=DeviceGrant(java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"),"android","org.spaceworks.app","development","active",java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"),java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"),java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"))

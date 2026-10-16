@@ -32,6 +32,7 @@ class AppController(application:Application):AndroidViewModel(application) {
             saveSelection={id->prefs.edit().apply {if(id==null)remove("space.$origin") else putInt("space.$origin",id)}.apply()})
         val accounts=AccountStateHolder(gateway,{holder.state.value.selfRegistrationEnabled},{holder.foreground()})
         val member=org.spaceworks.app.member.MemberStateHolder(org.spaceworks.app.member.GeneratedMemberGateway(session),onUnauthorized={holder.foreground()})
-        return AuthBundle(holder,store,accounts=accounts,member=member).also {savedOrigin=origin;savedBundle=it}
+        val actions=org.spaceworks.app.actions.MemberActionsStateHolder(org.spaceworks.app.actions.GeneratedMemberActionsGateway(session),member,onUnauthorized={holder.foreground()},onProfileSaved={holder.foreground()},capabilities=org.spaceworks.app.actions.GeneratedMakerCapabilitiesGateway(session))
+        return AuthBundle(holder,store,accounts=accounts,member=member,actions=actions).also {savedOrigin=origin;savedBundle=it}
     }
 }

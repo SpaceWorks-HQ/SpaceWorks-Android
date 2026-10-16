@@ -52,27 +52,33 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
     var destination by rememberSaveable(state.selectedId){mutableIntStateOf(0)}
     var signingOut by remember {mutableStateOf(false)}
     var changingServer by remember {mutableStateOf(false)}
+    val actions=bundle.actions
+    val actionState=actions?.state?.collectAsStateWithLifecycle()?.value
     val member=bundle.member
     val content=member?.state?.collectAsStateWithLifecycle()?.value
     var clock by remember {mutableLongStateOf(System.currentTimeMillis())}
     LaunchedEffect(content?.retryAtMillis) {
         do {clock=System.currentTimeMillis();if(clock<(content?.retryAtMillis?:0))kotlinx.coroutines.delay(250)}while(clock<(content?.retryAtMillis?:0))
     }
+    LaunchedEffect(actions,state.selectedId) {state.selected?.let {actions?.activate(org.spaceworks.app.member.MemberScope(it.id,it.slug));actions?.refreshCapabilities()}}
     LaunchedEffect(member,state.selectedId) {state.selected?.let {member?.activate(org.spaceworks.app.member.MemberScope(it.id,it.slug))}}
     if(signingOut || changingServer)SignOutConfirmation({signingOut=false;changingServer=false},{
         val change=changingServer;signingOut=false;changingServer=false
-        scope.launch {member?.clear();bundle.holder.signOut();if(change)onChangeServer?.invoke()}
+        scope.launch {member?.clear();actions?.clear();bundle.holder.signOut();if(change)onChangeServer?.invoke()}
     },changingServer)
+    CompositionLocalProvider(LocalMemberActions provides actions) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val expanded=maxWidth>=600.dp
         Row {
-            if(expanded) NavigationRail(Modifier.fillMaxHeight().verticalScroll(rememberScrollState())) {
+            if(expanded && actionState?.route==null) NavigationRail(Modifier.fillMaxHeight().verticalScroll(rememberScrollState())) {
                 destinations.forEachIndexed {index,title -> NavigationRailItem(selected=destination==index,onClick={destination=index},icon={Icon(destinationIcons[index],null)},label={Text(title)},modifier=Modifier.heightIn(min=if(LocalDensity.current.fontScale>=1.6f)120.dp else 80.dp),colors=NavigationRailItemDefaults.colors(selectedIconColor=MaterialTheme.colorScheme.onPrimaryContainer,selectedTextColor=MaterialTheme.colorScheme.onPrimaryContainer,indicatorColor=MaterialTheme.colorScheme.primaryContainer)) }
             }
             Column(Modifier.weight(1f)) {
                 if(clock<(content?.retryAtMillis?:0))Text("Try again in ${((requireNotNull(content).retryAtMillis-clock+999)/1000).coerceAtLeast(0)}s.",Modifier.padding(16.dp),color=MaterialTheme.colorScheme.onPrimaryContainer)
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     when {
+                        actionState?.route!=null && actionState.scope?.id!=state.selectedId -> Text("Loading your makerspace…",Modifier.padding(24.dp))
+                        actionState?.route!=null && actions!=null -> MemberActionsScreen(actions,bundle.demo,{})
                         destination==4 -> Box(Modifier.fillMaxSize(),contentAlignment=androidx.compose.ui.Alignment.TopCenter) {
                             Column(Modifier.widthIn(max=640.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
                                 Text("Profile",style=MaterialTheme.typography.headlineLarge)
@@ -82,6 +88,12 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
                                 if(content?.scope?.id==state.selectedId && member!=null)MemberProfileSummary(member)
                                 state.memberships.filter {it.id!=state.selectedId}.forEach {membership ->
                                     BrandTextButton("Switch to ${makerspaceLabel(membership.slug)}",{bundle.holder.select(membership.id)},!state.busy)
+                                }
+                                actions?.takeIf {actionState?.scope?.id==state.selectedId}?.let {action->
+                                    if(actionState?.capabilities?.value?.selfService==true)BrandTextButton("Edit profile",{scope.launch {action.openProfile()}})
+                                    if(actionState?.capabilities?.value?.memberPreferences==true)BrandTextButton("Communication preferences",{scope.launch {action.openPreferences()}})
+                                    if(actionState?.capabilities?.loading==true)LinearProgressIndicator(Modifier.fillMaxWidth())
+                                    actionState?.capabilities?.error?.let {BrandError(it);BrandTextButton("Retry makerspace settings",{scope.launch {action.refreshCapabilities()}})}
                                 }
                                 BrandTextButton("Refresh account",{scope.launch {bundle.holder.foreground()}},!state.busy)
                                 if(state.user?.emailVerified==false && state.config?.emailEnabled==true)bundle.accounts?.let {BrandTextButton("Confirm your email",{it.open(AccountRoute.VERIFY_EMAIL,state.user?.email.orEmpty())})}
@@ -99,11 +111,12 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
                     }
                 }
                 state.error?.let {Box(Modifier.padding(horizontal=24.dp)){BrandError(it)}}
-                if(!expanded) NavigationBar(Modifier.heightIn(min=if(LocalDensity.current.fontScale>=1.6f)112.dp else 80.dp)) {
+                if(!expanded && actionState?.route==null) NavigationBar(Modifier.heightIn(min=if(LocalDensity.current.fontScale>=1.6f)112.dp else 80.dp)) {
                     destinations.forEachIndexed {index,title -> NavigationBarItem(selected=destination==index,onClick={destination=index},icon={Icon(destinationIcons[index],null)},label={Text(title)},colors=NavigationBarItemDefaults.colors(selectedIconColor=MaterialTheme.colorScheme.onPrimaryContainer,selectedTextColor=MaterialTheme.colorScheme.onPrimaryContainer,indicatorColor=MaterialTheme.colorScheme.primaryContainer)) }
                 }
             }
         }
+    }
     }
 }
 

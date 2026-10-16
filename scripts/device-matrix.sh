@@ -36,6 +36,12 @@ for setting in window_animation_scale transition_animation_scale animator_durati
   adb shell settings put global "$setting" "$animation_scale"
   adb shell settings get global "$setting" >> "validation/$profile/animation-settings.txt"
 done
+# The fresh Google APIs emulator's launcher can hang while processing display/font changes.
+# Stop only known emulator launchers before the app starts; the test window guard separately
+# records/reconciles an actual launcher ANR and fails app/unknown error dialogs.
+for launcher in com.google.android.apps.nexuslauncher com.android.launcher3 com.android.launcher; do
+  adb shell am force-stop "$launcher" || true
+done
 adb shell wm size > "validation/$profile/window-size.txt"
 adb shell wm density > "validation/$profile/window-density.txt"
 python3 - "$profile" "$size" <<'PY'
@@ -67,6 +73,7 @@ if adb shell test -d "/sdcard/Android/data/$app_id/files/validation"; then
   adb pull "/sdcard/Android/data/$app_id/files/validation" "validation/$profile/screenshots"
 fi
 adb shell dumpsys window displays > "validation/$profile/display.txt"
+adb shell dumpsys window windows > "validation/$profile/windows-after-tests.txt"
 if [[ "$result" == 0 && -z "$(find "validation/$profile/screenshots" -type f -name '*.png' -print -quit)" ]]; then
   echo 'UI tests passed but screenshot evidence was not collected.' >&2
   result=1
