@@ -14,7 +14,23 @@ class MemberActionsJourneyTest {
     @get:Rule val compose=createComposeRule()
     private lateinit var session:org.spaceworks.app.auth.AuthBundle
     private fun waitText(text:String){DeviceWindowGuard.awaitClear();try {compose.waitUntil(12000){compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()}}catch(f:Throwable){shot("a3-failure-${text.filter(Char::isLetterOrDigit).take(30)}");throw f}}
-    private fun click(text:String){DeviceWindowGuard.awaitClear();try {compose.waitUntil(12000){runCatching {compose.onNodeWithText(text).assertIsEnabled();true}.getOrDefault(false)};compose.onNodeWithText(text).reachable().performClick()}catch(f:Throwable){shot("a3-click-failure-${text.filter(Char::isLetterOrDigit).take(30)}");throw f}}
+    private fun click(text:String){DeviceWindowGuard.awaitClear();dismissKeyboard();try {compose.waitUntil(12000){runCatching {compose.onNodeWithText(text).assertIsEnabled();true}.getOrDefault(false)};compose.onNodeWithText(text).reachable().performClick()}catch(f:Throwable){shot("a3-click-failure-${text.filter(Char::isLetterOrDigit).take(30)}");throw f}}
+    private fun dismissKeyboard() {
+        val instrumentation=InstrumentationRegistry.getInstrumentation()
+        instrumentation.runOnMainSync {
+            val activity=androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED).first()
+            activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java).hideSoftInputFromWindow(activity.window.decorView.windowToken,0)
+            activity.window.decorView.clearFocus()
+        }
+        compose.waitUntil(5000) {
+            var shown=false
+            instrumentation.runOnMainSync {
+                val activity=androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED).first()
+                shown=androidx.core.view.ViewCompat.getRootWindowInsets(activity.window.decorView)?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime())==true
+            };!shown
+        }
+        compose.waitForIdle()
+    }
     private fun SemanticsNodeInteraction.reachable():SemanticsNodeInteraction {
         compose.waitUntil(5000) {if(runCatching {assertIsDisplayed()}.isSuccess)true else {runCatching {performScrollTo()};runCatching {assertIsDisplayed()}.isSuccess}}
         return assertIsDisplayed()
@@ -30,11 +46,11 @@ class MemberActionsJourneyTest {
         signedIn();click("Book a space");waitText("Electronics bench");click("Electronics bench");waitText("Submit booking request");click("Check availability");waitText("No overlapping bookings were returned. Final availability is checked when you book.")
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("What will you work on? (required)").reachable().performTextReplacement("A sensor enclosure")
-        click("No");click("Submit booking request");waitText("Space booked");shot("a3-booking-receipt");click("Done")
+        click("No");compose.onNodeWithText("No").assertIsSelected();compose.runOnIdle {val id=session.actions!!.state.value.space!!.form.questions.single {it.type=="yes_no"}.id;assertEquals(kotlinx.serialization.json.JsonPrimitive(false),session.actions!!.state.value.answers[id])};click("Submit booking request");waitText("Space booked");shot("a3-booking-receipt");click("Done")
         tab("Home");click("Explore events");waitText("Make a desk light");click("Make a desk light");waitText("Register for this event");click("Register for this event");waitText("Confirm registration")
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("What will you work on? (required)").reachable().performTextReplacement("A reading light")
-        click("Yes");click("Member place · INR 350.00 · 10 left");click("Confirm registration");waitText("Registration confirmed");shot("a3-registration-receipt");click("Done");tab("Activity");waitText("View registration")
+        click("Yes");compose.onNodeWithText("Yes").assertIsSelected();compose.runOnIdle {val id=session.actions!!.state.value.event!!.form.questions.single {it.type=="yes_no"}.id;assertEquals(kotlinx.serialization.json.JsonPrimitive(true),session.actions!!.state.value.answers[id])};click("Member place · INR 350.00 · 10 left");click("Confirm registration");waitText("Registration confirmed");shot("a3-registration-receipt");click("Done");tab("Activity");waitText("View registration")
         DeviceWindowGuard.awaitClear()
         compose.onAllNodesWithText("View registration").onFirst().reachable().performClick();waitText("Show QR ticket");click("Show QR ticket");compose.waitUntil(10000){compose.onAllNodesWithContentDescription("Your event registration QR ticket").fetchSemanticsNodes().isNotEmpty()};shot("a3-event-qr")
     }

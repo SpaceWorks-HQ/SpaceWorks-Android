@@ -7,6 +7,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,7 +34,7 @@ val LocalMemberActionScope=staticCompositionLocalOf<kotlinx.coroutines.Coroutine
 }
 @Composable private fun ActionChoice(label:String,selected:Boolean,onClick:()->Unit,enabled:Boolean=true) {
     val focus=LocalFocusManager.current;val keyboard=LocalSoftwareKeyboardController.current
-    Row(Modifier.fillMaxWidth().heightIn(min=48.dp).toggleable(value=selected,enabled=enabled,role=Role.RadioButton,onValueChange={focus.clearFocus();keyboard?.hide();onClick()}).padding(vertical=8.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().heightIn(min=48.dp).selectable(selected=selected,enabled=enabled,role=Role.RadioButton,onClick={focus.clearFocus();keyboard?.hide();onClick()}).padding(vertical=8.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
         RadioButton(selected=selected,onClick=null,enabled=enabled);Spacer(Modifier.width(12.dp));Text(label,Modifier.weight(1f))
     }
 }
