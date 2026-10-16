@@ -11,6 +11,9 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
+import org.spaceworks.generated.api.AuthApi
+import org.spaceworks.generated.api.MFAApi
+import org.spaceworks.generated.api.PlatformApi
 import org.spaceworks.generated.api.HealthApi
 import org.spaceworks.generated.api.DeviceAuthApi
 import org.spaceworks.generated.model.DeviceRefresh
@@ -27,8 +30,8 @@ object ServerAddress {
         return url
     }
 }
-// Local application state, not a transport model. A1 will replace volatile storage with Keystore storage.
-data class TokenPair(val access: String, val refresh: String)
+// Local application state, not a transport model. Production uses a Keystore-backed TokenStore.
+data class TokenPair(val access: String, val refresh: String) { override fun toString() = "TokenPair(redacted)" }
 interface TokenStore { fun read(): TokenPair?; fun replace(pair: TokenPair?) }
 class MemoryTokenStore : TokenStore {
     @Volatile private var pair: TokenPair? = null
@@ -121,7 +124,10 @@ class ApiSession(val server: HttpUrl, store: TokenStore = MemoryTokenStore(), ma
         .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build()
     private fun retrofit(client: OkHttpClient) = Retrofit.Builder().baseUrl(server)
         .client(client).addConverterFactory(json.asConverterFactory("application/json".toMediaType())).build()
-    private val refreshApi = retrofit(baseClient).create(DeviceAuthApi::class.java)
+    val devicePublic = retrofit(baseClient).create(DeviceAuthApi::class.java)
+    val platform = retrofit(baseClient).create(PlatformApi::class.java)
+    val mfa = retrofit(baseClient).create(MFAApi::class.java)
+    private val refreshApi = devicePublic
     val coordinator = RefreshCoordinator(store) { refresh ->
         val response = refreshApi.apiV1AuthDeviceRefreshCreate(DeviceRefresh(refresh))
         val result = response.body() ?: throw Errors.map(response.code(),response.errorBody()?.string(),response.headers()["Retry-After"])
@@ -129,6 +135,8 @@ class ApiSession(val server: HttpUrl, store: TokenStore = MemoryTokenStore(), ma
     }
     val client: OkHttpClient = baseClient.newBuilder().dispatcher(Dispatcher()).addInterceptor(RequestHeaders(store,makerspace))
         .authenticator(SessionAuthenticator(coordinator)).build()
+    val auth = retrofit(client).create(AuthApi::class.java)
+    val deviceAuthenticated = retrofit(client).create(DeviceAuthApi::class.java)
     val health: HealthApi = retrofit(client).create(HealthApi::class.java)
     suspend fun checkHealth() {
         val response = health.apiV1HealthRetrieve()

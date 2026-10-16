@@ -1,13 +1,29 @@
 package org.spaceworks.app
+
+import android.graphics.Bitmap
 import androidx.compose.ui.test.*
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
 import org.junit.Test
+import java.io.File
+
 class ShellTest {
     @get:Rule val compose=createComposeRule()
+    private fun screenshot(name:String) {
+        val dir=InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("validation")!!
+        dir.mkdirs();File(dir,"$name.png").outputStream().use {compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it)}
+    }
+    private fun waitText(text:String) {compose.waitUntil(10000){compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()}}
+    private fun enterDemo() {
+        compose.setContent {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}))}
+        compose.onNodeWithText("Explore demo").performScrollTo().performClick()
+        waitText("Email or username")
+    }
     @Test fun invalidConnectionRemainsAccessibleAtLargeFontScale() {
         val holder=ConnectionStateHolder("",false,false,{}, {})
         compose.setContent { val density=LocalDensity.current; CompositionLocalProvider(LocalDensity provides Density(density.density,2f)) {SpaceWorksApp(holder)} }
@@ -16,21 +32,35 @@ class ShellTest {
         compose.onNodeWithTag("serverUrl").performTextInput("http://example.org")
         compose.onNodeWithText("Connect",useUnmergedTree=true).performScrollTo().performClick()
         compose.onNodeWithTag("connectionError").performScrollTo().assertIsDisplayed()
+        screenshot("a1-server-error-dark-font2")
         compose.onNodeWithText("Sign in").assertDoesNotExist()
     }
-    @Test fun connectAndNavigateEmptyShell() {
-        val holder=ConnectionStateHolder("",false,true,{}, {})
-        compose.setContent {SpaceWorksApp(holder)}
-        compose.onNodeWithText("Connect to your Space Works server").assertIsDisplayed()
-        compose.onNodeWithTag("serverUrl").performTextInput("https://example.org")
-        compose.onNodeWithText("Connect",useUnmergedTree=true).performClick()
-        compose.onNodeWithText("Sign-in will be available in the next phase.").assertIsDisplayed()
-        listOf("Inventory","Activity","Inbox","Profile").forEach {tab ->
-            compose.onNodeWithText(tab).performClick()
-            compose.onNodeWithText("Nothing here yet.").assertIsDisplayed()
-        }
-        compose.onNodeWithText("Staff").assertDoesNotExist()
-        compose.onNodeWithText("Dark mode").performClick()
-        compose.onNodeWithText("Light mode").assertIsDisplayed()
+    @Test fun demoSignInSelectMakerspaceNavigateAndSignOut() {
+        enterDemo();screenshot("a1-sign-in")
+        compose.onNodeWithTag("submitSignIn").performScrollTo().performClick()
+        waitText("Choose a makerspace");screenshot("a1-makerspace-picker")
+        compose.onNodeWithText("Fab lab kochi").performClick()
+        waitText("Welcome, Meera Nair");screenshot("a1-home")
+        compose.onNodeWithText("Profile",useUnmergedTree=true).performClick()
+        compose.onNodeWithText("Sign out").performScrollTo().performClick()
+        waitText("Email or username")
+        compose.onNodeWithText("Signed out.").assertExists()
+        compose.onNodeWithText("Exit demo").performClick()
+        compose.onNodeWithText("Connect to your Space Works server").assertExists()
+    }
+    @Test fun demoMfaEnrollmentRequiresRecoveryAcknowledgement() {
+        enterDemo()
+        compose.onNodeWithText("Enrollment").performScrollTo().performClick()
+        compose.onNodeWithTag("submitSignIn").performScrollTo().performClick()
+        waitText("Show enrollment QR and key")
+        compose.onNodeWithText("Show enrollment QR and key").performScrollTo().performClick()
+        waitText("Authenticator or recovery code")
+        screenshot("a1-mfa-enrollment")
+        compose.onNodeWithTag("mfaCode").performScrollTo().performTextInput("123456")
+        compose.onNodeWithText("Verify",useUnmergedTree=true).performScrollTo().performClick()
+        waitText("Save your recovery codes");screenshot("a1-recovery")
+        compose.onNodeWithText("Choose a makerspace").assertDoesNotExist()
+        compose.onNodeWithText("I saved my codes. Continue").performScrollTo().performClick()
+        waitText("Choose a makerspace")
     }
 }
