@@ -1,0 +1,11 @@
+{
+  "app_name": "Space Works",
+  "android_application_id": "org.spaceworks.app",
+  "ios_bundle_id": "org.spaceworks.app",
+  "ios_team_id": "XXXXXXXXXX",
+  "server_url": null,
+  "support_url": null,
+  "privacy_url": null,
+  "theme_tokens": "design/tokens/tokens.json",
+  "app_icon": "branding/app-icon.svg"
+}

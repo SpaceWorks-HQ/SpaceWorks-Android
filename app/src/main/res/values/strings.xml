@@ -1,0 +1,8 @@
+<resources>
+<string name="connect_title">Connect to your Space Works server</string>
+<string name="server_url">Server URL</string><string name="connect">Connect</string><string name="connecting">Connecting…</string>
+<string name="sign_in">Sign in</string><string name="sign_in_placeholder">Sign-in will be available in the next phase.</string>
+<string name="empty">Nothing here yet.</string><string name="light_mode">Light mode</string><string name="dark_mode">Dark mode</string>
+<string name="server_help">Your makerspace will share its server URL with you.</string>
+<string name="change_server">Change server</string>
+</resources>
