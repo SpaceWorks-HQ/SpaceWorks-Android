@@ -31,7 +31,7 @@ android {
 }
 val prepareBrand by tasks.registering(Exec::class) {
     inputs.files(brand.filterKeys {it.toString().startsWith("logo_")}.values.map {rootProject.file(it as String)})
-    inputs.file(rootProject.file("design/tokens/mobile-motion.json"))
+    inputs.file(rootProject.file("tokens/mobile-motion.json"))
     inputs.files(brandFile, rootProject.file(brand["theme_tokens"] as String), rootProject.file(brand["app_icon"] as String), rootProject.file("scripts/prepare.py"))
     outputs.dirs(layout.buildDirectory.dir("generated/source/brand"),layout.buildDirectory.dir("generated/res/brand"))
     commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3", rootProject.file("scripts/prepare.py"))
@@ -41,7 +41,27 @@ val prepareContract by tasks.registering(Exec::class) {
     outputs.file(layout.buildDirectory.file("generated/mobile-openapi.json"))
     commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3", rootProject.file("scripts/contract.py"))
 }
+val nativeTemplateOutput = layout.buildDirectory.dir("generated/native-templates")
+val nativeGeneratorJar = providers.provider {
+    file(org.openapitools.codegen.DefaultCodegen::class.java.protectionDomain.codeSource.location.toURI())
+}
+val prepareNativeTemplates by tasks.registering(Exec::class) {
+    inputs.file(rootProject.file("scripts/native_templates.py"))
+    inputs.file(nativeGeneratorJar)
+    outputs.dir(nativeTemplateOutput)
+    doFirst {
+        commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3",
+            rootProject.file("scripts/native_templates.py"), "--jar", nativeGeneratorJar.get(), "--output", nativeTemplateOutput.get().asFile)
+    }
+}
+val verifyNativeTemplates by tasks.registering(Exec::class) {
+    inputs.files(rootProject.file("scripts/native_templates.py"),rootProject.file("scripts/tests/test_native_templates.py"),nativeGeneratorJar)
+    doFirst {commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3",
+        rootProject.file("scripts/tests/test_native_templates.py"), "--jar", nativeGeneratorJar.get())}
+}
 openApiGenerate {
+    workerIsolation.set("process")
+    templateDir.set(nativeTemplateOutput.get().asFile.path)
     generatorName.set("kotlin")
     library.set("jvm-retrofit2")
     inputSpec.set(layout.buildDirectory.file("generated/mobile-openapi.json").get().asFile.path)
@@ -50,14 +70,22 @@ openApiGenerate {
     modelPackage.set("org.spaceworks.generated.model")
     configOptions.set(mapOf("serializationLibrary" to "kotlinx_serialization", "generateOneOfAnyOfWrappers" to "true", "useCoroutines" to "true", "dateLibrary" to "java8", "omitGradleWrapper" to "true", "useResponseAsReturnType" to "true"))
     typeMappings.set(mapOf("AnyType" to "JsonElement", "Any" to "JsonElement"))
-    importMappings.set(mapOf("JsonElement" to "kotlinx.serialization.json.JsonElement"))
+    importMappings.set(mapOf("JsonElement" to "kotlinx.serialization.json.JsonElement","String" to "kotlin.String"))
+    // The owner wire types remain unchanged: URI-or-empty is a String; unused
+    // empty-or-structured opening-hours objects stay lossless JSON. This avoids
+    // generator7.26 inline-union scalar serializer defects without editing schema.
+    schemaMappings.set(mapOf(
+        "TenantBootstrapMakerspace_map_url" to "String",
+        "TenantBootstrapMakerspace_opening_hours" to "kotlinx.serialization.json.JsonElement",
+        "TenantBootstrapMakerspace_opening_hours_oneOf_weekly" to "kotlinx.serialization.json.JsonElement"
+    ))
     enumNameMappings.set(mapOf("name" to "nameAscending"))
     languageSpecificPrimitives.set(listOf("JsonElement"))
     globalProperties.set(mapOf("apis" to "", "models" to "", "apiTests" to "false", "modelTests" to "false", "apiDocs" to "false", "modelDocs" to "false", "supportingFiles" to "CollectionFormats.kt,UUIDAdapter.kt,OffsetDateTimeAdapter.kt,URIAdapter.kt,BigDecimalAdapter.kt"))
 }
-tasks.named("openApiGenerate") { dependsOn(prepareContract); doFirst { delete(layout.buildDirectory.dir("generated/openapi")) } }
-tasks.named("preBuild") { dependsOn(prepareBrand,"openApiGenerate") }
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach { dependsOn(prepareBrand,"openApiGenerate") }
+tasks.named("openApiGenerate") { dependsOn(prepareContract,prepareNativeTemplates); inputs.dir(nativeTemplateOutput); doFirst { delete(layout.buildDirectory.dir("generated/openapi")) } }
+tasks.named("preBuild") { dependsOn(prepareBrand,"openApiGenerate",verifyNativeTemplates) }
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach { dependsOn(prepareBrand,"openApiGenerate",verifyNativeTemplates) }
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2025.10.01"))
     implementation("androidx.activity:activity-compose:1.11.0")

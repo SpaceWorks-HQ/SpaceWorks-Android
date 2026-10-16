@@ -113,6 +113,12 @@ class NetworkTest {
         assertEquals("email: Enter a valid email.",Errors.map(400,"""{"email":["Enter a valid email."]}""").detail)
         assertEquals("Check the details and try again.",Errors.map(400,"bad json").detail)
     }
+    @Test fun customAnswerErrorsKeepNestedPathsAndRespectDetailAndSpecialCodes() {
+        val fields="""{"custom_answers":{"voltage":["Enter a number.","Use a whole number."],"safety":"Answer this question."}}"""
+        assertEquals("custom_answers.voltage: Enter a number. Use a whole number.\ncustom_answers.safety: Answer this question.",Errors.map(400,fields).detail)
+        assertEquals("Review the form.",Errors.map(400,"""{"detail":"Review the form.","custom_answers":{"voltage":["Enter a number."]}}""").detail)
+        assertEquals("Use the web console",Errors.map(400,"""{"code":"device_superadmin_not_supported","detail":"Review the form.","custom_answers":{"voltage":"Invalid"}}""").detail)
+    }
     @Test fun addressAndPaginationRejectCredentialLeaks() {
         assertEquals("https://example.org/",ServerAddress.parse("https://example.org",false).toString())
         assertEquals("http://localhost/",ServerAddress.parse("http://localhost",true).toString())

@@ -17,7 +17,7 @@ class OnboardingTest {
         assertTrue(AppearanceStateHolder(settings["dark"].toBoolean()){}.dark.value)
     }
     @Test fun motionComesFromPinnedBrandAndReducedMotionHasNoCustomDelay() {
-        val motion=Json.parseToJsonElement(File("../design/tokens/mobile-motion.json").readText()).jsonObject
+        val motion=Json.parseToJsonElement(File("../tokens/mobile-motion.json").readText()).jsonObject
         assertEquals(motion["duration_ms"]!!.jsonObject["color"]!!.jsonPrimitive.int,BrandMotion.COLOR)
         assertEquals(motion["duration_ms"]!!.jsonObject["overlay_enter"]!!.jsonPrimitive.int,BrandMotion.OVERLAY_ENTER)
         assertEquals(0,BrandMotion.BLOCKING_DELAY);assertEquals(0,BrandMotion.duration(200,true));assertFalse(BrandMotion.REDUCED_SPATIAL)

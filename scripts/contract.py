@@ -18,6 +18,24 @@ selected += [
     '/api/v1/public/{makerspace_slug}/events/{public_token}/',
     '/api/v1/public/{makerspace_slug}/spaces/',
 ]
+phase3_operations={
+    'api_v1_bootstrap_retrieve',
+    'api_v1_public_requests_create','api_v1_public_requests_status_retrieve',
+    'api_v1_member_makerspaces_loans_renew_create','api_v1_public_spaces_availability_retrieve',
+    'api_v1_public_spaces_book_create','api_v1_public_my_bookings_cancel_create',
+    'api_v1_public_my_bookings_reschedule_create','api_v1_public_events_register_create',
+    'api_v1_member_makerspaces_event_registrations_cancel_create',
+    'api_v1_member_makerspaces_event_registrations_qr_retrieve',
+    'api_v1_member_makerspaces_account_profile_retrieve',
+    'api_v1_member_makerspaces_account_profile_partial_update',
+    'api_v1_notifications_preferences_retrieve','api_v1_notifications_preferences_partial_update',
+}
+found=set()
+for path, item in s['paths'].items():
+    operations={op.get('operationId') for op in item.values() if isinstance(op,dict)} & phase3_operations
+    if operations:
+        selected.append(path);found.update(operations)
+assert found == phase3_operations, f'Missing contract operations: {phase3_operations-found}'
 paths={k:s['paths'][k] for k in selected}
 required=set()
 def visit(v):

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "provenance": "design/docs/ui-brand-spec.md, section E motion table; owner mobile UX extension 2026-10-16",
+  "duration_ms": {
+    "color": 120,
+    "expand": 200,
+    "overlay_enter": 240,
+    "overlay_exit": 160
+  },
+  "easing": {
+    "overlay_enter_cubic_bezier": [0.32, 0.72, 0.0, 1.0]
+  },
+  "onboarding": {
+    "blocking_delay_ms": 0,
+    "logo_motion": "none",
+    "optional": true,
+    "replay_from_help": true
+  },
+  "reduce_motion": {
+    "spatial_transitions": false,
+    "decorative_repeats": false,
+    "blocking_delay_ms": 0,
+    "opacity_duration_ms": 0
+  }
+}

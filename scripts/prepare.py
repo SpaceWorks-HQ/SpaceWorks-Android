@@ -13,7 +13,7 @@ for mode in ['light','dark']:
         lines+=['        val '+key+' = Color(0xFF'+value.lstrip('#')+')']
     lines+=['    }']
 lines+=['}']
-motion=json.loads((root/'design/tokens/mobile-motion.json').read_text(encoding='utf-8'))
+motion=json.loads((root/'tokens/mobile-motion.json').read_text(encoding='utf-8'))
 lines+=['object BrandMotion {']
 for key,value in motion['duration_ms'].items():
     lines+=['    const val '+key.upper()+' = '+str(value)]

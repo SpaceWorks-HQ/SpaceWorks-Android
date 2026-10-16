@@ -104,13 +104,14 @@ object Errors {
         val envelope = try { body?.let { json.parseToJsonElement(it) as? JsonObject } } catch (_: Exception) { null }
         val code = error?.code ?: (envelope?.get("code") as? JsonPrimitive)?.contentOrNull
         val serverDetail = error?.detail ?: (envelope?.get("detail") as? JsonPrimitive)?.contentOrNull
-        fun messages(value: JsonElement): List<String> = when (value) {
-            is JsonPrimitive -> listOfNotNull(value.contentOrNull?.takeIf { it.isNotBlank() })
-            is JsonArray -> value.flatMap(::messages)
-            is JsonObject -> value.entries.flatMap { (field, nested) -> messages(nested).map { "$field: $it" } }
+        fun messages(value: JsonElement, path:String): List<Pair<String,String>> = when (value) {
+            is JsonPrimitive -> listOfNotNull(value.contentOrNull?.takeIf {it.isNotBlank()}?.let {path to it})
+            is JsonArray -> value.flatMap {messages(it,path)}
+            is JsonObject -> value.entries.flatMap {(field,nested)->messages(nested,"$path.$field")}
         }
-        val fieldDetail = if (status == 400) envelope?.filterKeys { it != "code" && it != "detail" }?.entries
-            ?.flatMap { (field, value) -> messages(value).map { "$field: $it" } }?.joinToString("\n")?.takeIf { it.isNotBlank() } else null
+        val fieldDetail = if(status==400) envelope?.filterKeys {it!="code"&&it!="detail"}?.entries
+            ?.flatMap {(field,value)->messages(value,field)}?.groupBy({it.first},{it.second})?.entries
+            ?.joinToString("\n") {(path,parts)->"$path: ${parts.joinToString(" ")}"}?.takeIf {it.isNotBlank()} else null
         val detail = when (code) {
             "device_superadmin_not_supported" -> "Use the web console"
             "payment_rail_conflict" -> "Finish this payment on the web."
@@ -152,16 +153,21 @@ class ApiSession(val server: HttpUrl, store: TokenStore = MemoryTokenStore(), ma
     // Redirects are surfaced to callers; credentials never follow another origin.
     private val baseClient = OkHttpClient.Builder().cookieJar(CookieJar.NO_COOKIES)
         .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
+        .callTimeout(45,java.util.concurrent.TimeUnit.SECONDS)
         .addInterceptor(RestoreServiceResponse()).addNetworkInterceptor(PreventServiceReplay()).build()
     private fun retrofit(client: OkHttpClient) = Retrofit.Builder().baseUrl(server)
         .client(client).addConverterFactory(json.asConverterFactory("application/json".toMediaType())).build()
     fun <T> publicApi(type: Class<T>): T = retrofit(baseClient).create(type)
-    fun <T> scopedApi(type: Class<T>, makerId: Int): T {
+    fun <T> scopedApi(type: Class<T>, makerId: Int, onCall: (Call) -> Unit = {}): T {
         require(makerId > 0)
         val scoped = client.newBuilder().addInterceptor { chain ->
             chain.proceed(chain.request().newBuilder().header("X-Makerspace-Id", makerId.toString()).build())
         }.build()
-        return retrofit(scoped).create(type)
+        // Observe only this generated service instance's calls so streamed consumers can
+        // cancel their socket without closing a ResponseBody concurrently with its reader.
+        val factory = Call.Factory { request -> scoped.newCall(request).also(onCall) }
+        return Retrofit.Builder().baseUrl(server).callFactory(factory)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType())).build().create(type)
     }
     val devicePublic = retrofit(baseClient).create(DeviceAuthApi::class.java)
     val platform = retrofit(baseClient).create(PlatformApi::class.java)
