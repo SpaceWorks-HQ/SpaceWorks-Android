@@ -65,7 +65,7 @@ class AccountManagementJourneyTest {
         waitText("Type DELETE")
         journey.replace(compose.onNodeWithTag("deletion-confirmation"),"DELETE")
         compose.onNodeWithTag("deletion-confirmation").performImeAction()
-        waitText("Connect to your Space Works server")
+        waitText("Connect to your makerspace")
         compose.onAllNodesWithText("Demo mode").assertCountEquals(0)
         shot("a7-app-deletion-demo-reset")
     }
