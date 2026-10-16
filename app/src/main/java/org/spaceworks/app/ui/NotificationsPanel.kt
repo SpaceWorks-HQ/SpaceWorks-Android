@@ -27,7 +27,7 @@ import org.spaceworks.app.platform.*
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Text("Makerspace notifications",style=MaterialTheme.typography.titleMedium)
-            Text(if(demo)"Demo only. These controls use local fixtures. No device token or system permission is used." else "Get updates about your requests, bookings and makerspace activity. You can keep using Inbox without notifications.")
+            Text(if(demo)"Demo only. Changes stay in this preview. No notifications will be sent." else "Get updates about your requests, bookings and makerspace activity. You can keep using Inbox without notifications.")
             when {
                 !demo && !configured -> Text("Notifications are not configured for this build.")
                 state.consent && !state.permission -> Text("Notifications are blocked in system settings. Inbox is still available.")
@@ -42,7 +42,7 @@ import org.spaceworks.app.platform.*
             BrandError(state.error)
             if(clock<state.retryAtMillis)Text("Try again in ${((state.retryAtMillis-clock+999)/1000).coerceAtLeast(0)}s.")
             if(demo || configured) {
-                BrandButton(if(state.consent)"Retry notification setup" else "Enable notifications",{
+                BrandButton(when { !state.consent -> "Enable notifications"; state.error!=null -> "Retry notification setup"; else -> "Refresh notification setup" },{
                     if(demo)scope.launch {holder.enable(true)}else request()
                 },ready)
                 if(state.consent || state.registered.isNotEmpty())BrandTextButton("Turn off notifications",{scope.launch {holder.disable()}},!state.busy)

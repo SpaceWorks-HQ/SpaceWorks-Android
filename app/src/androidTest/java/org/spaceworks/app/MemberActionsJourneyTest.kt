@@ -32,7 +32,20 @@ class MemberActionsJourneyTest {
         compose.waitForIdle()
     }
     private fun SemanticsNodeInteraction.reachable():SemanticsNodeInteraction {
-        compose.waitUntil(5000) {if(runCatching {assertIsDisplayed()}.isSuccess)true else {runCatching {performScrollTo()};runCatching {assertIsDisplayed()}.isSuccess}}
+        // A partly clipped node is "displayed", but its click centre can still be outside
+        // the scroll viewport. Bring scrollable controls fully into view before a real tap;
+        // dialog controls have no scroll ancestor and must already fit their window.
+        runCatching {performScrollTo()}
+        compose.waitForIdle()
+        compose.waitUntil(5000) {
+            runCatching {
+                assertIsDisplayed()
+                val actual=fetchSemanticsNode().boundsInRoot
+                val full=getUnclippedBoundsInRoot()
+                val density=compose.density.density
+                actual.width+1f>=(full.right-full.left).value*density && actual.height+1f>=(full.bottom-full.top).value*density
+            }.getOrDefault(false)
+        }
         return assertIsDisplayed()
     }
     private fun tab(text:String){DeviceWindowGuard.awaitClear();compose.onAllNodesWithText(text,useUnmergedTree=true).onLast().performClick()}
