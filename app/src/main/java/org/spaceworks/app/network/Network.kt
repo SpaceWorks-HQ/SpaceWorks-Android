@@ -3,6 +3,9 @@ package org.spaceworks.app.network
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.*
+import kotlinx.serialization.modules.*
+import org.openapitools.client.infrastructure.UUIDAdapter
+import org.openapitools.client.infrastructure.OffsetDateTimeAdapter
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
@@ -37,9 +40,11 @@ class RefreshCoordinator(private val store: TokenStore, private val rotate: susp
     suspend fun refresh(rejectedAccess: String): TokenPair? = mutex.withLock {
         val current = store.read() ?: return@withLock null
         if (current.access != rejectedAccess) return@withLock current
-        try { rotate(current.refresh).also(store::replace) }
-        catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
-        catch (failure: Exception) { store.replace(null); throw failure }
+        // Rotation may consume the one-use refresh token even if its caller leaves the screen.
+        kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+            try { rotate(current.refresh).also(store::replace) }
+            catch (failure: Exception) { store.replace(null); throw failure }
+        }
     }
 }
 class RequestHeaders(private val store: TokenStore, private val makerspace: () -> String?) : Interceptor {
@@ -104,10 +109,16 @@ object Pagination {
     }
 }
 class ApiSession(val server: HttpUrl, store: TokenStore = MemoryTokenStore(), makerspace: () -> String? = { null }) {
-    private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+    private val json = Json {
+        ignoreUnknownKeys = true; explicitNulls = false
+        serializersModule = SerializersModule {
+            contextual(java.util.UUID::class, UUIDAdapter)
+            contextual(java.time.OffsetDateTime::class, OffsetDateTimeAdapter)
+        }
+    }
     // Redirects are surfaced to callers; credentials never follow another origin.
     private val baseClient = OkHttpClient.Builder().cookieJar(CookieJar.NO_COOKIES)
-        .followRedirects(false).followSslRedirects(false).build()
+        .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build()
     private fun retrofit(client: OkHttpClient) = Retrofit.Builder().baseUrl(server)
         .client(client).addConverterFactory(json.asConverterFactory("application/json".toMediaType())).build()
     private val refreshApi = retrofit(baseClient).create(DeviceAuthApi::class.java)
@@ -116,7 +127,7 @@ class ApiSession(val server: HttpUrl, store: TokenStore = MemoryTokenStore(), ma
         val result = response.body() ?: throw Errors.map(response.code(),response.errorBody()?.string(),response.headers()["Retry-After"])
         TokenPair(result.access,result.refresh)
     }
-    val client: OkHttpClient = baseClient.newBuilder().addInterceptor(RequestHeaders(store,makerspace))
+    val client: OkHttpClient = baseClient.newBuilder().dispatcher(Dispatcher()).addInterceptor(RequestHeaders(store,makerspace))
         .authenticator(SessionAuthenticator(coordinator)).build()
     val health: HealthApi = retrofit(client).create(HealthApi::class.java)
     suspend fun checkHealth() {

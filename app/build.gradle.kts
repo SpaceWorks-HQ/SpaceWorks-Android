@@ -47,9 +47,9 @@ openApiGenerate {
     apiPackage.set("org.spaceworks.generated.api")
     modelPackage.set("org.spaceworks.generated.model")
     configOptions.set(mapOf("serializationLibrary" to "kotlinx_serialization", "useCoroutines" to "true", "dateLibrary" to "java8", "omitGradleWrapper" to "true", "useResponseAsReturnType" to "true"))
-    globalProperties.set(mapOf("apiTests" to "false", "modelTests" to "false", "apiDocs" to "false", "modelDocs" to "false"))
+    globalProperties.set(mapOf("apis" to "", "models" to "", "apiTests" to "false", "modelTests" to "false", "apiDocs" to "false", "modelDocs" to "false", "supportingFiles" to "CollectionFormats.kt,UUIDAdapter.kt,OffsetDateTimeAdapter.kt"))
 }
-tasks.named("openApiGenerate") { dependsOn(prepareContract) }
+tasks.named("openApiGenerate") { dependsOn(prepareContract); doFirst { delete(layout.buildDirectory.dir("generated/openapi")) } }
 tasks.named("preBuild") { dependsOn(prepareBrand,"openApiGenerate") }
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach { dependsOn(prepareBrand,"openApiGenerate") }
 dependencies {

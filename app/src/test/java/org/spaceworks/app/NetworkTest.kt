@@ -6,6 +6,8 @@ import org.spaceworks.app.network.*
 import okhttp3.mockwebserver.*
 import kotlinx.coroutines.*
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class NetworkTest {
     @Test fun healthUsesGeneratedClientAndSanitizedHeaders() = runBlocking {
@@ -23,6 +25,8 @@ class NetworkTest {
     @Test(timeout=30000) fun concurrent401ResponsesRotateExactlyOnceAndPersistBeforeRetry() = runBlocking {
         MockWebServer().use { server ->
             val calls=AtomicInteger()
+            val oldRequests=AtomicInteger()
+            val firstWave=CountDownLatch(5)
             server.dispatcher=object:Dispatcher() {
                 override fun dispatch(request:RecordedRequest):MockResponse = when {
                     request.path=="/api/v1/auth/device/refresh" -> {
@@ -30,7 +34,11 @@ class NetworkTest {
                         assertTrue(request.body.readUtf8().contains("old-refresh"))
                         MockResponse().setBody("""{"access":"new-access","refresh":"new-refresh","device_grant":{"id":"00000000-0000-0000-0000-000000000001","platform":"android","app_id":"org.spaceworks.app","environment":"development","status":"active","attested_at":"2026-10-16T00:00:00Z","last_used_at":"2026-10-16T00:00:00Z","created_at":"2026-10-16T00:00:00Z"}}""")
                     }
-                    request.getHeader("Authorization")=="Bearer old-access" -> MockResponse().setResponseCode(401).setBody("""{"detail":"Expired","code":"expired"}""")
+                    request.getHeader("Authorization")=="Bearer old-access" -> {
+                        oldRequests.incrementAndGet();firstWave.countDown()
+                        check(firstWave.await(10,TimeUnit.SECONDS)) { "Concurrent first wave did not arrive." }
+                        MockResponse().setResponseCode(401).setBody("""{"detail":"Expired","code":"expired"}""")
+                    }
                     request.getHeader("Authorization")=="Bearer new-access" -> MockResponse().setBody("""{"status":"ok"}""")
                     else -> MockResponse().setResponseCode(401)
                 }
@@ -38,7 +46,7 @@ class NetworkTest {
             val store=MemoryTokenStore().apply {replace(TokenPair("old-access","old-refresh"))}
             val session=ApiSession(server.url("/"),store)
             (1..12).map {async(Dispatchers.IO){session.checkHealth()}}.awaitAll()
-            assertEquals(1,calls.get())
+            assertEquals(1,calls.get());assertTrue(oldRequests.get() >= 5)
             assertEquals(TokenPair("new-access","new-refresh"),store.read())
         }
     }
@@ -51,6 +59,17 @@ class NetworkTest {
         }
         assertEquals("Use the web console",Errors.map(403,"""{"detail":"No phones","code":"device_superadmin_not_supported"}""").detail)
         assertEquals("The server is unavailable. Try again later.",Errors.map(503,"broken").detail)
+    }
+    @Test(timeout=15000) fun disconnectedRefreshIsNeverReplayed() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST))
+            val store=MemoryTokenStore().apply {replace(TokenPair("old","single-use-refresh"))}
+            val session=ApiSession(server.url("/"),store)
+            try { session.coordinator.refresh("old");fail("Expected disconnection") } catch(_:java.io.IOException) { }
+            assertEquals(1,server.requestCount)
+            assertEquals("/api/v1/auth/device/refresh",server.takeRequest().path)
+            assertNull(store.read())
+        }
     }
     @Test fun frameworkAndFieldDictionaryErrorsAreReadable() {
         assertEquals("Maintenance",Errors.map(503,"""{"detail":"Maintenance"}""").detail)
@@ -68,9 +87,15 @@ class NetworkTest {
         assertNull(Pagination.next(base,null))
         assertThrows(IllegalArgumentException::class.java){Pagination.next(base,"https://evil.example/collect")}
     }
-    @Test fun refreshCancellationDoesNotEraseTokens() = runBlocking {
+    @Test(timeout=10000) fun cancelledCallerCannotDiscardRotatedTokens() = runBlocking {
         val store=MemoryTokenStore().apply {replace(TokenPair("a","r"))}
-        val coordinator=RefreshCoordinator(store){throw CancellationException()}
-        try {coordinator.refresh("a");fail("Expected cancellation")} catch(_:CancellationException) {assertEquals("r",store.read()?.refresh)}
+        val started=CompletableDeferred<Unit>()
+        val release=CompletableDeferred<Unit>()
+        var calls=0
+        val coordinator=RefreshCoordinator(store){calls++;started.complete(Unit);release.await();TokenPair("b","s")}
+        val caller=launch {coordinator.refresh("a")}
+        started.await();caller.cancel();release.complete(Unit);caller.join()
+        assertEquals(TokenPair("b","s"),store.read())
+        assertEquals(TokenPair("b","s"),coordinator.refresh("a"));assertEquals(1,calls)
     }
 }
