@@ -42,9 +42,9 @@ class AppController(application:Application):AndroidViewModel(application) {
     fun demoSession():AuthBundle?=demo ?: run {
         sessions.values.forEach {it.push?.pause()}
         FcmRegistration.pause(getApplication())
-        DemoSupport.create(text=copyText,paymentFiles=org.spaceworks.app.payments.CachedPaymentFiles(java.io.File(getApplication<Application>().cacheDir,"native-documents")))?.also {demo=it}
+        DemoSupport.create(text=copyText,context=getApplication<Application>(),paymentFiles=org.spaceworks.app.payments.CachedPaymentFiles(java.io.File(getApplication<Application>().cacheDir,"native-documents")))?.also {demo=it}
     }
-    fun clearDemo(){demo?.let {it.payments?.clear();it.member?.clear();it.actions?.clear();it.links?.clear();it.push?.pause();it.tokens.replace(null)};demo=null}
+    fun clearDemo(){demo?.let {it.staff?.resetAccount();it.payments?.clear();it.member?.clear();it.actions?.clear();it.links?.clear();it.push?.pause();it.tokens.replace(null)};demo=null}
     fun realSession(origin:String):AuthBundle {
         val key=getApplication<Application>().noBackupFilesDir.absolutePath+"\n"+origin
         return sessions.computeIfAbsent(key){createReal(origin)}
@@ -58,6 +58,7 @@ class AppController(application:Application):AndroidViewModel(application) {
         var member:org.spaceworks.app.member.MemberStateHolder?=null
         var actions:org.spaceworks.app.actions.MemberActionsStateHolder?=null
         var payments:org.spaceworks.app.payments.PaymentsStateHolder?=null
+        var staff:org.spaceworks.app.staff.StaffStateHolder?=null
         val session=ApiSession(ServerAddress.parse(origin,BuildConfig.DEBUG),store){holder.state.value.selectedId?.toString()}
         val environment=if(BuildConfig.DEBUG)EnvironmentEnum.development else EnvironmentEnum.production
         val emulator=Build.FINGERPRINT.startsWith("generic") || Build.MODEL.contains("Emulator") || Build.MODEL.contains("sdk_gphone") || Build.PRODUCT.startsWith("sdk_")
@@ -67,9 +68,9 @@ class AppController(application:Application):AndroidViewModel(application) {
         holder=AuthStateHolder(gateway,store,
             readSelection={prefs.getInt("space.$origin",-1).takeIf {it>0}},
             saveSelection={id->prefs.edit().apply {if(id==null)remove("space.$origin")else putInt("space.$origin",id)}.apply()},
-            onSessionEnded={member?.clear();actions?.clear();payments?.clear();links?.clear();push?.pause()},
-            onScopeChanged={member?.clear();actions?.clear();payments?.clear()},text=copyText)
-        links=LinkStateHolder(session.server,holder::authorizeMakerspace,holder::select,holder::authorizeSlug,text=copyText)
+            onSessionEnded={staff?.resetAccount();member?.clear();actions?.clear();payments?.clear();links?.clear();push?.pause()},
+            onScopeChanged={staff?.clear();member?.clear();actions?.clear();payments?.clear()},text=copyText)
+        links=LinkStateHolder(session.server,holder::authorizeMakerspace,{id->if(staff?.protectsNavigation==true)throw kotlinx.coroutines.CancellationException();holder.select(id)},holder::authorizeSlug,text=copyText)
         push=PushStateHolder(GeneratedPushGateway(session,environment),object:PushProvider {
             override suspend fun token()=FcmRegistration.token(application)
             override suspend fun stop()=FcmRegistration.stop(application)
@@ -82,6 +83,20 @@ class AppController(application:Application):AndroidViewModel(application) {
             org.spaceworks.app.payments.CachedPaymentFiles(java.io.File(application.cacheDir,"native-documents")),
             onUnauthorized={holder.foreground()},onForbidden={holder.foreground()},
             resetSDK={runCatching {com.razorpay.Checkout.clearUserData(application)};Unit},text=copyText)
-        return AuthBundle(holder,store,accounts=accounts,member=member,actions=actions,origin=session.server.toString(),push=push,links=links,pushConfigured=FcmRegistration.configured(application),sessionEpoch={store.snapshot().epoch},payments=payments)
+        val staffAuthority=org.spaceworks.app.staff.StaffAuthorizer {scope,action->
+            val current=holder.state.value
+            val membership=current.selected
+            current.staffAllowed && membership?.id==scope.id && membership.slug==scope.slug &&
+                (action==null || action in membership.actions)
+        }
+        val transfer=StorageTransfer(java.io.File(application.cacheDir,"staff-transfer"),session.server.toString().takeIf {BuildConfig.DEBUG&&session.server.scheme=="http"})
+        staff=org.spaceworks.app.staff.StaffStateHolder(
+            org.spaceworks.app.staff.GeneratedStaffGateway(session,staffAuthority,text=copyText),staffAuthority,
+            org.spaceworks.app.staff.StaffPhotoUpload {grant,jpeg->
+                if(grant.method=="PUT")transfer.uploadPut(grant.uploadUrl,grant.headers,jpeg,"image/jpeg")
+                else transfer.uploadPost(grant.uploadUrl,grant.fields,jpeg,"image/jpeg","evidence.jpg")
+            },onUnauthorized={holder.foreground()},onForbidden={holder.foreground()},text=copyText)
+        return AuthBundle(holder,store,accounts=accounts,member=member,actions=actions,origin=session.server.toString(),push=push,links=links,pushConfigured=FcmRegistration.configured(application),sessionEpoch={store.snapshot().epoch},payments=payments,staff=staff,
+            staffAvailable={holder.state.value.staffAllowed && holder.state.value.selected!=null})
     }
 }

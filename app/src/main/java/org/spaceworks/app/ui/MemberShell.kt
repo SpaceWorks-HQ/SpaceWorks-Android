@@ -67,6 +67,10 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
     val member=bundle.member
     val content=member?.state?.collectAsStateWithLifecycle()?.value
     val links=bundle.links?.state?.collectAsStateWithLifecycle()?.value
+    val staff=bundle.staff
+    val staffState=staff?.state?.collectAsStateWithLifecycle()?.value
+    val staffAvailable=bundle.staffAvailable()
+    var showingStaff by remember(state.selectedId){mutableStateOf(false)}
     val payments=bundle.payments
     val paymentState=payments?.state?.collectAsStateWithLifecycle()?.value
     var showingPayments by remember(state.selectedId){mutableStateOf(false)}
@@ -80,7 +84,8 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
     var homeExtra by remember(state.selectedId){mutableStateOf<Pair<Long,String>?>(null)}
     var inboxNavigationSerial by remember(state.selectedId){mutableLongStateOf(0)}
     fun navigate(index:Int){destination=index;homeExtra=null;if(index==3)inboxNavigationSerial++}
-    LaunchedEffect(links?.delivered?.sequence,readyScope,actionState?.scope) {
+    LaunchedEffect(links?.delivered?.sequence,readyScope,actionState?.scope,showingStaff) {
+        if(showingStaff)return@LaunchedEffect
         val route=links?.delivered?:return@LaunchedEffect
         val selected=state.selected?:return@LaunchedEffect
         val expected=MemberScope(selected.id,selected.slug)
@@ -92,6 +97,9 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
             navigationError=error
             if(error==null || (!actions.state.value.busy && actions.state.value.route==null))bundle.links?.consumed(route.sequence)
         }
+    }
+    LaunchedEffect(staff,state.selectedId,staffAvailable) {
+        if(staffAvailable)state.selected?.let {staff?.activate(MemberScope(it.id,it.slug))}else {staff?.clear();showingStaff=false}
     }
     LaunchedEffect(payments,state.selectedId) {state.selected?.let {payments?.activate(MemberScope(it.id,it.slug))}}
     LaunchedEffect(paymentRoute,paymentState?.scope) {
@@ -120,13 +128,13 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
     }
     if(signingOut || changingServer)SignOutConfirmation({signingOut=false;changingServer=false},{
         val change=changingServer;signingOut=false;changingServer=false
-        scope.launch {member?.clear();actions?.clear();payments?.clear();bundle.holder.signOut();if(change)onChangeServer?.invoke()}
+        scope.launch {staff?.clear();member?.clear();actions?.clear();payments?.clear();bundle.holder.signOut();if(change)onChangeServer?.invoke()}
     },changingServer)
     CompositionLocalProvider(LocalMemberActions provides actions,LocalMemberActionScope provides scope) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val expanded=maxWidth>=600.dp
         Row {
-            if(expanded && actionState?.route==null && !showingPayments) NavigationRail(Modifier.fillMaxHeight().verticalScroll(rememberScrollState())) {
+            if(expanded && actionState?.route==null && !showingPayments && !showingStaff) NavigationRail(Modifier.fillMaxHeight().verticalScroll(rememberScrollState())) {
                 destinations.forEachIndexed {index,title -> NavigationRailItem(selected=destination==index,onClick={navigate(index)},icon={Icon(destinationIcons[index],null)},label={Text(copyText(title))},modifier=Modifier.heightIn(min=if(LocalDensity.current.fontScale>=1.6f)120.dp else 80.dp),colors=NavigationRailItemDefaults.colors(selectedIconColor=MaterialTheme.colorScheme.onPrimaryContainer,selectedTextColor=MaterialTheme.colorScheme.onPrimaryContainer,indicatorColor=MaterialTheme.colorScheme.primaryContainer)) }
             }
             Column(Modifier.weight(1f)) {
@@ -134,20 +142,25 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
                     BrandError(message)
                     if(links?.delivered!=null) {
                         BrandTextButton(copyText(UiStrings.MOBILE_OPEN_PENDING_UPDATE),{scope.launch {
+                            if(showingStaff || staff?.protectsNavigation==true)return@launch
                             val pending=bundle.links?.state?.value?.delivered?:return@launch
                             val expected=readyScope?:return@launch
                             if(member!=null && actions!=null) {
                                 val applier=MemberRouteApplier(member,actions,{navigate(it)},{homeExtra=pending.sequence to it;destination=0},onPayments={paymentRoute=pending.sequence to it;showingPayments=true},text=copyText)
-                                navigationError=applier.open(pending,expected){bundle.links?.state?.value?.delivered?.sequence==pending.sequence && bundle.holder.state.value.selectedId==expected.id}
+                                val result=applier.open(pending,expected){!showingStaff && staff?.protectsNavigation!=true && bundle.links?.state?.value?.delivered?.sequence==pending.sequence && bundle.holder.state.value.selectedId==expected.id}
+                                if(showingStaff || staff?.protectsNavigation==true)return@launch
+                                navigationError=result
                                 if(navigationError==null || (!actions.state.value.busy && actions.state.value.route==null))bundle.links?.consumed(pending.sequence)
                             }
-                        }},actionState?.route==null && actionState?.busy!=true)
+                        }},!showingStaff && staff?.protectsNavigation!=true && actionState?.route==null && actionState?.busy!=true)
                         BrandTextButton(copyText(UiStrings.MOBILE_DISMISS_UPDATE),{links?.delivered?.let {bundle.links?.consumed(it.sequence)};navigationError=null})
                     }
                 }}
                 if(clock<(content?.retryAtMillis?:0))Text(copyText(UiStrings.MOBILE_TRY_AGAIN_IN_VALUES,((requireNotNull(content).retryAtMillis-clock+999)/1000).coerceAtLeast(0)),Modifier.padding(16.dp),color=MaterialTheme.colorScheme.onPrimaryContainer)
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     when {
+                        showingStaff && staffAvailable && staff!=null && (staffState?.scope==null || staffState.scope?.id==state.selectedId) -> org.spaceworks.app.staff.StaffScreen(staff,bundle.demo,{staff.close();showingStaff=false},previewScope=state.selected?.let {MemberScope(it.id,it.slug)})
+                        showingStaff -> Text(copyText(UiStrings.MOBILE_LOADING_YOUR_MAKERSPACE),Modifier.padding(24.dp))
                         showingPayments && paymentState?.scope?.id!=state.selectedId -> Text(copyText(UiStrings.MOBILE_LOADING_YOUR_MAKERSPACE),Modifier.padding(24.dp))
                         showingPayments && payments!=null -> PaymentsScreen(payments,bundle.demo,{showingPayments=false},nativeState,
                             launchStripe={input->
@@ -165,6 +178,7 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
                                 Text(state.user?.email.orEmpty())
                                 Text(copyText(UiStrings.MOBILE_VALUE_VALUE_C1AACD,state.selected?.roleName.orEmpty(),makerspaceLabel(state.selected?.slug.orEmpty())))
                                 if(content?.scope?.id==state.selectedId && member!=null)MemberProfileSummary(member)
+                                if(staff!=null && staffAvailable)BrandTextButton(copyText(org.spaceworks.app.staff.StaffStrings.STAFF_STAFF_TOOLS),{showingStaff=true},!state.busy,modifier=Modifier.semantics {testTag="staff-entry"})
                                 if(payments!=null)BrandTextButton(copyText(PaymentStrings.PAYMENT_PAYMENTS),{showingPayments=true},!state.busy,modifier=Modifier.semantics {testTag="payments-entry"})
                                 state.memberships.filter {it.id!=state.selectedId}.forEach {membership ->
                                     BrandTextButton(copyText(UiStrings.MOBILE_SWITCH_TO_VALUE,makerspaceLabel(membership.slug)),{bundle.links?.clear();bundle.holder.select(membership.id)},!state.busy)
@@ -191,7 +205,7 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
                     }
                 }
                 state.error?.let {Box(Modifier.padding(horizontal=24.dp)){BrandError(it)}}
-                if(!expanded && actionState?.route==null && !showingPayments) NavigationBar(Modifier.heightIn(min=if(LocalDensity.current.fontScale>=1.6f)112.dp else 80.dp)) {
+                if(!expanded && actionState?.route==null && !showingPayments && !showingStaff) NavigationBar(Modifier.heightIn(min=if(LocalDensity.current.fontScale>=1.6f)112.dp else 80.dp)) {
                     destinations.forEachIndexed {index,title -> NavigationBarItem(selected=destination==index,onClick={navigate(index)},icon={Icon(destinationIcons[index],null)},label={Text(copyText(title))},colors=NavigationBarItemDefaults.colors(selectedIconColor=MaterialTheme.colorScheme.onPrimaryContainer,selectedTextColor=MaterialTheme.colorScheme.onPrimaryContainer,indicatorColor=MaterialTheme.colorScheme.primaryContainer)) }
                 }
             }

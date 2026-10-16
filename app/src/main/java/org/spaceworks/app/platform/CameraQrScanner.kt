@@ -62,6 +62,7 @@ fun CameraQrScanner(
     sessionKey: Any = Unit,
     enabled: Boolean = true,
 ) {
+    val text = rememberMobileText()
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
     var permission by remember { mutableStateOf(context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) }
@@ -80,20 +81,20 @@ fun CameraQrScanner(
     }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         when {
-            !enabled -> Text("Camera is paused.")
+            !enabled -> Text(text(CameraStrings.CAMERA_PAUSED))
             !permission -> {
-                Text(if (denied) "Camera access is off. Enable it in Settings to scan a QR code." else "Allow camera access to scan makerspace QR codes.")
+                Text(if (denied) text(CameraStrings.CAMERA_DENIED) else text(CameraStrings.CAMERA_ALLOW_EXPLANATION))
                 Button(onClick = {
                     if (denied) context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
                     else permissionRequest.launch(Manifest.permission.CAMERA)
-                }, modifier = Modifier.heightIn(min = 48.dp)) { Text(if (denied) "Open settings" else "Allow camera") }
+                }, modifier = Modifier.heightIn(min = 48.dp)) { Text(if (denied) text(CameraStrings.CAMERA_SETTINGS) else text(CameraStrings.CAMERA_ALLOW)) }
             }
             failure != null -> {
                 Text(failure.orEmpty())
-                Button(onClick = { attempt++ }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Try camera again") }
+                Button(onClick = { attempt++ }, modifier = Modifier.heightIn(min = 48.dp)) { Text(text(CameraStrings.CAMERA_RETRY)) }
             }
             else -> {
-                Text("Aim at the makerspace QR code. You will review it before confirming.")
+                Text(text(CameraStrings.CAMERA_AIM))
                 CameraPreview(sessionKey = sessionKey to attempt, onCode = onCode, onError = {
                     failure = it; onError(it)
                 }, modifier = Modifier.fillMaxWidth().heightIn(min = 240.dp, max = 420.dp))
@@ -105,12 +106,15 @@ fun CameraQrScanner(
 @androidx.annotation.OptIn(ExperimentalGetImage::class)
 @Composable
 private fun CameraPreview(sessionKey: Any, onCode: (String) -> Unit, onError: (String) -> Unit, modifier: Modifier) {
+    val text = rememberMobileText()
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
     val code = rememberUpdatedState(onCode)
     val error = rememberUpdatedState(onError)
     val previewView = remember(context) { PreviewView(context).apply { implementationMode = PreviewView.ImplementationMode.COMPATIBLE } }
-    AndroidView(factory = { previewView }, modifier = modifier.semantics { contentDescription = "QR code camera preview" })
+    val previewDescription=text(CameraStrings.CAMERA_PREVIEW)
+    val cameraFailure=text(CameraStrings.CAMERA_FAILURE)
+    AndroidView(factory = { previewView }, modifier = modifier.semantics { contentDescription = previewDescription })
 
     DisposableEffect(context, owner, previewView, sessionKey) {
         val active = AtomicBoolean(true)
@@ -125,7 +129,7 @@ private fun CameraPreview(sessionKey: Any, onCode: (String) -> Unit, onError: (S
         val future = ProcessCameraProvider.getInstance(context)
 
         fun fail() {
-            if (active.get() && reportedError.compareAndSet(false, true)) error.value("The camera could not scan this code. Try again or check camera access.")
+            if (active.get() && reportedError.compareAndSet(false, true)) error.value(cameraFailure)
         }
         analysis.setAnalyzer(executor) { frame ->
             val image = frame.image

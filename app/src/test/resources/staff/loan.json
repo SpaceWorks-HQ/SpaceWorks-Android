@@ -1,0 +1,32 @@
+{
+  "container_id": 0,
+  "container_label": null,
+  "due_at": null,
+  "has_kit_checklist": false,
+  "id": 701,
+  "issue_evidence_id": null,
+  "issued_by": null,
+  "items": [
+    {
+      "product_name": "Sample precision toolkit",
+      "quantity": 2
+    }
+  ],
+  "public_token": "71000000-0000-4000-8000-000000000001",
+  "return_evidence_id": null,
+  "return_items": [
+    {
+      "assets": [],
+      "item_id": 71,
+      "product_name": "Sample precision toolkit",
+      "remaining_quantity": 2,
+      "tracking_mode": "quantity"
+    }
+  ],
+  "return_notes": "",
+  "return_scan_required": false,
+  "source": "staff",
+  "status": "active",
+  "target_label": "Sample precision toolkit",
+  "target_type": "product"
+}

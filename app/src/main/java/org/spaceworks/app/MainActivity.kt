@@ -114,6 +114,8 @@ class MainActivity:ComponentActivity() {
     val lifecycle=LocalLifecycleOwner.current
     val context=LocalContext.current
     val links=bundle.links?.state?.collectAsStateWithLifecycle()?.value
+    val staffState=bundle.staff?.state?.collectAsStateWithLifecycle()?.value
+    val staffForm=staffState?.let {it.busy || it.section in setOf(org.spaceworks.app.staff.StaffSection.REQUEST,org.spaceworks.app.staff.StaffSection.HANDOVER,org.spaceworks.app.staff.StaffSection.CHECK_IN,org.spaceworks.app.staff.StaffSection.BOOKINGS)}==true
     var pushError by remember(bundle){mutableStateOf<String?>(null)}
     suspend fun activatePush() {
         val user=bundle.holder.state.value.user?:return
@@ -129,8 +131,8 @@ class MainActivity:ComponentActivity() {
             onIncomingConsumed(incoming.sequence)
         }
     }
-    LaunchedEffect(bundle,links?.pending,links?.pendingLegacy,state.user?.id) {
-        if(state.user!=null && (links?.pending!=null || links?.pendingLegacy!=null)) {
+    LaunchedEffect(bundle,links?.pending,links?.pendingLegacy,state.user?.id,staffForm) {
+        if(state.user!=null && !staffForm && (links?.pending!=null || links?.pendingLegacy!=null)) {
             bundle.holder.state.first {!it.busy}
             bundle.links?.resolve()
         }
@@ -149,7 +151,7 @@ class MainActivity:ComponentActivity() {
     }
 
     LaunchedEffect(bundle) {if(!state.initialized)bundle.holder.initialize()}
-    LaunchedEffect(bundle,state.user?.id,state.selectedId) {if(state.user==null || state.selectedId==null){bundle.member?.clear();bundle.actions?.clear();bundle.payments?.clear()};if(state.user==null)bundle.push?.pause()}
+    LaunchedEffect(bundle,state.user?.id,state.selectedId) {if(state.user==null || state.selectedId==null){bundle.staff?.clear();bundle.member?.clear();bundle.actions?.clear();bundle.payments?.clear()};if(state.user==null)bundle.push?.pause()}
     LaunchedEffect(lifecycle,bundle) {lifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {bundle.holder.foreground();activatePush();kotlinx.coroutines.awaitCancellation()}}
     links?.error?.let {Box(Modifier.padding(horizontal=24.dp)){BrandError(it)}}
     pushError?.let {Box(Modifier.padding(horizontal=24.dp)){BrandError(it)}}

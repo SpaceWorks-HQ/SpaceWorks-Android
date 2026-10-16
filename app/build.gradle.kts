@@ -40,8 +40,14 @@ val prepareBrand by tasks.registering(Exec::class) {
     outputs.dirs(layout.buildDirectory.dir("generated/source/brand"),layout.buildDirectory.dir("generated/res/brand"))
     commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3", rootProject.file("scripts/prepare.py"))
 }
+val testContractSelection by tasks.registering(Exec::class) {
+    workingDir(rootProject.projectDir)
+    inputs.files(rootProject.file("scripts/contract_selection.py"),rootProject.file("scripts/tests/test_contract_selection.py"))
+    commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3","-m","unittest","discover","-s","scripts/tests","-p","test_contract_selection.py","-v")
+}
 val prepareContract by tasks.registering(Exec::class) {
-    inputs.files(rootProject.file("api/openapi.json"),rootProject.file("scripts/contract.py"))
+    dependsOn(testContractSelection)
+    inputs.files(rootProject.file("api/openapi.json"),rootProject.file("scripts/contract.py"),rootProject.file("scripts/contract_selection.py"))
     outputs.file(layout.buildDirectory.file("generated/mobile-openapi.json"))
     commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3", rootProject.file("scripts/contract.py"))
 }
@@ -121,6 +127,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.4.0"))
     implementation("com.google.firebase:firebase-messaging")
     implementation("androidx.camera:camera-core:1.5.3")
+    implementation("androidx.exifinterface:exifinterface:1.4.2")
     implementation("androidx.camera:camera-camera2:1.5.3")
     implementation("androidx.camera:camera-lifecycle:1.5.3")
     implementation("androidx.camera:camera-view:1.5.3")

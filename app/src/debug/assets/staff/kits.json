@@ -1,0 +1,10 @@
+{
+  "components": [
+    {
+      "key": "72000000-0000-4000-8000-000000000001",
+      "label": "Sample probe",
+      "owner_label": "Precision toolkit",
+      "quantity": 2
+    }
+  ]
+}

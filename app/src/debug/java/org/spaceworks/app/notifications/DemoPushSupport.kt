@@ -35,5 +35,5 @@ object DemoPushSupport {
         }
         return DemoPushBundle(PushStateHolder(api,provider,persistence,text=copyText),api)
     }
-    fun links(holder:AuthStateHolder,text:MobileText=MobileText.ENGLISH)=LinkStateHolder("https://demo.invalid/".toHttpUrl(),holder::authorizeMakerspace,holder::select,holder::authorizeSlug,text=text)
+    fun links(holder:AuthStateHolder,text:MobileText=MobileText.ENGLISH,beforeSelect:()->Unit={})=LinkStateHolder("https://demo.invalid/".toHttpUrl(),holder::authorizeMakerspace,{id->beforeSelect();holder.select(id)},holder::authorizeSlug,text=text)
 }

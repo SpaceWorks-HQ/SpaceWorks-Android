@@ -1,0 +1,11 @@
+<resources>
+    <string name="camera_paused">"Camera is paused."</string>
+    <string name="camera_denied">"Camera access is off. Enable it in Settings to scan a QR code."</string>
+    <string name="camera_allow_explanation">"Allow camera access to scan makerspace QR codes."</string>
+    <string name="camera_settings">"Open settings"</string>
+    <string name="camera_allow">"Allow camera"</string>
+    <string name="camera_retry">"Try camera again"</string>
+    <string name="camera_aim">"Aim at the makerspace QR code. You will review it before confirming."</string>
+    <string name="camera_preview">"QR code camera preview"</string>
+    <string name="camera_failure">"The camera could not scan this code. Try again or check camera access."</string>
+</resources>

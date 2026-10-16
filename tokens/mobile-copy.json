@@ -22,5 +22,17 @@
     "package": "org.spaceworks.app.platform",
     "object": "DocumentStrings",
     "output": "app/src/main/java/org/spaceworks/app/platform/DocumentStrings.kt"
+  },
+  {
+    "catalog": "app/src/main/res/values/staff_strings.xml",
+    "package": "org.spaceworks.app.staff",
+    "object": "StaffStrings",
+    "output": "app/src/main/java/org/spaceworks/app/staff/StaffStrings.kt"
+  },
+  {
+    "catalog": "app/src/main/res/values/camera_strings.xml",
+    "package": "org.spaceworks.app.platform",
+    "object": "CameraStrings",
+    "output": "app/src/main/java/org/spaceworks/app/platform/CameraStrings.kt"
   }
 ]

@@ -1,0 +1,19 @@
+{
+  "count": 1,
+  "results": [
+    {
+      "created_at": "2026-10-16T09:00:00Z",
+      "id": 901,
+      "image_key": "",
+      "image_url": null,
+      "makerspace": 7,
+      "name": "Sample precision toolkit",
+      "needs_fix_quantity": 0,
+      "updated_at": "2026-10-16T09:00:00Z",
+      "tracking_mode": "quantity",
+      "available_quantity": 4,
+      "total_quantity": 4,
+      "is_archived": false
+    }
+  ]
+}
