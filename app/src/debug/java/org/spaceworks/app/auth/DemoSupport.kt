@@ -35,6 +35,7 @@ class DemoAuthGateway:AuthGateway {
         phone="",emailVerified=true,role="member",isSuperuser=username.contains("superadmin"),mustChangePassword=false,
         makerspaces=listOf(membership(1,"fab-lab-kochi"),membership(2,"maker-space-bengaluru")))
     override suspend fun logout() {delay(100)}
+    override suspend fun changePassword(current:String,replacement:String) {delay(200)}
     private fun membership(id:Int,slug:String)=AuthMembership(id,slug,"member",1,"Member","member",AuthMembershipSourceEnum.membership,emptyList(),false,false,false,false,null,false)
     private fun grant()=DeviceGrant(java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"),"android","org.spaceworks.app","development","active",java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"),java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"),java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"))
 }

@@ -2,6 +2,7 @@ package org.spaceworks.app.ui
 
 import android.graphics.BitmapFactory
 import android.util.Base64
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -22,6 +23,13 @@ import org.spaceworks.app.auth.*
     var username by remember {mutableStateOf(if(bundle.demo)"meera.demo" else "")}
     var password by remember {mutableStateOf(if(bundle.demo)"demo-password" else "")}
     var code by remember {mutableStateOf("")}
+    var retrySeconds by remember {mutableLongStateOf(0)}
+    LaunchedEffect(state.retryAtMillis) {
+        do {retrySeconds=((state.retryAtMillis-System.currentTimeMillis()+999)/1000).coerceAtLeast(0);if(retrySeconds>0)kotlinx.coroutines.delay(250)}while(retrySeconds>0)
+    }
+    BackHandler(state.mfa!=null || state.recoveryCodes.isNotEmpty()) {
+        if(!state.busy && state.recoveryCodes.isEmpty())scope.launch {holder.cancelMfa()}
+    }
     LaunchedEffect(holder) {if(!state.initialized)holder.initialize()}
     when {
         state.recoveryCodes.isNotEmpty() -> AuthLayout("Save your recovery codes","Each code works once. Save these somewhere secure; they will not be shown again.") {
@@ -58,7 +66,8 @@ import org.spaceworks.app.auth.*
                 BrandField(password,{password=it.take(1024)},"Password",Modifier.testTag("password"),!state.busy,secret=true)
                 BrandError(state.error)
                 state.notice?.let {Text(it)}
-                BrandButton(if(state.busy)"Signing in…" else "Sign in",{scope.launch {holder.signIn(username,password);password=""}},!state.busy,Modifier.testTag("submitSignIn"))
+                if(retrySeconds>0)Text("Try again in $retrySeconds seconds.",style=MaterialTheme.typography.bodySmall)
+                BrandButton(if(state.busy)"Signing in…" else "Sign in",{scope.launch {holder.signIn(username,password);password=""}},!state.busy && retrySeconds==0L,Modifier.testTag("submitSignIn"))
             } else {
                 Text("This server signs members in through an identity provider.")
                 Text("Native identity-provider sign-in is not configured on this server. Contact your makerspace.")

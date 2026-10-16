@@ -18,6 +18,7 @@ interface AuthGateway {
     suspend fun verify(challenge:String,code:String,enrollment:Boolean):MFACompleted
     suspend fun me():AuthUserPayload
     suspend fun logout()
+    suspend fun changePassword(current:String,replacement:String) {throw AuthMessage("Password updates are unavailable. Contact your makerspace.")}
 }
 fun interface AttestationProvider { suspend fun attest(challenge:String):JsonElement }
 class DevelopmentAttestation(private val debug:Boolean,private val emulator:Boolean):AttestationProvider {
@@ -41,4 +42,5 @@ class GeneratedAuthGateway(private val session:ApiSession,private val appId:Stri
     }
     override suspend fun me()=session.auth.apiV1AuthMeRetrieve().requireBody()
     override suspend fun logout() {session.deviceAuthenticated.apiV1AuthDeviceLogoutCreate().requireBody()}
+    override suspend fun changePassword(current:String,replacement:String) {session.auth.apiV1AuthChangePasswordCreate(ChangePassword(current,replacement)).requireBody()}
 }

@@ -64,6 +64,7 @@ class MainActivity:ComponentActivity() {
     LaunchedEffect(lifecycle,bundle) {lifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {bundle.holder.foreground();kotlinx.coroutines.awaitCancellation()}}
     when {
         state.user==null -> AuthScreen(bundle,onChangeServer)
+        state.user?.mustChangePassword==true -> ChangePasswordScreen(bundle)
         state.selected==null -> MakerspacePicker(bundle)
         else -> MemberShell(bundle,onChangeServer)
     }

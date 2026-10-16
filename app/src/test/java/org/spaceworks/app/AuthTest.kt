@@ -19,6 +19,7 @@ private class FakeAuth:AuthGateway {
     var calls=0
     var native=true
     var throttle=false
+    var changed=false
     override suspend fun config()=PublicConfig(false,100)
     override suspend fun login(username:String,password:String):DeviceLoginResult {
         calls++
@@ -32,6 +33,7 @@ private class FakeAuth:AuthGateway {
     }
     override suspend fun me():AuthUserPayload {identityFailure?.let {throw it};return who}
     override suspend fun logout() {}
+    override suspend fun changePassword(current:String,replacement:String){changed=true}
 }
 class AuthTest {
     @Test fun nativeMfaPersistsPairAndSelectsOnlyEligibleMembership()=runTest {
@@ -83,5 +85,13 @@ class AuthTest {
         holder.initialize();holder.signIn("member","pass");holder.verify("123456");assertNotNull(holder.state.value.user)
         api.who=api.who.copy(isSuperuser=true);holder.foreground()
         assertNull(holder.state.value.user);assertNull(holder.state.value.selectedId);assertNull(store.read())
+    }
+    @Test fun forcedPasswordChangeChecksConfirmationAndClearsSessionAfterSuccess()=runTest {
+        val api=FakeAuth().apply {who=who.copy(mustChangePassword=true)};val store=MemoryTokenStore();val holder=AuthStateHolder(api,store)
+        holder.initialize();holder.signIn("member","pass");holder.verify("123456")
+        assertTrue(holder.state.value.user!!.mustChangePassword)
+        holder.changePassword("old","new-secret","different");assertFalse(api.changed);assertNotNull(store.read())
+        holder.changePassword("old","new-secret","new-secret");assertTrue(api.changed);assertNull(store.read());assertNull(holder.state.value.user)
+        assertEquals("Password updated. Sign in again.",holder.state.value.notice)
     }
 }

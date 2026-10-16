@@ -14,10 +14,11 @@ private fun ensure(value:Boolean,message:String) {if(!value) throw AuthMessage(m
 data class AuthState(val busy:Boolean=false,val initialized:Boolean=false,val config:PublicConfig?=null,
     val user:AuthUserPayload?=null,val selectedId:Int?=null,val mfa:MFAChallengeResponse?=null,
     val enrollment:MFAEnrollment?=null,val recoveryCodes:List<String> = emptyList(),
-    val error:String?=null,val notice:String?=null) {
+    val error:String?=null,val notice:String?=null,val retryAtMillis:Long=0) {
     val memberships get()=user?.makerspaces.orEmpty().filter {it.source==AuthMembershipSourceEnum.membership}
     val selected get()=memberships.firstOrNull {it.id==selectedId}
-    val passwordEnabled get()=(config?.passwordLogin?.get("enabled") as? JsonPrimitive)?.booleanOrNull != false
+    val passwordEnabled get()=(config?.passwordLogin?.get("enabled") as? JsonPrimitive)?.booleanOrNull != false &&
+        (config?.memberAccounts?.get("enabled") as? JsonPrimitive)?.booleanOrNull != false
     // The owner contract has no native session_authority yet. Role/action text alone cannot grant native staff tools.
     val staffAllowed get()=false
 }
@@ -93,6 +94,17 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
             withContext(NonCancellable+Dispatchers.IO){tokens.replace(null)}
         }
     }
+    suspend fun changePassword(current:String,replacement:String,confirmation:String)=runOperation {
+        ensure(current.isNotEmpty() && replacement.isNotEmpty(),"Enter your current and new passwords.")
+        ensure(replacement==confirmation,"The new passwords do not match.")
+        api.changePassword(current,replacement)
+        try {api.logout()} catch(cancelled:CancellationException){throw cancelled} catch(_:Exception) {/* Server changed the credential; local session is always discarded. */}
+        finally {
+            saveSelection(null)
+            mutable.value=AuthState(initialized=true,config=state.value.config,notice="Password updated. Sign in again.")
+            withContext(NonCancellable+Dispatchers.IO){tokens.replace(null)}
+        }
+    }
     private suspend fun persist(pair:TokenPair)=withContext(NonCancellable+Dispatchers.IO) {tokens.replace(pair)}
     private suspend fun refreshIdentity() {
         val user=try {api.me()} catch(f:ApiFailure) {
@@ -127,7 +139,7 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         } catch(cancelled:CancellationException) {throw cancelled}
         catch(f:Exception) {
             if(f is ApiFailure && f.status==429) retryAt=now()+(f.retryAfterSeconds?:60)*1000L
-            mutable.value=state.value.copy(error=when(f){is ApiFailure->f.detail;is AuthMessage->f.message ?: "Couldn't connect. Try again.";else->"Couldn't connect. Try again."})
+            mutable.value=state.value.copy(retryAtMillis=retryAt,error=when(f){is ApiFailure->f.detail;is AuthMessage->f.message ?: "Couldn't connect. Try again.";else->"Couldn't connect. Try again."})
         } finally {mutable.value=state.value.copy(busy=false);operation.unlock()}
     }
 }
