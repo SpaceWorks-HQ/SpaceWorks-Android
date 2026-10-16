@@ -6,6 +6,8 @@ import kotlinx.serialization.json.*
 import kotlinx.serialization.modules.*
 import org.openapitools.client.infrastructure.UUIDAdapter
 import org.openapitools.client.infrastructure.OffsetDateTimeAdapter
+import org.openapitools.client.infrastructure.URIAdapter
+import org.openapitools.client.infrastructure.BigDecimalAdapter
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
@@ -143,6 +145,8 @@ class ApiSession(val server: HttpUrl, store: TokenStore = MemoryTokenStore(), ma
         serializersModule = SerializersModule {
             contextual(java.util.UUID::class, UUIDAdapter)
             contextual(java.time.OffsetDateTime::class, OffsetDateTimeAdapter)
+            contextual(java.net.URI::class, URIAdapter)
+            contextual(java.math.BigDecimal::class, BigDecimalAdapter)
         }
     }
     // Redirects are surfaced to callers; credentials never follow another origin.
@@ -151,6 +155,14 @@ class ApiSession(val server: HttpUrl, store: TokenStore = MemoryTokenStore(), ma
         .addInterceptor(RestoreServiceResponse()).addNetworkInterceptor(PreventServiceReplay()).build()
     private fun retrofit(client: OkHttpClient) = Retrofit.Builder().baseUrl(server)
         .client(client).addConverterFactory(json.asConverterFactory("application/json".toMediaType())).build()
+    fun <T> publicApi(type: Class<T>): T = retrofit(baseClient).create(type)
+    fun <T> scopedApi(type: Class<T>, makerId: Int): T {
+        require(makerId > 0)
+        val scoped = client.newBuilder().addInterceptor { chain ->
+            chain.proceed(chain.request().newBuilder().header("X-Makerspace-Id", makerId.toString()).build())
+        }.build()
+        return retrofit(scoped).create(type)
+    }
     val devicePublic = retrofit(baseClient).create(DeviceAuthApi::class.java)
     val platform = retrofit(baseClient).create(PlatformApi::class.java)
     val mfa = retrofit(baseClient).create(MFAApi::class.java)

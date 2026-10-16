@@ -51,8 +51,9 @@ openApiGenerate {
     configOptions.set(mapOf("serializationLibrary" to "kotlinx_serialization", "generateOneOfAnyOfWrappers" to "true", "useCoroutines" to "true", "dateLibrary" to "java8", "omitGradleWrapper" to "true", "useResponseAsReturnType" to "true"))
     typeMappings.set(mapOf("AnyType" to "JsonElement", "Any" to "JsonElement"))
     importMappings.set(mapOf("JsonElement" to "kotlinx.serialization.json.JsonElement"))
+    enumNameMappings.set(mapOf("name" to "nameAscending"))
     languageSpecificPrimitives.set(listOf("JsonElement"))
-    globalProperties.set(mapOf("apis" to "", "models" to "", "apiTests" to "false", "modelTests" to "false", "apiDocs" to "false", "modelDocs" to "false", "supportingFiles" to "CollectionFormats.kt,UUIDAdapter.kt,OffsetDateTimeAdapter.kt"))
+    globalProperties.set(mapOf("apis" to "", "models" to "", "apiTests" to "false", "modelTests" to "false", "apiDocs" to "false", "modelDocs" to "false", "supportingFiles" to "CollectionFormats.kt,UUIDAdapter.kt,OffsetDateTimeAdapter.kt,URIAdapter.kt,BigDecimalAdapter.kt"))
 }
 tasks.named("openApiGenerate") { dependsOn(prepareContract); doFirst { delete(layout.buildDirectory.dir("generated/openapi")) } }
 tasks.named("preBuild") { dependsOn(prepareBrand,"openApiGenerate") }
