@@ -17,8 +17,10 @@ class ShellTest {
     private fun screenshot(name:String) {DeviceWindowGuard.awaitClear();
         val dir=InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("validation")!!
         dir.mkdirs();File(dir,"$name.png").outputStream().use {compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it)}
+        val full=requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
+        try {File(dir,"$name-screen.png").outputStream().use {full.compress(Bitmap.CompressFormat.PNG,100,it)}}finally {full.recycle()}
     }
-    private fun waitText(text:String) {DeviceWindowGuard.awaitClear();compose.waitUntil(10000){compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()}}
+    private fun waitText(text:String) {DeviceWindowGuard.awaitClear();try {compose.waitUntil(10000){compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()}}catch(f:Throwable){screenshot("shell-failure-${text.filter(Char::isLetterOrDigit).take(30)}");throw f}}
     private fun enterDemo() {
         DeviceWindowGuard.awaitClear()
         compose.setContent {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}))}
@@ -37,7 +39,8 @@ class ShellTest {
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithTag("serverUrl").performTextInput("http://example.org")
         DeviceWindowGuard.awaitClear()
-        compose.onNodeWithText("Connect",useUnmergedTree=true).performScrollTo().performClick()
+        // Use the real keyboard Done action while the IME occupies the large-font viewport.
+        compose.onNodeWithTag("serverUrl").performImeAction()
         waitText("Enter a valid HTTPS server URL.")
         DeviceWindowGuard.awaitClear()
         compose.waitUntil(5000) {
@@ -45,6 +48,7 @@ class ShellTest {
             compose.onNodeWithTag("connectionError").performScrollTo()
             try {compose.onNodeWithTag("connectionError").assertIsDisplayed();true}catch(_:AssertionError){false}
         }
+        compose.onNodeWithText("Connect",useUnmergedTree=true).performScrollTo().assertIsDisplayed().assertIsEnabled()
         screenshot("a1-server-error-dark-font2")
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("Sign in").assertDoesNotExist()

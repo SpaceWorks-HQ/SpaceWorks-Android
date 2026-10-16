@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 /** Presentation drafts and server results, never network DTOs. */
 data class BasketLine(val item:InventoryItem,val quantity:Int)
+enum class ContactField { DISPLAY_NAME, FIRST_NAME, LAST_NAME, PHONE }
 enum class ActionRoute { CART, REQUEST_RECEIPT, RENEW, SPACE, BOOKING, EVENT, REGISTRATION, PROFILE, PREFERENCES }
 data class ActionReceipt(val title:String,val status:String,val message:String,val publicToken:String?=null,val dueAt:String?=null)
 data class MemberActionsState(
@@ -79,6 +80,11 @@ class MemberActionsStateHolder(private val api:MemberActionsGateway,private val 
     fun ticket(id:String?){if(!state.value.busy)mutable.update {it.copy(ticketId=id)}}
     fun registrationFields(phone:String=state.value.phone,email:String=state.value.email,invite:String=state.value.inviteCode,promo:String=state.value.promoCode){if(!state.value.busy)mutable.update {it.copy(phone=phone,email=email,inviteCode=invite,promoCode=promo)}}
     fun editProfile(value:ActionProfile){if(!state.value.busy)mutable.update {it.copy(profile=value)}}
+    fun editProfileField(field:ContactField,value:String){
+        if(state.value.busy)return
+        mutable.update {s->val current=s.profile?:return@update s
+            s.copy(profile=when(field){ContactField.DISPLAY_NAME->current.copy(displayName=value);ContactField.FIRST_NAME->current.copy(firstName=value);ContactField.LAST_NAME->current.copy(lastName=value);ContactField.PHONE->current.copy(phone=value)})}
+    }
     val profileDirty get()=state.value.profile!=state.value.savedProfile
     private suspend fun error(f:Exception,expected:Long):String {
         if(expected==epoch.get() && f is ApiFailure){

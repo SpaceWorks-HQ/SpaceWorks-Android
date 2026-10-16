@@ -32,7 +32,8 @@ val LocalMemberActionScope=staticCompositionLocalOf<kotlinx.coroutines.Coroutine
     OutlinedCard(Modifier.fillMaxWidth()){Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp),content=content)}
 }
 @Composable private fun ActionChoice(label:String,selected:Boolean,onClick:()->Unit,enabled:Boolean=true) {
-    Row(Modifier.fillMaxWidth().heightIn(min=48.dp).toggleable(value=selected,enabled=enabled,role=Role.RadioButton,onValueChange={onClick()}).padding(vertical=8.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+    val focus=LocalFocusManager.current;val keyboard=LocalSoftwareKeyboardController.current
+    Row(Modifier.fillMaxWidth().heightIn(min=48.dp).toggleable(value=selected,enabled=enabled,role=Role.RadioButton,onValueChange={focus.clearFocus();keyboard?.hide();onClick()}).padding(vertical=8.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
         RadioButton(selected=selected,onClick=null,enabled=enabled);Spacer(Modifier.width(12.dp));Text(label,Modifier.weight(1f))
     }
 }
@@ -47,7 +48,7 @@ val LocalMemberActionScope=staticCompositionLocalOf<kotlinx.coroutines.Coroutine
     var clock by remember {mutableLongStateOf(System.currentTimeMillis())}
     LaunchedEffect(s.retryAtMillis){do {clock=System.currentTimeMillis();if(clock<s.retryAtMillis)kotlinx.coroutines.delay(250)}while(clock<s.retryAtMillis)}
     val enabled=!s.busy&&!s.loading&&clock>=s.retryAtMillis
-    fun close(){if(s.busy)return;if(s.route==ActionRoute.PROFILE&&holder.profileDirty)discard=true else if(holder.close())onClose()}
+    fun close(){if(s.busy)return;focus.clearFocus();keyboard?.hide();if(s.route==ActionRoute.PROFILE&&holder.profileDirty)discard=true else if(holder.close())onClose()}
     BackHandler {close()}
     ProtectSecrets(!demo && s.route==ActionRoute.REGISTRATION)
     if(discard)AlertDialog(onDismissRequest={discard=false},title={Text("Discard changes?")},text={Text("Your unsaved profile edits will be lost.")},confirmButton={BrandTextButton("Discard",{discard=false;holder.close();onClose()})},dismissButton={BrandTextButton("Keep editing",{discard=false})})
@@ -118,10 +119,10 @@ val LocalMemberActionScope=staticCompositionLocalOf<kotlinx.coroutines.Coroutine
                 }
                 ActionRoute.PROFILE->s.profile?.let {profile->
                     Text("Your account contact details. Updating a phone here does not verify it as a sign-in method.")
-                    BrandField(profile.displayName.orEmpty(),{holder.editProfile(profile.copy(displayName=it))},"Display name",enabled=enabled,role=FieldRole.NAME,errorMessage=s.fieldErrors["displayName"])
-                    BrandField(profile.firstName.orEmpty(),{holder.editProfile(profile.copy(firstName=it))},"First name",enabled=enabled,role=FieldRole.NAME,errorMessage=s.fieldErrors["firstName"])
-                    BrandField(profile.lastName.orEmpty(),{holder.editProfile(profile.copy(lastName=it))},"Last name",enabled=enabled,role=FieldRole.NAME,errorMessage=s.fieldErrors["lastName"])
-                    BrandField(profile.phone.orEmpty(),{holder.editProfile(profile.copy(phone=it))},"Phone",enabled=enabled,role=FieldRole.PHONE,errorMessage=s.fieldErrors["phone"])
+                    BrandField(profile.displayName.orEmpty(),{holder.editProfileField(ContactField.DISPLAY_NAME,it)},"Display name",enabled=enabled,role=FieldRole.NAME,errorMessage=s.fieldErrors["displayName"])
+                    BrandField(profile.firstName.orEmpty(),{holder.editProfileField(ContactField.FIRST_NAME,it)},"First name",enabled=enabled,role=FieldRole.NAME,errorMessage=s.fieldErrors["firstName"])
+                    BrandField(profile.lastName.orEmpty(),{holder.editProfileField(ContactField.LAST_NAME,it)},"Last name",enabled=enabled,role=FieldRole.NAME,errorMessage=s.fieldErrors["lastName"])
+                    BrandField(profile.phone.orEmpty(),{holder.editProfileField(ContactField.PHONE,it)},"Phone",enabled=enabled,role=FieldRole.PHONE,errorMessage=s.fieldErrors["phone"])
                     BrandButton("Save changes",{focus.clearFocus();keyboard?.hide();work.launch {holder.saveProfile()}},enabled&&holder.profileDirty)
                 }
                 ActionRoute.PREFERENCES->s.preferences?.let {cells->

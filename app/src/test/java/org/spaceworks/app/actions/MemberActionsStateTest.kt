@@ -21,6 +21,14 @@ class MemberActionsStateTest {
         capabilities: MakerCapabilitiesGateway = MakerCapabilitiesGateway { MakerCapabilities.DEMO }) =
         MemberActionsStateHolder(api, MemberStateHolder(EmptyReads()), now, unauthorized, capabilities = capabilities).apply { activate(first) }
 
+    @Test fun independentContactEditsPreserveOtherCurrentFieldsAndRemainDirty()=runTest {
+        val api=FakeActionsGateway();val holder=makeHolder(api);holder.openProfile()
+        holder.editProfileField(ContactField.DISPLAY_NAME,"Meera Makes")
+        holder.editProfileField(ContactField.PHONE,"+919000000000")
+        assertEquals("Meera Makes",holder.state.value.profile?.displayName)
+        assertEquals("+919000000000",holder.state.value.profile?.phone)
+        assertTrue(holder.profileDirty)
+    }
     @Test fun delayedOldScopeDetailCannotPopulateTheNewMakerspaceOrRoute() = runTest {
         val gate = CompletableDeferred<ActionSpace>()
         val api = FakeActionsGateway().apply { spaceBlock = { _, _ -> gate.await() } }
