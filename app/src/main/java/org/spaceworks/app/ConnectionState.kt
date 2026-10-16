@@ -1,5 +1,7 @@
 package org.spaceworks.app
 
+import org.spaceworks.app.network.retryDeadlineMillis
+
 import org.spaceworks.app.platform.MobileText
 import org.spaceworks.app.platform.MobileCopyException
 import org.spaceworks.app.platform.failure
@@ -39,7 +41,7 @@ class ConnectionStateHolder(initialUrl: String, val locked: Boolean, private val
             mutable.value = state.value.copy(connecting = false)
             throw cancelled
         } catch (failure: Exception) {
-            if (failure is ApiFailure && failure.status == 429) retryAt = now() + (failure.retryAfterSeconds ?: 60L) * 1000L
+            if (failure is ApiFailure && failure.status == 429) retryAt = maxOf(retryAt, retryDeadlineMillis(now(), failure.retryAfterSeconds ?: 60L))
             mutable.value = state.value.copy(connecting = false, error = (failure as? ApiFailure)?.let{text.apiFailure(it)} ?: text(CoreStrings.CORE_COULDN_T_CONNECT_TRY_AGAIN))
         }
     }

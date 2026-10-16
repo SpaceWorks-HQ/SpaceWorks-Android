@@ -1,5 +1,7 @@
 package org.spaceworks.app.payments
 
+import org.spaceworks.app.network.retrySecondsRemaining
+
 import org.spaceworks.app.platform.MobileText
 import org.spaceworks.app.platform.rememberMobileText
 
@@ -55,7 +57,7 @@ import org.spaceworks.app.ui.*
             BrandTextButton(text(PaymentStrings.PAYMENT_BACK),{back()},!s.busy)
             Text(if(s.showingDocuments)text(PaymentStrings.PAYMENT_RECEIPTS_AND_CREDIT_NOTES) else if(row!=null)row.label else text(PaymentStrings.PAYMENT_PAYMENTS),style=MaterialTheme.typography.headlineLarge,modifier=Modifier.semantics{heading()})
             if(demo)Text(text(PaymentStrings.PAYMENT_DEMO_PAYMENTS_SAMPLE_DATA),color=MaterialTheme.colorScheme.onSurfaceVariant)
-            if(clock<s.retryAtMillis)Text(text(PaymentStrings.PAYMENT_TRY_AGAIN_IN_1_SS, ((s.retryAtMillis-clock+999)/1000).coerceAtLeast(0)),Modifier.semantics{liveRegion=LiveRegionMode.Polite})
+            if(clock<s.retryAtMillis)Text(text(PaymentStrings.PAYMENT_TRY_AGAIN_IN_1_SS, retrySecondsRemaining(clock,s.retryAtMillis)),Modifier.semantics{liveRegion=LiveRegionMode.Polite})
             BrandError(s.error)
             if(!demo && nativeState is NativePaymentState.AwaitingServer)PaymentCard {
                 Text(text(PaymentStrings.PAYMENT_CALLBACK_PENDING),Modifier.semantics{liveRegion=LiveRegionMode.Polite})

@@ -1,5 +1,7 @@
 package org.spaceworks.app.ui
 
+import org.spaceworks.app.network.retrySecondsRemaining
+
 import org.spaceworks.app.platform.*
 
 import android.content.Intent
@@ -44,7 +46,7 @@ import org.spaceworks.app.platform.*
             }
             if(state.busy)LinearProgressIndicator(Modifier.fillMaxWidth())
             BrandError(state.error)
-            if(clock<state.retryAtMillis)Text(copyText(UiStrings.MOBILE_TRY_AGAIN_IN_VALUES,((state.retryAtMillis-clock+999)/1000).coerceAtLeast(0)))
+            if(clock<state.retryAtMillis)Text(copyText(UiStrings.MOBILE_TRY_AGAIN_IN_VALUES,retrySecondsRemaining(clock,state.retryAtMillis)))
             if(demo || configured) {
                 BrandButton(when { !state.consent -> copyText(UiStrings.MOBILE_ENABLE_NOTIFICATIONS); state.error!=null -> copyText(UiStrings.MOBILE_RETRY_NOTIFICATION_SETUP); else -> copyText(UiStrings.MOBILE_REFRESH_NOTIFICATION_SETUP) },{
                     if(demo)scope.launch {holder.enable(true)}else request()

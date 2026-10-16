@@ -373,7 +373,7 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         catch(_:AuthCancelled) {if(localIdentityRevision!=revision)return;mutable.value=state.value.copy(error=null,notice=text(CoreStrings.CORE_SIGN_IN_CANCELLED))}
         catch(f:Exception) {
             if(localIdentityRevision!=revision)return
-            if(f is ApiFailure && f.status==429) retryAt=now()+(f.retryAfterSeconds?:60)*1000L
+            if(f is ApiFailure && f.status==429) retryAt=maxOf(retryAt,retryDeadlineMillis(now(),f.retryAfterSeconds?:60))
             mutable.value=state.value.copy(retryAtMillis=retryAt,
                 gate=if(f is ApiFailure && f.code=="device_superadmin_not_supported")AuthGate.WEB_CONSOLE else state.value.gate,
                 error=when(f){is MobileCopyException->text.failure(f);is ApiFailure->text.apiFailure(f);is AuthMessage->f.message ?: text(CoreStrings.CORE_COULDN_T_CONNECT_TRY_AGAIN);else->text(CoreStrings.CORE_COULDN_T_CONNECT_TRY_AGAIN)})

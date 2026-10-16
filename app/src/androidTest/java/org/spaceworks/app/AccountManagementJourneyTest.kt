@@ -26,7 +26,7 @@ import org.spaceworks.app.theme.LightScheme
 @Composable internal fun A7ComponentHost(largeText:Boolean=false,content:@Composable ()->Unit) {
     val density=LocalDensity.current
     CompositionLocalProvider(LocalDensity provides Density(density.density,if(largeText)3.2f else density.fontScale)) {
-        MaterialTheme(colorScheme=LightScheme,shapes=Shapes(small=RoundedCornerShape(10.dp),medium=RoundedCornerShape(16.dp))) {
+        MaterialTheme(colorScheme=if(DeviceProfile.dark)org.spaceworks.app.theme.DarkScheme else LightScheme,shapes=Shapes(small=RoundedCornerShape(10.dp),medium=RoundedCornerShape(16.dp))) {
             Surface(Modifier.fillMaxSize()){Box(Modifier.fillMaxSize().safeDrawingPadding()){content()}}
         }
     }
@@ -41,8 +41,8 @@ class AccountManagementJourneyTest {
         compose.setContent { SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}),demoFactory={
             org.spaceworks.app.auth.DemoSupport.create(context=context,
                 paymentFiles=org.spaceworks.app.payments.CachedPaymentFiles(File(context.cacheDir,"native-documents")))
-        }) }
-        journey.systemBars(false);click("Explore demo");waitText("Email or username")
+        }, appearance = DeviceProfile.appearance()) }
+        journey.systemBars(DeviceProfile.dark);click("Explore demo");waitText("Email or username")
         journey.replace(compose.onNodeWithTag("username"),"empty.unverified.demo")
         tag("submitSignIn");waitText("No makerspace access yet")
         compose.onNodeWithText("Confirm your email").assertExists()
@@ -72,7 +72,7 @@ class AccountManagementJourneyTest {
     @Test fun accountWithNoMembershipCanReachDevicesAndSecurityWhileTenantPagesStayHidden() {
         val holder = AccountManagementStateHolder(DemoAccountGateway()).also { it.activateGlobal("demo-account-no-membership") }
         compose.setContent { A7ComponentHost { AccountScreens(holder, true, {}) } }
-        journey.systemBars(false)
+        journey.systemBars(DeviceProfile.dark)
         DeviceWindowGuard.awaitClear()
         for (page in listOf("sessions", "membership", "exports")) compose.onAllNodesWithTag("account-$page").assertCountEquals(0)
         tag("account-devices")
@@ -93,8 +93,8 @@ class AccountManagementJourneyTest {
         compose.setContent { SpaceWorksApp(ConnectionStateHolder("", false, true, {}, {}),demoFactory={
             org.spaceworks.app.auth.DemoSupport.create(context=context,
                 paymentFiles=org.spaceworks.app.payments.CachedPaymentFiles(File(context.cacheDir,"native-documents")))
-        }) }
-        journey.systemBars(false)
+        }, appearance = DeviceProfile.appearance()) }
+        journey.systemBars(DeviceProfile.dark)
         click("Explore demo"); waitText("Email or username"); tag("submitSignIn")
         waitText("Choose your makerspace"); click("Fab Lab Kochi"); click("Continue"); waitText("Welcome back, Meera Nair.")
         journey.click(compose.onAllNodesWithText("Profile", useUnmergedTree = true).onLast())
@@ -142,7 +142,7 @@ class AccountManagementJourneyTest {
         runBlocking { holder.open(AccountPage.EXPORTS); holder.requestExport(); holder.checkExport(holder.state.value.exports.single()) }
         val row = holder.state.value.exports.single()
         compose.setContent { A7ComponentHost { AccountScreens(holder, true, {}, now = clock::get) } }
-        journey.systemBars(false)
+        journey.systemBars(DeviceProfile.dark)
         waitText("Download archive")
         clock.set(OffsetDateTime.parse(row.expiresAt).toInstant().toEpochMilli() + 1)
         waitText("This archive has expired. Request a new export.")

@@ -39,5 +39,28 @@ class NativePackagingTests(unittest.TestCase):
                 check.elf_load_alignments(data)
 
 
+class DeviceFeatureTests(unittest.TestCase):
+    BASE = "uses-feature-not-required: name='android.hardware.camera.any'\nsupports-screens: 'small' 'normal' 'large' 'xlarge'\n"
+
+    def test_optional_camera_front_only_and_wifi_tablets_are_supported(self):
+        result = check.device_features(self.BASE + "uses-feature-not-required: name='android.hardware.camera'\nuses-feature-not-required: name='android.hardware.nfc'\nuses-feature: name='android.hardware.faketouch'\n")
+        self.assertEqual(result['required_features'], ['android.hardware.faketouch'])
+        self.assertIn('xlarge', result['screen_sizes'])
+
+    def test_permission_inferred_rear_camera_autofocus_and_telephony_are_rejected(self):
+        for name in ['android.hardware.camera', 'android.hardware.camera.autofocus', 'android.hardware.telephony', 'android.hardware.telephony.gsm']:
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, 'must remain optional'):
+                check.device_features(self.BASE + "uses-feature: name='" + name + "'\n")
+
+    def test_missing_tablet_screen_sizes_or_badging_cannot_silently_pass(self):
+        for text in ['', self.BASE.replace(" 'xlarge'", ''), self.BASE.replace(" 'large'", '')]:
+            with self.subTest(text=text), self.assertRaisesRegex(ValueError, 'screens'):
+                check.device_features(text)
+
+    def test_implicit_camera_does_not_replace_explicit_optional_declaration(self):
+        with self.assertRaisesRegex(ValueError, 'explicitly optional'):
+            check.device_features("supports-screens: 'small' 'normal' 'large' 'xlarge'\n")
+
+
 if __name__ == '__main__':
     unittest.main()

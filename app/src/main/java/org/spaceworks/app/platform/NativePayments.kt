@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.annotation.MainThread
 import androidx.lifecycle.Lifecycle
@@ -203,16 +204,18 @@ class RazorpayCheckoutActivity : ComponentActivity(), PaymentResultWithDataListe
         if (savedInstanceState != null) {
             // Never charge/open the order a second time on rotation or process recreation.
             // Checkout can still deliver its callback. If it was interrupted, offer explicit recovery.
-            val content = android.widget.LinearLayout(this).apply {
-                orientation = android.widget.LinearLayout.VERTICAL
-                setPadding(32, 64, 32, 32)
-                addView(android.widget.TextView(context).apply { text = "If checkout was interrupted, return to check your payment status." })
-                addView(android.widget.Button(context).apply {
-                    text = "Check payment status"
-                    setOnClickListener { setResult(Activity.RESULT_CANCELED, Intent().putExtra("interrupted", true)); finish() }
-                })
+            val dark=getSharedPreferences("deployment",0).getBoolean("theme.dark",false)
+            androidx.core.view.WindowCompat.getInsetsController(window,window.decorView).apply {
+                isAppearanceLightStatusBars=!dark
+                isAppearanceLightNavigationBars=!dark
             }
-            setContentView(content)
+            setContent {
+                androidx.compose.material3.MaterialTheme(colorScheme=if(dark)org.spaceworks.app.theme.DarkScheme else org.spaceworks.app.theme.LightScheme) {
+                    CheckoutRecoveryScreen {
+                        setResult(Activity.RESULT_CANCELED, Intent().putExtra("interrupted", true)); finish()
+                    }
+                }
+            }
             return
         }
         val input = RazorpaySheetInput(intent.getStringExtra("reference").orEmpty(), intent.getStringExtra("merchant").orEmpty(),

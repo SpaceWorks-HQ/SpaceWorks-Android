@@ -8,11 +8,14 @@ class AuthBundle(val holder:AuthStateHolder,val tokens:TokenStore,val demo:Boole
     val payments:org.spaceworks.app.payments.PaymentsStateHolder?=null,
     val staff:org.spaceworks.app.staff.StaffStateHolder?=null,val staffAvailable:()->Boolean={false},
     val management:org.spaceworks.app.account.AccountManagementCoordinator?=null,
-    val deletionPreview:(List<Int>)->org.spaceworks.app.account.AccountDeletionPreview?={null})
+    val deletionPreview:(List<Int>)->org.spaceworks.app.account.AccountDeletionPreview?={null}) {
+    val previewGuidance=org.spaceworks.app.guidance.MemoryGuideStore()
+}
 
 /** Explicit preview reset. Never invokes a live API, provider SDK or another origin's store. */
 fun AuthBundle.clearDemoState() {
     if(!demo)return
+    previewGuidance.clear()
     management?.forget(this)
     if(tokens.read()!=null)tokens.replace(null)
     holder.invalidateInstallation(tokens.snapshot().epoch)

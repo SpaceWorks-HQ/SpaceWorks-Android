@@ -46,12 +46,12 @@ jobs:
             validation/native-packaging.json
   ui:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     strategy:
       fail-fast: false
-      max-parallel: 2
+      max-parallel: 10
       matrix:
-        device: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["compact","small-phone","phone","large","tablet","tablet-landscape","large-tablet"]' || '["phone","tablet"]') }}
+        device: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["compact","small-phone","common-phone","phone","large","small-tablet","tablet","wide-tablet","tablet-landscape","large-tablet"]' || '["phone","tablet"]') }}
     name: UI (${{ matrix.device }})
     steps:
       - uses: actions/checkout@v4

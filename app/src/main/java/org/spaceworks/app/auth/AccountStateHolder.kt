@@ -1,5 +1,7 @@
 package org.spaceworks.app.auth
 
+import org.spaceworks.app.network.retryDeadlineMillis
+
 import org.spaceworks.app.platform.MobileText
 import org.spaceworks.app.platform.MobileCopyException
 import org.spaceworks.app.platform.failure
@@ -80,7 +82,7 @@ class AccountStateHolder(private val api:AuthGateway,private val signupAllowed:(
         }catch(cancelled:CancellationException){throw cancelled}
         catch(f:Exception){
             if(!current(expected))return
-            val deadline=if(f is ApiFailure && f.status==429)now()+(f.retryAfterSeconds?:60)*1000L else state.value.retryAtMillis
+            val deadline=if(f is ApiFailure && f.status==429)maxOf(state.value.retryAtMillis,retryDeadlineMillis(now(),f.retryAfterSeconds?:60)) else state.value.retryAtMillis
             val message=when {f is MobileCopyException->text.failure(f);f is AuthMessage->f.message;reset && f is ApiFailure->text(CoreStrings.CORE_INVALID_OR_EXPIRED_VERIFICATION_CODE);f is ApiFailure->text.apiFailure(f);else->text(CoreStrings.CORE_COULDN_T_CONNECT_TRY_AGAIN)}
             mutable.value=if(f is ApiFailure && f.code=="recovery_unavailable")state.value.copy(route=AccountRoute.RECOVERY_UNAVAILABLE,error=null,retryAtMillis=deadline)
                 else state.value.copy(error=message,retryAtMillis=deadline)

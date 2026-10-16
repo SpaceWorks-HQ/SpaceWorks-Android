@@ -27,7 +27,7 @@ class PaymentsJourneyTest {
     @get:Rule val compose=createComposeRule()
     private val journey by lazy {NativeJourney(compose,"a5")}
     private val launches=AtomicInteger()
-    private fun start(dark:Boolean=false,largeText:Boolean=false):PaymentsStateHolder {
+    private fun start(dark:Boolean=DeviceProfile.dark,largeText:Boolean=false):PaymentsStateHolder {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val holder=PaymentsStateHolder(DemoPaymentsGateway(),CachedPaymentFiles(File(context.cacheDir,"native-documents")),pause={}).apply{activate(MemberScope(7,"demo-makerspace"))}
         compose.setContent {
@@ -56,7 +56,7 @@ class PaymentsJourneyTest {
         compose.setContent {CompositionLocalProvider(org.spaceworks.app.platform.LocalNativeCheckout provides binding) {
             SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}),demoFactory={
                 org.spaceworks.app.auth.DemoSupport.create(paymentFiles=CachedPaymentFiles(File(context.cacheDir,"native-documents"))).also {session=it}
-            })
+            }, appearance = DeviceProfile.appearance())
         }}
         click("Explore demo");waitText("Email or username");journey.clickTag("submitSignIn")
         waitText("Choose your makerspace");click("Fab Lab Kochi");click("Continue");waitText("Welcome back, Meera Nair.")

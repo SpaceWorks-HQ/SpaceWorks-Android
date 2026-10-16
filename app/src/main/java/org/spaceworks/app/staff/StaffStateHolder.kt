@@ -1,5 +1,7 @@
 package org.spaceworks.app.staff
 
+import org.spaceworks.app.network.retryDeadlineMillis
+
 import org.spaceworks.app.platform.MobileText
 import org.spaceworks.app.platform.MobileCopyException
 import org.spaceworks.app.platform.failure
@@ -397,6 +399,6 @@ class StaffStateHolder(
     private suspend fun fail(f:Exception,expected:Long){if(!fresh(expected))return;val error=f as? ApiFailure
         if(error?.status==401){clear();onUnauthorized();return}
         if(error?.status==403){clear();onForbidden();return}
-        val deadline=if(error?.status==429)now()+(error.retryAfterSeconds?:60).coerceIn(0,86400)*1000L else state.value.retryAtMillis
+        val deadline=if(error?.status==429)retryDeadlineMillis(now(),error.retryAfterSeconds?:60) else state.value.retryAtMillis
         mutable.update{it.copy(error=error?.let{text.apiFailure(it)}?:(if(f is MobileCopyException)text.failure(f)else text(StaffStrings.STAFF_COULDN_T_CONNECT_REFRESH_AND_TRY_AGAIN)),retryAtMillis=maxOf(it.retryAtMillis,deadline))}}
 }

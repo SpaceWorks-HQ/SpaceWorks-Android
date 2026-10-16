@@ -19,7 +19,7 @@ class MakerCapabilitiesTest {
     }"""
     private fun response(body:String)=MockResponse().setHeader("Content-Type","application/json").setBody(body)
     @Test fun generatedBootstrapUsesPublishedSlugAndImmutableScopeWithoutBrowserCredentials()=runBlocking {
-        MockWebServer().use {server->server.start();server.enqueue(response(bootstrap()));val tokens=MemoryTokenStore().apply {replace(TokenPair("access","refresh"))}
+        MockWebServer().use {server->server.start();server.enqueue(response(bootstrap(modules="[\"membership\",\"member_accounts\",\"bookable_spaces\"]")));val tokens=MemoryTokenStore().apply {replace(TokenPair("access","refresh"))}
             val result=GeneratedMakerCapabilitiesGateway(ApiSession(server.url("/"),tokens){"999"}).load(scope)
             assertEquals(MakerCapabilities.DEMO,result)
             val request=requireNotNull(server.takeRequest(5,TimeUnit.SECONDS));assertEquals("/api/v1/bootstrap?slug=maker-space",request.path);assertEquals("7",request.getHeader("X-Makerspace-Id"));assertEquals("Bearer access",request.getHeader("Authorization"))
@@ -31,6 +31,14 @@ class MakerCapabilitiesTest {
             server.enqueue(response(bootstrap(modules="[\"membership\"]")));assertEquals(MakerCapabilities(false,true,true),gateway.load(scope))
             server.enqueue(response(bootstrap(features="[]")));assertEquals(MakerCapabilities.NONE,gateway.load(scope))
             server.enqueue(response(bootstrap(features="[\"membership.self_service\"]")));assertEquals(MakerCapabilities(true,false,false),gateway.load(scope))
+        }
+    }
+    @Test fun bookingsQuickActionRequiresActualBookableSpacesModule()=runBlocking {
+        MockWebServer().use {server->server.start();val gateway=GeneratedMakerCapabilitiesGateway(ApiSession(server.url("/")))
+            server.enqueue(response(bootstrap(modules="[\"bookable_spaces\"]",features="[]")))
+            assertEquals(MakerCapabilities(false,false,false,true),gateway.load(scope))
+            server.enqueue(response(bootstrap(modules="[]",features="[\"bookable_spaces\"]")))
+            assertEquals(MakerCapabilities.NONE,gateway.load(scope))
         }
     }
     @Test fun wrongMakerAndBootstrapRefusalNeverPublishPermissions()=runBlocking {

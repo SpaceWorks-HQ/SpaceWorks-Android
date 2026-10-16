@@ -5,8 +5,11 @@ profile="${1:?device profile required}"
 case "$profile" in
   compact) size=640x1136; density=320; font=1; rotation=0; night=no ;;
   small-phone) size=720x1280; density=320; font=1; rotation=0; night=no ;;
+  common-phone) size=1179x2556; density=480; font=1; rotation=0; night=no ;;
   phone) size=1080x2400; density=420; font=1; rotation=0; night=no ;;
   large) size=1440x3120; density=480; font=1.3; rotation=0; night=yes ;;
+  small-tablet) size=1200x1920; density=320; font=1; rotation=0; night=no ;;
+  wide-tablet) size=1680x2520; density=320; font=1; rotation=0; night=no ;;
   tablet) size=1600x2560; density=320; font=1; rotation=0; night=no ;;
   tablet-landscape) size=1600x2560; density=320; font=2; rotation=1; night=yes ;;
   large-tablet) size=2048x2732; density=320; font=2; rotation=0; night=no ;;

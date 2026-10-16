@@ -31,7 +31,7 @@ class NotificationJourneyTest {
         val screen=requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
         File(dir,"$name-screen.png").outputStream().use {screen.compress(Bitmap.CompressFormat.PNG,100,it)};screen.recycle()
     }
-    private fun signedIn(){compose.setContent {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}),demoFactory={org.spaceworks.app.auth.DemoSupport.create().also {bundle=it}})};click("Explore demo");waitText("Email or username");compose.onNodeWithTag("submitSignIn").performScrollTo().performClick();waitText("Choose your makerspace");click("Fab Lab Kochi");click("Continue");waitText("Welcome back, Meera Nair.")}
+    private fun signedIn(){compose.setContent {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}),demoFactory={org.spaceworks.app.auth.DemoSupport.create().also {bundle=it}}, appearance = DeviceProfile.appearance())};click("Explore demo");waitText("Email or username");compose.onNodeWithTag("submitSignIn").performScrollTo().performClick();waitText("Choose your makerspace");click("Fab Lab Kochi");click("Continue");waitText("Welcome back, Meera Nair.")}
     @Test fun consentThenNotificationTapSelectsFreshAuthorizedMakerspaceAndProduct(){
         signedIn();tab("Inbox");waitText("Makerspace notifications");click("Enable notifications");waitText("Notifications are on for:");shot("a4-notifications-enabled")
         click("Preview notification scenarios");click("Preview another makerspace update");waitText("Borrowing terms");waitText("Orbital sander")

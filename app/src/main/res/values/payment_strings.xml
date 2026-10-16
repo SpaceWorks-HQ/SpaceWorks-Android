@@ -87,4 +87,5 @@
     <string name="payment_demo_delayed">"Confirmation delayed"</string>
     <string name="payment_demo_offline">"Offline"</string>
     <string name="payment_demo_unavailable">"Payment unavailable"</string>
+    <string name="payment_interrupted_recovery_body">"If checkout was interrupted, return to check your payment status."</string>
 </resources>

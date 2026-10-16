@@ -34,7 +34,7 @@ Adaptive sign-in supports scroll/IME, light/dark, MFA QR plus manual key, recove
 
 Parity checklist: Connect → Sign in; Email or username / Password; two-step verification/enrollment/manual key/recovery acknowledgement; Choose a makerspace; membership switch and foreground identity; Home/Inventory/Activity/Inbox/Profile navigation adapts to a rail on tablets; shared error copy, unavailable provider messaging and superadmin refusal. Native social IDs/min-version/phone delivery/staff authority remain blocked by [contract issue #3](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/issues/3). Live health/config succeeded; live sign-in has NOT passed because the owner deferred backend attestation setup. The owner extension and full-flow demo plan are in IMPLEMENTATION-PLAN.md; PRD bytes remain unchanged.
 
-Validation: auth/storage/generated transport tests, platform callback/security tests, real Android Keystore instrumentation and three Compose journeys are included. Phone/tablet CI captures PNGs into validation artifacts; authoritative green run links will be recorded after execution. This phase is not marked complete until those checks pass. A2–A8 features are not represented as complete by this foundation.
+Validation: auth/storage/generated transport tests, platform callback/security tests, real Android Keystore instrumentation and three Compose journeys are included. Phone/tablet CI captures PNGs into validation artifacts; authoritative green run links will be recorded after execution. This phase is not marked complete until those checks pass. At this foundation checkpoint, A2–A8 were still future work; their later validation records follow below.
 
 A1 review follow-up: temporary-password accounts must complete Choose a new password before any makerspace screen. Generated change-password success revokes/discards the old session and returns to Sign in with Password updated. Sign in again. MFA Back is safe during verification, account-disabled config prevents password sign-in, and a visible Retry-After countdown disables repeat sign-in. Local lint/tests/assemblies pass (47 unit cases per variant). Local emulator did not become responsive under Windows Hypervisor; device execution is delegated to the CI matrix, with no local UI pass claimed.
 
@@ -54,7 +54,7 @@ DEBUG-only provider/phone previews use memory fixtures, clearly labelled sample 
 
 Networking additionally prevents OkHttp's HTTP 408/421/503 automatic follow-ups, including 503 Retry-After:0, while retaining the original status/detail/headers for generated callers and intentional 401 single-flight recovery. Regression tests cover one-use refresh and mutation requests as well as reads. Release packaging CI verifies 16KB native ELF and APK ZIP alignment and exports unsigned APK/AAB for review; signing/store setup remains pending.
 
-Parity checklist: Make room. / Borrow with confidence. / One place for your making.; Connect to your makerspace; Welcome back.; Create your account / Account created; Reset password / Enter your recovery code / Password updated; Confirm your email; Add extra security / Check your authenticator / Use a recovery code / Save your recovery codes; Choose your makerspace / No access yet; explicit sign-out/change-server confirmation; configured Google and isolated all-method previews; static official branding, reduced motion, native form semantics and semantic selected-navigation contrast. A2–A8 remain in progress and are not represented as complete here. Authoritative checkpoint CI results will be added after execution.
+Parity checklist: Make room. / Borrow with confidence. / One place for your making.; Connect to your makerspace; Welcome back.; Create your account / Account created; Reset password / Enter your recovery code / Password updated; Confirm your email; Add extra security / Check your authenticator / Use a recovery code / Save your recovery codes; Choose your makerspace / No access yet; explicit sign-out/change-server confirmation; configured Google and isolated all-method previews; static official branding, reduced motion, native form semantics and semantic selected-navigation contrast. At this UX checkpoint, A2–A8 remained future work; their subsequent validated checkpoints and CI evidence follow below.
 
 Local checkpoint validation passed lint, unit suites, debug/release APKs, unsigned AAB and instrumentation compilation; committed coverage is 69 debug/66 release unit cases, plus four packaging tests and ten native libraries passing both ELF/ZIP 16KB alignment gates. Initial CI build and all tablet journeys passed; the sole phone failure was a keyboard/scroll submission timing case. Phone verification now offers native IME Done submission, tested through the entered field, with separate valid-code and invalid/expired-code journeys and failure screenshots. Eleven instrumentation journeys remain subject to the corrected revision's CI result.
 
@@ -78,7 +78,7 @@ Final A2 revision `1b2e8808c4750d6d4e8e150b382d7324dbfaca01` passed [CI389372719
 
 Owner repository correction: app-specific UX/motion inputs now live in this repository at `docs/mobile-auth-ux-spec.md` and `tokens/mobile-motion.json`. Design returns to original brand baseline `fd28f825086a2cac7fa297881f1860b9d332db69`; the previously validated UX behavior and input bytes are retained locally. The historical 3c61599 note above remains an audit record. Full OS capture review found a launcher ANR obscuring some A2 images; A3 adds a bounded, launcher-only test recovery guard that fails on Space Works/unknown app errors, and recaptures usable phone/tablet evidence.
 
-## A3 Member actions — validation in progress (2026-10-16)
+## A3 Member actions — validated (2026-10-16)
 
 Added a reviewed borrowing cart (20 products, 1–99 each, optional project purpose), stable idempotency for unchanged retries, server request-status tracking and actual token receipts. Loan renewal displays refusal reasons and the server-confirmed due date. Space booking uses native date/time pickers, published availability, required custom answers and status-only confirmation; booking cancellation/rescheduling keeps the real public token and cutoff. Event registration supports actual ticket types, invitations, promo codes and all eight published custom question types, with registered/pending/waitlisted receipts. Activity opens an actual registration ID; only a confirmed registration can fetch a bounded, safely rendered native SVG ticket. No IDs are guessed from titles or a status-only response.
 
@@ -101,7 +101,7 @@ A3 native input follow-up: radio choices now expose selected radio semantics. De
 
 Head2868cfd passed build and all21 device cases on phone and tablet: [CI38952596187](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/actions/runs/38952596187). Full OS screenshots for recovery, booking and registration receipts were reviewed without overlays; status bars and enabled Done controls are visible. Owner-specific motion/UX files stay in this mobile repository with the unchanged original Design baseline.
 
-### A4 — notifications and safe update navigation (in progress)
+### A4 — notifications and safe update navigation — validated
 
 Networking now binds each generated authenticated call to the local session installation before enqueue. Physical retries and rotating-token publication reject old installations; same-session concurrent401 recovery remains single flight. Encrypted replacement is atomic, controllers share an origin store, and account-global generated calls retain Bearer while removing maker scope. Identity results and local cleanup cannot overwrite a later login. Session-end callbacks synchronously clear private holders even when UI collection is stopped.
 
@@ -119,7 +119,7 @@ The phone rerun also passed all four notification journeys; one earlier booking 
 
 Head0fe5991 passed build and all25 native cases on each phone/tablet: [CI38959076237](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/actions/runs/38959076237). All four notification journeys passed on both devices. Full OS consent/product views were reviewed with readable controls and no overlays. Live provider/backend delivery remains deferred.
 
-### English resources — integration validation in progress
+### English resources — validated
 
 Moved A0–A4 owned UI/accessibility and local validation/notices into572 canonical English resource keys, including five quantity plurals. Generated fallback keys preserve pure JVM tests; production factories resolve Resources without retaining an Activity. HTTP errors carry local-copy provenance only for app fallbacks/special codes, preserving server details and field dictionaries verbatim. Provider, route, action and workflow identities remain unchanged. Known status/stock labels use display resources; quantities do not invent undisclosed stock. Navigation guards now use actual action state rather than an English prefix.
 
@@ -147,7 +147,7 @@ A5 first device run38965133699 passed build, all29 tablet cases and all four new
 
 Heade2aaabb passed build and all29 native cases on each phone/tablet: [CI38967906796](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/actions/runs/38967906796). All four payment journeys pass on both. Full OS app payment/PDF views and large dark text were reviewed without overlays; payment controls retain safe system insets. Live provider transactions remain deferred to owner configuration.
 
-### A6 — reviewed staff workflows (integration in progress)
+### A6 — reviewed staff workflows — validated
 
 Added contract-backed staff queues, reviewed request decisions, issue/return/direct handout guides, evidence preparation, exact kit counts, booking decisions and explicit event attendance. Native staff authority remains unavailable in the published contract, so production access stays closed. The explicit Debug Staff fixture offers isolated normal, empty, refusal, offline, throttle, partial-assignment and kit scenarios; ordinary demo members have no staff entry.
 
@@ -161,7 +161,7 @@ A6 local freeze validation passed363 Debug +341 Release unit cases (704 executio
 
 Head9af9458 passed build and all36 native cases on each phone/tablet: [CI38971344990](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/actions/runs/38971344990). Full-OS staff confirmations, partial-assignment guidance, accepted quantities, kit receipts and large dark attendance views were reviewed without overlays. Production staff access remains closed pending native authority.
 
-### A7 — account, security and privacy integration
+### A7 — account, security and privacy — validated
 
 Added Profile and no-membership account entry, native device/session management, manual password updates, phone verification, connected-provider controls, distinct renewal cancellation/leave and generated personal export status/download. Capability checks retain real makerspace scope; global account controls require no fabricated membership. Missing native provider-link/MFA-start/deletion contracts remain visibly unavailable in production, with complete isolated Debug preview flows.
 
@@ -174,3 +174,16 @@ Local A7 validation: 513 Debug and481 Release unit cases (994 executions), zero 
 A7 first phone/tablet run38977594046 passed build and48 of50 native cases on each device. It exposed an incorrect test navigation after Payments returned Home and a presentation bug where an ordinary400 validation response created a zero-length global deadline. The correction explicitly reopens Profile, keeps fields immediately editable after unthrottled validation errors, and preserves real Retry-After/resend deadlines. A new state regression checks immediate retry without advancing the clock; native input helpers wait for actual enabled/focused controls. Full local validation passes514 Debug +482 Release cases (996 executions, zero failures/errors/skips), lint, both APKs, AAB and all50 native test compilation. Both APKs retain passing16 KB native/ZIP alignment. Corrected phone/tablet CI remains required before A8 activation.
 
 The corrected run38979681818 passed build and49/50 native journeys on each phone/tablet; the validation/retry regression passes on both. The sole remaining test reached the completed demo-deletion reset screen, then timed out on an obsolete foundation heading. Full-OS evidence confirms the current branded entry says Connect to your makerspace, with no Demo banner. The final assertion now uses that shipped heading; all50 native tests recompile successfully. No application source changed in this follow-up, and complete device revalidation remains the gate.
+
+
+### A7 validation checkpoint
+
+Revision0b0c9fcb1fc98a98d9c09f72ae08eab2c885ef7e passed build and all50 native cases on each phone/tablet with zero skipped cases: [CI38981297516](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/actions/runs/38981297516). Local514 Debug +482 Release cases (996 executions), lint, APK/AAB and official16 KB packaging checks passed. Full-OS account/device/password/phone and completed demo reset views were reviewed. The failure history above is retained; all corresponding corrections are validated on this revision. Production backend/provider/store prerequisites remain deferred to the owner.
+
+### A8 — guidance and release handoff validation in progress
+
+Added optional scoped Home tips, typed booking shortcut and a Profile app guide with collapsed task topics, accessible expand/collapse controls, introduction replay and current-scope reset. Demo flags stay in the bundle's memory across maker changes/introduction replay and clear on exit; real guidance persists only hashed boolean keys scoped by origin/account/makerspace/version. Booking shortcuts require the actual bookable_spaces module, otherwise the tip opens Profile. Guide controls remain near the top for large text; staff instructions require actual staff availability.
+
+The final matrix includes measured320/360/393/411/480dp phones,600/800/840/1024dp tablets and tablet landscape, actual app light/dark appearance, large fonts and disabled animation. Packaging checks verify optional camera/telephony features and all screen classes, alongside native16 KB alignment. Shared Retry-After parsing/deadlines saturate safely, retain longer concurrent waits and use Long countdowns. Store listing, reviewer setup, white-label/privacy/release instructions remain explicit about owner backend, signing and console prerequisites. Native full-matrix execution and final screenshot review remain mandatory before this checkpoint is accepted.
+
+A8 local final validation passes529 Debug +497 Release unit cases (1026 executions, zero failures/errors/skips), lint, Debug/unsigned Release APKs, unsigned AAB and compilation of all57 native journeys. The actual MainActivity startup case registers the provider hosts/controller with deterministic restored fixture preferences; a separate3.2font recovery journey covers the branded interrupted-checkout screen and explicit status action without invoking checkout. Both APKs pass all10 ELF64/official16 KB ZIP checks and the real aapt2 hardware filter gate: camera/autofocus/NFC optional, no required telephony, all four screen classes supported. The1116-key English resources have no duplicates; PRD/schema bytes and Design baseline are unchanged. The default phone/tablet CI and full ten-profile run remain the final acceptance gate, with release distribution/backend provisioning still deferred.

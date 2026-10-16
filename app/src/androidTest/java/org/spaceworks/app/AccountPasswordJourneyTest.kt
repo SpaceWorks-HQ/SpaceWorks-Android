@@ -29,7 +29,7 @@ class AccountPasswordJourneyTest {
     @Test fun largeTextManualPasswordShowsRefusalsThenClearsEverySecretAfterExplicitPreview() {
         val holder = ready()
         compose.setContent { A7ComponentHost(largeText=true) { AccountScreens(holder, true, {}) } }
-        journey.systemBars(false)
+        journey.systemBars(DeviceProfile.dark)
         enter("account-password-current", "DemoPass!123"); enter("account-password-new", "replacement"); enter("account-password-confirmation", "different")
         submit(); waitNotice(AccountCopy.PASSWORD_CONFIRMATION); empty("account-password-current")
         assertEquals(0L, holder.state.value.passwordRevision)
@@ -43,7 +43,7 @@ class AccountPasswordJourneyTest {
     @Test fun externalRouteDisposalAndHolderReplacementDoNotRetainEnteredPasswords() {
         val first = ready(); var holder by mutableStateOf(first); var visible by mutableStateOf(true)
         compose.setContent { A7ComponentHost { if (visible) AccountScreens(holder, true, {}) else Text("Another route") } }
-        journey.systemBars(false)
+        journey.systemBars(DeviceProfile.dark)
         enter("account-password-current", "unsubmitted"); enter("account-password-new", "private-new"); enter("account-password-confirmation", "private-new")
         compose.runOnIdle { visible = false }; compose.waitForIdle(); compose.runOnIdle { visible = true }
         empty("account-password-current"); empty("account-password-new"); empty("account-password-confirmation")

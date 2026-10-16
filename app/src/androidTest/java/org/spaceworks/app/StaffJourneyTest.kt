@@ -25,7 +25,7 @@ import java.io.File
 class StaffJourneyTest {
     @get:Rule val compose=createComposeRule()
     private val journey by lazy{NativeJourney(compose,"a6")}
-    private fun start(dark:Boolean=false,large:Boolean=false,scenario:StaffDemoScenario=StaffDemoScenario.NORMAL):StaffStateHolder{
+    private fun start(dark:Boolean=DeviceProfile.dark,large:Boolean=false,scenario:StaffDemoScenario=StaffDemoScenario.NORMAL):StaffStateHolder{
         val api=DemoStaffGateway(InstrumentationRegistry.getInstrumentation().targetContext).apply{this.scenario=scenario}
         val holder=StaffStateHolder(api,api.authority,api.uploads).apply{activate(MemberScope(7,"demo-makerspace"))}
         compose.setContent{val density=LocalDensity.current
@@ -45,7 +45,7 @@ class StaffJourneyTest {
     @Test fun staffPreviewOpensFromProfileAndRequiresExplicitRequestConfirmation(){
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         lateinit var session:org.spaceworks.app.auth.AuthBundle
-        compose.setContent{SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}),demoFactory={org.spaceworks.app.auth.DemoSupport.create(context=context).also{session=it}})}
+        compose.setContent{SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}),demoFactory={org.spaceworks.app.auth.DemoSupport.create(context=context).also{session=it}}, appearance = DeviceProfile.appearance())}
         click("Explore demo");waitText("Email or username");click("Demo scenarios");click("Staff");tag("submitSignIn")
         waitText("Choose your makerspace");click("Fab Lab Kochi");click("Continue");waitText("Welcome back, Arjun Rao.")
         journey.click(compose.onAllNodesWithText("Profile",useUnmergedTree=true).onLast());tag("staff-entry");waitText("Request #601")
@@ -59,7 +59,7 @@ class StaffJourneyTest {
     @Test fun ordinaryMemberHasNoStaffEntryOrAuthority(){
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         lateinit var session:org.spaceworks.app.auth.AuthBundle
-        compose.setContent{SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}),demoFactory={org.spaceworks.app.auth.DemoSupport.create(context=context).also{session=it}})}
+        compose.setContent{SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}),demoFactory={org.spaceworks.app.auth.DemoSupport.create(context=context).also{session=it}}, appearance = DeviceProfile.appearance())}
         click("Explore demo");waitText("Email or username");tag("submitSignIn");waitText("Choose your makerspace");click("Fab Lab Kochi");click("Continue");waitText("Welcome back, Meera Nair.")
         journey.click(compose.onAllNodesWithText("Profile",useUnmergedTree=true).onLast());waitText("Meera Nair")
         compose.onAllNodesWithTag("staff-entry").assertCountEquals(0);assertFalse(session.staffAvailable());assertFalse(session.staff!!.can())

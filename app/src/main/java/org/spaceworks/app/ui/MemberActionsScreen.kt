@@ -1,5 +1,7 @@
 package org.spaceworks.app.ui
 
+import org.spaceworks.app.network.retrySecondsRemaining
+
 import org.spaceworks.app.platform.*
 
 import android.app.DatePickerDialog
@@ -65,7 +67,7 @@ val LocalMemberActionScope=staticCompositionLocalOf<kotlinx.coroutines.Coroutine
             Text(when(s.route){ActionRoute.CART->copyText(UiStrings.MOBILE_REVIEW_YOUR_REQUEST);ActionRoute.REQUEST_RECEIPT->copyText(UiStrings.MOBILE_YOUR_REQUEST);ActionRoute.RENEW->copyText(UiStrings.MOBILE_RENEW_LOAN);ActionRoute.SPACE->copyText(UiStrings.MOBILE_BOOK_A_SPACE);ActionRoute.BOOKING->copyText(UiStrings.MOBILE_MANAGE_BOOKING);ActionRoute.EVENT->copyText(UiStrings.MOBILE_REGISTER_FOR_AN_EVENT);ActionRoute.REGISTRATION->copyText(UiStrings.MOBILE_YOUR_REGISTRATION);ActionRoute.PROFILE->copyText(UiStrings.MOBILE_EDIT_PROFILE);ActionRoute.PREFERENCES->copyText(UiStrings.MOBILE_COMMUNICATION_PREFERENCES);null->copyText(UiStrings.MOBILE_YOUR_MAKERSPACE)},style=MaterialTheme.typography.headlineLarge,modifier=Modifier.semantics {heading()})
             Text(makerspaceLabel(s.scope?.slug.orEmpty()),color=MaterialTheme.colorScheme.onSurfaceVariant)
             if(s.busy||s.loading)LinearProgressIndicator(Modifier.fillMaxWidth().semantics {contentDescription=asyncLabel})
-            if(clock<s.retryAtMillis)Text(copyText(UiStrings.MOBILE_TRY_AGAIN_IN_VALUES,((s.retryAtMillis-clock+999)/1000).coerceAtLeast(0)),Modifier.semantics {liveRegion=LiveRegionMode.Polite})
+            if(clock<s.retryAtMillis)Text(copyText(UiStrings.MOBILE_TRY_AGAIN_IN_VALUES,retrySecondsRemaining(clock,s.retryAtMillis)),Modifier.semantics {liveRegion=LiveRegionMode.Polite})
             BrandError(s.error)
             s.receipt?.let {receipt->ActionCard {
                 Text(receipt.title,style=MaterialTheme.typography.titleLarge,modifier=Modifier.semantics {liveRegion=LiveRegionMode.Polite})

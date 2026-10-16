@@ -170,7 +170,7 @@ object Errors {
             }
         }
         val detail = localCopy?.english ?: serverDetail?.takeIf { it.isNotBlank() } ?: fieldDetail ?: org.spaceworks.app.copy.CoreStrings.CORE_COULDN_T_CONNECT_TRY_AGAIN.english
-        val seconds = retryAfter?.toLongOrNull()?.coerceAtLeast(0) ?: try {
+        val seconds = parseRetryAfterDeltaSeconds(retryAfter) ?: try {
             retryAfter?.let { (ZonedDateTime.parse(it, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().epochSecond - now.epochSecond).coerceAtLeast(0) }
         } catch (_: Exception) { null }
         return ApiFailure(status,detail,code,seconds,localCopy)

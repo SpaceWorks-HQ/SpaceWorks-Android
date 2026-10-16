@@ -1,5 +1,7 @@
 package org.spaceworks.app.ui
 
+import org.spaceworks.app.network.retrySecondsRemaining
+
 import org.spaceworks.app.platform.*
 
 import android.graphics.BitmapFactory
@@ -45,7 +47,7 @@ import org.spaceworks.app.platform.GoogleIdentity
     var retrySeconds by remember {mutableLongStateOf(0)}
     ProtectSecrets(!bundle.demo && (state.mfa!=null || state.recoveryCodes.isNotEmpty()))
     LaunchedEffect(state.retryAtMillis) {
-        do {retrySeconds=((state.retryAtMillis-System.currentTimeMillis()+999)/1000).coerceAtLeast(0);if(retrySeconds>0)kotlinx.coroutines.delay(250)}while(retrySeconds>0)
+        do {retrySeconds=retrySecondsRemaining(System.currentTimeMillis(),state.retryAtMillis);if(retrySeconds>0)kotlinx.coroutines.delay(250)}while(retrySeconds>0)
     }
     LaunchedEffect(state.mfaExpiresAtMillis,state.recoveryCodes.isNotEmpty()) {
         if(state.mfaExpiresAtMillis>0 && state.recoveryCodes.isEmpty()) {

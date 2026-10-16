@@ -1,5 +1,7 @@
 package org.spaceworks.app.account
 
+import org.spaceworks.app.network.retrySecondsRemaining
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -133,7 +135,7 @@ private data class AccountConfirmation(val title: String, val detail: String, va
             Text(stringResource(pageTitle(s.page)), style = MaterialTheme.typography.headlineLarge, modifier = Modifier.semantics { heading() })
             if (demo) Text(stringResource(R.string.account_demo), color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (s.loading || s.busy) LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = workingLabel })
-            if (clock < s.retryAtMillis) Text(stringResource(R.string.account_retry, ((s.retryAtMillis - clock + 999) / 1000).toInt()))
+            if (clock < s.retryAtMillis) Text(stringResource(R.string.account_retry, retrySecondsRemaining(clock, s.retryAtMillis)))
             BrandError(s.error)
             if (documentFailed) BrandError(stringResource(R.string.account_document_failed))
             s.notice?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }

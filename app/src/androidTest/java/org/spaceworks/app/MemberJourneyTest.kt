@@ -20,7 +20,7 @@ class MemberJourneyTest {
     }
     private fun signedIn(){
         DeviceWindowGuard.awaitClear()
-        compose.setContent {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}))}
+        compose.setContent {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}), appearance = DeviceProfile.appearance())}
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("Explore demo").performScrollTo().performClick();waitText("Email or username")
         DeviceWindowGuard.awaitClear()

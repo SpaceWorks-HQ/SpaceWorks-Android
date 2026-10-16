@@ -226,6 +226,25 @@ class MemberStateTest {
         assertFalse(holder.state.value.bookingMoreBusy)
     }
 
+    @Test fun parallelShorterThrottleCannotReplaceEarlierServerDeadline() = runTest {
+      for((seconds,expectedDeadline) in listOf(120L to 121000L,Long.MAX_VALUE to Long.MAX_VALUE)) {
+        val inventoryEntered=CompletableDeferred<Unit>();val inventoryRelease=CompletableDeferred<Unit>()
+        val cardEntered=CompletableDeferred<Unit>();val cardRelease=CompletableDeferred<Unit>()
+        val api=FakeGateway()
+        val holder=MemberStateHolder(api,now={1000L});holder.activate(first)
+        api.apply {
+            inventoryBlock={_,_,_,_->inventoryEntered.complete(Unit);inventoryRelease.await();throw ApiFailure(429,"Long wait",null,seconds)}
+            cardBlock={cardEntered.complete(Unit);cardRelease.await();throw ApiFailure(429,"Zero wait",null,0)}
+        }
+        val inventory=async{holder.refreshInventory()};val card=async{holder.refreshCard()}
+        inventoryEntered.await();cardEntered.await()
+        inventoryRelease.complete(Unit);inventory.await();val longest=holder.state.value.retryAtMillis
+        cardRelease.complete(Unit);card.await()
+        assertEquals(expectedDeadline,longest)
+        assertEquals("A later parallel zero wait cannot shorten the existing server deadline",expectedDeadline,holder.state.value.retryAtMillis)
+      }
+    }
+
     private class FakeGateway : MemberGateway {
         var inventoryBlock: suspend (MemberScope, String, String?, String?) -> MemberPage<InventoryItem> = { _, _, _, _ -> page(item("1")) }
         var overviewBlock: suspend (MemberScope) -> MemberOverview = { MemberStateTest.overview() }

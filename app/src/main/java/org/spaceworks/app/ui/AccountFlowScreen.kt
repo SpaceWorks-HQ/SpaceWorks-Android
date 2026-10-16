@@ -1,5 +1,7 @@
 package org.spaceworks.app.ui
 
+import org.spaceworks.app.network.retrySecondsRemaining
+
 import org.spaceworks.app.platform.*
 
 import androidx.activity.compose.BackHandler
@@ -82,7 +84,7 @@ import org.spaceworks.app.auth.*
         if(state.busy)LinearProgressIndicator(Modifier)
         BrandError(state.error)
         state.notice?.let {Text(it)}
-        if(now<state.retryAtMillis)Text(copyText(UiStrings.MOBILE_TRY_AGAIN_IN_VALUE_SECONDS,((state.retryAtMillis-now+999)/1000).coerceAtLeast(0)))
+        if(now<state.retryAtMillis)Text(copyText(UiStrings.MOBILE_TRY_AGAIN_IN_VALUE_SECONDS,retrySecondsRemaining(now,state.retryAtMillis)))
         if(demo)Text(copyText(UiStrings.MOBILE_DEMO_ONLY_NO_EMAIL_IS_SENT_VERIFICATION_CODE_123456),style=MaterialTheme.typography.bodySmall)
         if(state.route!=AccountRoute.SIGNUP_ACK && state.route!=AccountRoute.RESET_SUCCESS)BrandTextButton(if(state.route==AccountRoute.VERIFY_EMAIL)copyText(UiStrings.MOBILE_BACK) else copyText(UiStrings.MOBILE_BACK_TO_SIGN_IN),holder::back,!state.busy)
     }

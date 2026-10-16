@@ -32,6 +32,28 @@ normal/large phone, tablet portrait/landscape and large tablet profiles. Preserv
 configuration, actual display dimensions, screenshots and APKs. Large text, dark mode and the
 animation-disabled large-tablet profile extend the matrix. The display script fails if requested
 dimensions were clamped; inspect actual evidence rather than claiming all phones were tested.
+The full matrix retains every journey and uses these configurations. These are requested
+profiles; the artifacts must confirm the actual app window, theme and inherited text scale.
+
+| Profile | Portrait width / orientation | Text scale | Theme |
+|---|---|---|---|
+| compact | 320dp | 1× | Light |
+| small-phone | 360dp | 1× | Light |
+| common-phone | 393dp | 1× | Light |
+| phone | approximately 411dp | 1× | Light |
+| large | 480dp | 1.3× | Dark |
+| small-tablet | 600dp | 1× | Light |
+| tablet | 800dp | 1× | Light |
+| wide-tablet | 840dp | 1× | Light |
+| tablet-landscape | 1280dp landscape window | 2× | Dark |
+| large-tablet | 1024dp | 2×, animations off | Light |
+
+Dedicated journeys also exercise 3.2× component text and explicit dark/error states. App guide
+tests cover expanded instructions, replay, scoped tip reset and actual Profile navigation.
+`a8-observed-app-profile.json` and its Compose/full-OS images record observed appearance,
+density, logical width, font scale and orientation. Preserve the workflow source SHA and all
+per-profile reports rather than treating an adb configuration request as app-level proof.
+
 Emulator UI/demo results do not prove Play Integrity, live FCM delivery, physical camera behavior
 or real provider charges.
 
@@ -45,7 +67,21 @@ recolor or animate a logo. Use bundled font assets only with the recorded embedd
 
 Register the actual application ID in the owner's Play Console and enable Play App Signing.
 Verify the final manifest, label, icon, versionCode/versionName, supported devices, HTTPS policy,
-permissions and dependency manifest entries. Version values currently live in `app/build.gradle.kts`;
+permissions and dependency manifest entries. The packaging gate reads the effective APK with
+SDK `aapt2 dump badging`: no required camera/telephony feature may filter compatible devices,
+any-camera must be explicitly optional, and small/normal/large/xlarge screens must be supported.
+The app manifest also explicitly marks camera, autofocus and NFC optional. Camera tasks explain
+missing hardware and retain manual scan entry.
+
+Inspect transitive SDK permissions as well as the source manifest. The current merged Release
+manifest includes INTERNET, CAMERA and POST_NOTIFICATIONS, plus SDK declarations for
+USE_BIOMETRIC, USE_FINGERPRINT, NFC, ACCESS_NETWORK_STATE, WAKE_LOCK, c2dm.RECEIVE and
+READ_BASIC_PHONE_STATE, and the app's signature-protected dynamic-receiver permission. Their
+presence does not establish runtime collection or permission approval; review actual behavior
+for the owner deployment. No AD_ID declaration was observed in this audited manifest. GLES 2
+remains a required rendering capability.
+
+Version values currently live in `app/build.gradle.kts`;
 each uploaded build needs a fresh versionCode. Inject the owner's upload keystore and passwords
 only in the private release environment. Never commit keys, credentials, Firebase configuration
 or reviewer passwords. The checked-in application namespace is an internal code namespace;
@@ -104,6 +140,9 @@ submitted deployment. Put reviewer credentials in the private Play Console app-a
 never this repository. Check current Play Console target/API and testing requirements at upload;
 the app currently targets API 36 but this document does not assert future submission eligibility.
 
+Concrete listing copy, screenshot capture order and private reviewer-access notes are prepared
+in [STORE-LISTING.md](STORE-LISTING.md).
+
 ## Final acceptance and distribution
 
 1. Record app/Design commits, schema hash, exact dependency versions, CI links and tested device
@@ -125,8 +164,8 @@ Record distribution evidence after owner provisioning; do not put credentials in
 
 | Evidence | Value |
 |---|---|
-| Accepted app / Design commits | Pending final batch acceptance |
-| Full device-matrix CI run | Pending final batch validation |
+| Accepted app / Design commits | Exact tested source SHA and pinned Design input are recorded in the final [dev → main PR](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/pull/2) and matching CI artifacts |
+| Full device-matrix CI run | The final PR validation section links the accepted ten-profile run and reviewed artifacts; check that run before acceptance |
 | Signed bundle / versionCode / certificate fingerprint | Owner signing environment required |
 | Real-device provider test record | Owner backend/configuration required |
 | Whole-account deletion and web resource verification | Updated owner contract/site required |

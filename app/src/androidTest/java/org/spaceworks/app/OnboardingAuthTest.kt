@@ -31,14 +31,14 @@ class OnboardingAuthTest {
     }
     private fun demo(){
         DeviceWindowGuard.awaitClear()
-        compose.setContent {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}))}
+        compose.setContent {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}), appearance = DeviceProfile.appearance())}
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("Explore demo").performScrollTo().performClick();waitText("Email or username")
     }
     @Test fun introductionCompletesWithoutPermissionPromptsAndCanReplay() {
         var saved=false;val intro=OnboardingStateHolder(false){saved=it}
         DeviceWindowGuard.awaitClear()
-        compose.setContent {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}),onboarding=intro)}
+        compose.setContent {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}),onboarding=intro, appearance = DeviceProfile.appearance())}
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("Make room.").assertExists();screenshot("ux-introduction-first")
         DeviceWindowGuard.awaitClear()
@@ -175,7 +175,7 @@ class OnboardingAuthTest {
         compose.setContent {
             val density=LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density,2f)) {
-                Box(Modifier.width(320.dp).fillMaxHeight()) {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}))}
+                Box(Modifier.width(320.dp).fillMaxHeight()) {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}), appearance = DeviceProfile.appearance())}
             }
         }
         DeviceWindowGuard.awaitClear()

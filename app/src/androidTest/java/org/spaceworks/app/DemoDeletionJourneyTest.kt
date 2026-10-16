@@ -29,7 +29,7 @@ class DemoDeletionJourneyTest {
     @Test fun allBlockersRemainReachableAndUnknownFixPreservesItsMakerspace() {
         val holder = DemoAccountDeletion(); var fixed: DemoDeletionBlocker? = null
         compose.setContent { A7ComponentHost { DemoAccountDeletionScreen(holder, {}, { blocker, _ -> fixed = blocker }, {}) } }
-        journey.systemBars(false)
+        journey.systemBars(DeviceProfile.dark)
         click("Review account deletion")
         waitFor { holder.state.value.blockers.size == 13 }
         val unknown = compose.onNodeWithTag("deletion-blocker-future_backend_code")
@@ -41,7 +41,7 @@ class DemoDeletionJourneyTest {
     @Test fun readyAccountRequiresProofAndExactTypedConfirmationBeforeDemoReset() {
         val holder = DemoAccountDeletion(); var deleted = false
         compose.setContent { A7ComponentHost { DemoAccountDeletionScreen(holder, {}, { _, _ -> }, { deleted = true }) } }
-        journey.systemBars(false)
+        journey.systemBars(DeviceProfile.dark)
         click("Ready to delete"); click("Review account deletion")
         inputDone("deletion-proof", "DemoPass!123")
         waitFor { holder.state.value.stage == DemoDeletionStage.CONFIRM }
@@ -55,7 +55,7 @@ class DemoDeletionJourneyTest {
     @Test fun obligationAddedAtConfirmationReturnsFreshBlockersWithoutResettingAccount() {
         val holder = DemoAccountDeletion(); var deleted = false
         compose.setContent { A7ComponentHost { DemoAccountDeletionScreen(holder, {}, { _, _ -> }, { deleted = true }) } }
-        journey.systemBars(false)
+        journey.systemBars(DeviceProfile.dark)
         click("Obligation added at confirmation"); click("Review account deletion"); click("Authenticator code")
         inputDone("deletion-proof", "123456"); waitFor { holder.state.value.stage == DemoDeletionStage.CONFIRM }
         inputDone("deletion-confirmation", "DELETE")
@@ -74,7 +74,7 @@ class DemoDeletionJourneyTest {
             choose(DemoDeletionScenario.READY); review(); authenticate(DemoDeletionProof.PHONE, "123456")
         }
         compose.setContent { A7ComponentHost { DemoAccountDeletionScreen(holder, {}, { _, _ -> }, {}) } }
-        journey.systemBars(false)
+        journey.systemBars(DeviceProfile.dark)
         journey.replace(compose.onNodeWithTag("deletion-confirmation"),"DELETE")
         clock.set(301000)
         waitFor { holder.state.value.stage == DemoDeletionStage.REAUTHENTICATE }
@@ -88,7 +88,7 @@ class DemoDeletionJourneyTest {
         var current by mutableStateOf(first)
         var shown by mutableStateOf(true)
         compose.setContent { A7ComponentHost { if (shown) DemoAccountDeletionScreen(current, {}, { _, _ -> }, {}) } }
-        journey.systemBars(false)
+        journey.systemBars(DeviceProfile.dark)
         DeviceWindowGuard.awaitClear()
         journey.replace(compose.onNodeWithTag("deletion-proof"),"private-demo-input")
         compose.runOnIdle { current = second }

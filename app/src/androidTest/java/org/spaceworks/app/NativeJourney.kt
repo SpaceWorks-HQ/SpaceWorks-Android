@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 import android.view.inputmethod.InputMethodManager
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.test.platform.app.InstrumentationRegistry
@@ -13,7 +13,7 @@ import androidx.test.runner.lifecycle.Stage
 import java.io.File
 
 /** Real pointer/IME interactions with bounded visible targets and full OS failure evidence. */
-class NativeJourney(private val compose:ComposeContentTestRule,private val phase:String) {
+class NativeJourney(private val compose:ComposeTestRule,private val phase:String) {
     fun waitText(text:String) {DeviceWindowGuard.awaitClear();try {
         compose.waitUntil(12000){compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()}
     }catch(f:Throwable){shot("$phase-failure-${text.filter(Char::isLetterOrDigit).take(36)}");throw f}}

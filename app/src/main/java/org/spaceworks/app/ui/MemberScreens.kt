@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import org.spaceworks.app.member.*
+import org.spaceworks.app.guidance.*
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -95,7 +96,7 @@ fun memberAvailability(item:InventoryItem,text:MobileText=MobileText.ENGLISH):St
         }
     }
 }
-@Composable fun MemberHome(holder:MemberStateHolder,name:String,onInventory:()->Unit,demo:Boolean=false,requestedExtra:Pair<Long,String>?=null,onPayments:(()->Unit)?=null) {
+@Composable fun MemberHome(holder:MemberStateHolder,name:String,onInventory:()->Unit,demo:Boolean=false,requestedExtra:Pair<Long,String>?=null,onPayments:(()->Unit)?=null,guideProgress:GuideProgress?=null,bookingsEnabled:Boolean=false,onProfile:(()->Unit)?=null) {
     val copyText=rememberMobileText()
 
     val state by holder.state.collectAsStateWithLifecycle();val scope=rememberCoroutineScope()
@@ -105,14 +106,16 @@ fun memberAvailability(item:InventoryItem,text:MobileText=MobileText.ENGLISH):St
     LaunchedEffect(holder,state.scope) {kotlinx.coroutines.yield();if(holder.state.value.overview.value==null && !holder.state.value.overview.loading)holder.refreshOverview()}
     BackHandler(extra!=null){extra=null}
     if(extra!=null) {
-        when(extra){"card"->MemberCardScreen(holder,{extra=null});"events"->MemberEventsScreen(holder,{extra=null});else->MemberSpacesScreen(holder,{extra=null})}
+        when(extra){"card"->MemberCardScreen(holder,{extra=null});"events"->MemberEventsScreen(holder,{extra=null});"bookings"->MemberBookingsScreen(holder,{extra=null});else->MemberSpacesScreen(holder,{extra=null})}
         return
     }
     MemberPageColumn(copyText(UiStrings.MOBILE_WELCOME_BACK_VALUE,name),makerspaceLabel(state.scope?.slug.orEmpty())) {
+        val dismissed=guideProgress?.dismissed?.collectAsStateWithLifecycle()?.value?:true
+        guideProgress?.let {HomeStartHere(it,onInventory,if(bookingsEnabled){{extra="bookings"}}else null,onProfile)}
         MemberPanel {
-            Text(copyText(UiStrings.MOBILE_MAKE_SOMETHING_MEANINGFUL),style=MaterialTheme.typography.titleLarge)
+            Text(copyText(UsageStrings.USAGE_QUICK_ACTIONS),style=MaterialTheme.typography.titleLarge)
             Text(copyText(UiStrings.MOBILE_FIND_THE_RIGHT_TOOLS_PLAN_YOUR_VISIT_AND_KEEP_YOUR_MAKING_MOVING))
-            BrandButton(copyText(UiStrings.MOBILE_BROWSE_INVENTORY),onInventory)
+            if(dismissed)BrandButton(copyText(UiStrings.MOBILE_BROWSE_INVENTORY),onInventory)
             BrandTextButton(copyText(UiStrings.MOBILE_BOOK_A_SPACE),{extra="spaces"})
             BrandTextButton(copyText(UiStrings.MOBILE_EXPLORE_EVENTS),{extra="events"})
             BrandTextButton(copyText(UiStrings.MOBILE_MEMBERSHIP_CARD),{extra="card";scope.launch {holder.refreshCard()}})
@@ -360,5 +363,25 @@ fun memberAvailability(item:InventoryItem,text:MobileText=MobileText.ENGLISH):St
                 DropdownMenuItem(text={Text(scenario.label)},onClick={scenarios=false;scope.launch {holder.preview(scenario)}})
             }}
         }
+    }
+}
+
+
+/** Typed member booking destination; no booking identity is inferred from display names. */
+@Composable fun MemberBookingsScreen(holder:MemberStateHolder,onBack:()->Unit) {
+    val copyText=rememberMobileText()
+    val state by holder.state.collectAsStateWithLifecycle()
+    val scope=rememberCoroutineScope()
+    LaunchedEffect(holder,state.scope){kotlinx.coroutines.yield();if(!holder.state.value.overview.loading)holder.refreshOverview()}
+    MemberPageColumn(copyText(UiStrings.MOBILE_BOOKINGS),makerspaceLabel(state.scope?.slug.orEmpty())) {
+        BrandTextButton(copyText(UiStrings.MOBILE_BACK),onBack)
+        MemberLoaded(state.overview,{scope.launch {holder.refreshOverview()}}) {overview->
+            if(overview.bookings.items.isEmpty())MemberEmpty()
+            overview.bookings.items.forEach {MemberBookingPanel(it)}
+            if(overview.bookings.next!=null)BrandButton(
+                if(state.bookingMoreBusy)copyText(UiStrings.MOBILE_LOADING)else copyText(UiStrings.MOBILE_LOAD_MORE_BOOKINGS),
+                {scope.launch {holder.moreBookings()}},!state.bookingMoreBusy)
+        }
+        BrandTextButton(copyText(UsageStrings.USAGE_REFRESH_BOOKINGS),{scope.launch {holder.refreshOverview()}},!state.overview.loading)
     }
 }

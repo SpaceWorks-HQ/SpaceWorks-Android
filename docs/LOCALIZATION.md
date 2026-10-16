@@ -24,3 +24,7 @@ through `Resources.accountText`; production account gateways/holders receive tha
 `MobileText.resources` for tagged shared HTTP fallbacks. Resource IDs cover screen labels,
 accessibility, plurals, management notices and the Debug deletion preview. Dynamic server details,
 provider IDs, opaque session IDs and workflow enum values remain data, not translated keys.
+
+A8 guidance uses the39-key `values/usage_strings.xml` catalog and generated `guidance/UsageStrings.kt`, verified through `tokens/mobile-copy.json`. Topic expansion, Home actions, replay/reset, booking refresh and metadata labels all use these resources. Scoped guidance stores only hashed boolean progress flags; its namespaces and module keys remain stable internal values. Demo progress stays in its bundle's memory and never writes real guidance preferences.
+
+SDK-host interrupted-checkout recovery also uses canonical payment resources. Its native scrollable safe-inset layout retains the deployment theme and explicit server-status action; provider callbacks do not imply settlement. The final native suite includes a real manifest activity launch in addition to isolated app/component hosts.

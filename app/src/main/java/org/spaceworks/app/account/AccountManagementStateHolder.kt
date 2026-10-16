@@ -1,5 +1,7 @@
 package org.spaceworks.app.account
 
+import org.spaceworks.app.network.retryDeadlineMillis
+
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -270,10 +272,10 @@ class AccountManagementStateHolder(
         val apiFailure = failure as? ApiFailure
         if (apiFailure?.status == 401) { clear(); onSignedOut(); return }
         if (apiFailure?.status == 403) { clear(); onMembershipChanged(); return }
-        val seconds = (apiFailure?.retryAfterSeconds ?: if (apiFailure?.status == 429) 60L else 0L).coerceIn(0, 86_400)
+        val seconds = (apiFailure?.retryAfterSeconds ?: if (apiFailure?.status == 429) 60L else 0L).coerceAtLeast(0)
         // No server waiting period means no new deadline. A synthetic "now" deadline
         // can disable otherwise editable fields until the UI's next clock tick.
-        val retry = if(seconds>0)now() + seconds * 1000 else state.value.retryAtMillis
+        val retry = if(seconds>0)retryDeadlineMillis(now(),seconds) else state.value.retryAtMillis
         if (state.value.page == AccountPage.PHONE && seconds > 0) phoneCooldown.extend(retry)
         mutable.update { it.copy(error = apiFailure?.let { failureText.apiFailure(it) } ?: text(AccountCopy.CONNECTION_FAILED), retryAtMillis = maxOf(it.retryAtMillis, retry), phoneRetryAtMillis = phoneCooldown.untilMillis) }
     }

@@ -1,5 +1,7 @@
 package org.spaceworks.app.member
 
+import org.spaceworks.app.network.retryDeadlineMillis
+
 import org.spaceworks.app.platform.MobileText
 import org.spaceworks.app.platform.MobileCopyException
 import org.spaceworks.app.platform.failure
@@ -69,7 +71,7 @@ class MemberStateHolder(private val api:MemberGateway,private val now:()->Long=S
     private fun alive(expected:Long)=expected==epoch.get()
     private fun ready()=now()>=state.value.retryAtMillis
     private suspend fun failure(f:Exception,expected:Long):String {
-        if(alive(expected) && f is ApiFailure && f.status==429)mutable.update {it.copy(retryAtMillis=now()+(f.retryAfterSeconds?:60)*1000)}
+        if(alive(expected) && f is ApiFailure && f.status==429)mutable.update {it.copy(retryAtMillis=maxOf(it.retryAtMillis,retryDeadlineMillis(now(),f.retryAfterSeconds?:60)))}
         if(alive(expected) && f is ApiFailure && f.status==401)onUnauthorized()
         return if(f is MobileCopyException)text.failure(f) else if(f is ApiFailure)text.apiFailure(f) else text(CoreStrings.CORE_COULDN_T_CONNECT_TRY_AGAIN)
     }

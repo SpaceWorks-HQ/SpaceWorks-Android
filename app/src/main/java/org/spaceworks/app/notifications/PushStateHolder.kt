@@ -1,5 +1,7 @@
 package org.spaceworks.app.notifications
 
+import org.spaceworks.app.network.retryDeadlineMillis
+
 import org.spaceworks.app.platform.MobileText
 import org.spaceworks.app.platform.MobileCopyException
 import org.spaceworks.app.platform.failure
@@ -187,7 +189,7 @@ class PushStateHolder(private val api:PushGateway,private val provider:PushProvi
     }
     private fun message(f:Exception,accountKey:String):String {
         if(f is ApiFailure && f.status==429) {
-            val deadline=now()+(f.retryAfterSeconds?:60)*1000L;deadlines[accountKey]=deadline
+            val deadline=maxOf(deadlines[accountKey]?:0L,retryDeadlineMillis(now(),f.retryAfterSeconds?:60));deadlines[accountKey]=deadline
             if(account?.key==accountKey)mutable.update {it.copy(retryAtMillis=deadline)}
         }
         return if(f is MobileCopyException)text.failure(f) else if(f is ApiFailure)text.apiFailure(f) else text(CoreStrings.CORE_NOTIFICATIONS_ARE_UNAVAILABLE_TRY_AGAIN_LATER)

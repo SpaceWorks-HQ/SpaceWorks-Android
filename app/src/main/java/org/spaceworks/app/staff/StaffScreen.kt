@@ -1,5 +1,7 @@
 package org.spaceworks.app.staff
 
+import org.spaceworks.app.network.retrySecondsRemaining
+
 import org.spaceworks.app.platform.MobileText
 import org.spaceworks.app.platform.rememberMobileText
 
@@ -112,7 +114,7 @@ private data class StaffConfirmation(val title:String,val detail:String,val acti
             if(!s.available){Text(text(StaffStrings.STAFF_STAFF_TOOLS_ARE_UNAVAILABLE_FOR_THIS_DEVICE_SESSION_USE_THE));return@Column}
             if(s.busy||s.loading.isNotEmpty())LinearProgressIndicator(Modifier.fillMaxWidth().semantics{contentDescription=text(StaffStrings.STAFF_LOADING_STAFF_WORKSPACE)})
             BrandError(s.error);s.notice?.let{Text(it,Modifier.semantics{liveRegion=LiveRegionMode.Polite})}
-            if(clock<s.retryAtMillis)Text(text(StaffStrings.STAFF_RETRY_SECONDS, ((s.retryAtMillis-clock+999)/1000).toInt()))
+            if(clock<s.retryAtMillis)Text(text(StaffStrings.STAFF_RETRY_SECONDS, retrySecondsRemaining(clock,s.retryAtMillis)))
             if(s.section in setOf(StaffSection.QUEUE,StaffSection.DIRECT,StaffSection.EVENTS,StaffSection.SPACES))FlowRow(horizontalArrangement=Arrangement.spacedBy(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                 listOf(StaffSection.QUEUE to text(StaffStrings.STAFF_REQUESTS),StaffSection.DIRECT to text(StaffStrings.STAFF_DIRECT_HANDOUTS),StaffSection.EVENTS to text(StaffStrings.STAFF_EVENT_CHECK_IN),StaffSection.SPACES to text(StaffStrings.STAFF_BOOKINGS)).forEach{(section,label)->
                     val sectionSelected=s.section==section

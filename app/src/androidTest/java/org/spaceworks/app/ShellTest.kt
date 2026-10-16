@@ -23,7 +23,7 @@ class ShellTest {
     private fun waitText(text:String) {DeviceWindowGuard.awaitClear();try {compose.waitUntil(10000){compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()}}catch(f:Throwable){screenshot("shell-failure-${text.filter(Char::isLetterOrDigit).take(30)}");throw f}}
     private fun enterDemo() {
         DeviceWindowGuard.awaitClear()
-        compose.setContent {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}))}
+        compose.setContent {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}), appearance = DeviceProfile.appearance())}
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("Explore demo").performScrollTo().performClick()
         waitText("Email or username")
@@ -31,7 +31,7 @@ class ShellTest {
     @Test fun invalidConnectionRemainsAccessibleAtLargeFontScale() {
         val holder=ConnectionStateHolder("",false,false,{}, {})
         DeviceWindowGuard.awaitClear()
-        compose.setContent { val density=LocalDensity.current; CompositionLocalProvider(LocalDensity provides Density(density.density,2f)) {SpaceWorksApp(holder)} }
+        compose.setContent { val density=LocalDensity.current; CompositionLocalProvider(LocalDensity provides Density(density.density,2f)) {SpaceWorksApp(holder, appearance = DeviceProfile.appearance(initialDark = false))} }
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("Dark mode").assertIsDisplayed().performClick()
         DeviceWindowGuard.awaitClear()

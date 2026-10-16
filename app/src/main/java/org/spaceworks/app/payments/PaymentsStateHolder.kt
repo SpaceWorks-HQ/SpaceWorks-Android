@@ -1,5 +1,7 @@
 package org.spaceworks.app.payments
 
+import org.spaceworks.app.network.retryDeadlineMillis
+
 import org.spaceworks.app.platform.MobileText
 import org.spaceworks.app.platform.rememberMobileText
 
@@ -61,7 +63,7 @@ class PaymentsStateHolder(private val api:PaymentsGateway,private val files:Paym
     private suspend fun failure(f:Exception,expected:Long):String {
         val message=when(f){is ApiFailure->text.apiFailure(f);is MobileCopyException->text.failure(f);is IllegalArgumentException->f.message?.takeIf{it.length<250}?:text(PaymentStrings.PAYMENT_THIS_DOCUMENT_IS_UNAVAILABLE_TRY_AGAIN);else->text(PaymentStrings.PAYMENT_COULDN_T_CONNECT_TRY_AGAIN)}
         if(expected==epoch.get() && f is ApiFailure){
-            if(f.status==429)mutable.update {it.copy(retryAtMillis=now()+(f.retryAfterSeconds?:60).coerceAtLeast(0)*1000)}
+            if(f.status==429)mutable.update {it.copy(retryAtMillis=maxOf(it.retryAtMillis,retryDeadlineMillis(now(),f.retryAfterSeconds?:60)))}
             if(f.status==401){clear();onUnauthorized()}
             else if(f.status==403){discard();mutable.value=PaymentsState(scope=state.value.scope,retryAtMillis=state.value.retryAtMillis,error=message);onForbidden()}
         }
