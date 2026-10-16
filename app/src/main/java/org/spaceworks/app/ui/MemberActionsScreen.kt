@@ -25,6 +25,8 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 
 val LocalMemberActions=staticCompositionLocalOf<MemberActionsStateHolder?> {null}
+// Opening a route removes its source screen; reads belong to the surviving member shell.
+val LocalMemberActionScope=staticCompositionLocalOf<kotlinx.coroutines.CoroutineScope?> {null}
 
 @Composable private fun ActionCard(content:@Composable ColumnScope.()->Unit) {
     OutlinedCard(Modifier.fillMaxWidth()){Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp),content=content)}

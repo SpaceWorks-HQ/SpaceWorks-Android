@@ -66,7 +66,7 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
         val change=changingServer;signingOut=false;changingServer=false
         scope.launch {member?.clear();actions?.clear();bundle.holder.signOut();if(change)onChangeServer?.invoke()}
     },changingServer)
-    CompositionLocalProvider(LocalMemberActions provides actions) {
+    CompositionLocalProvider(LocalMemberActions provides actions,LocalMemberActionScope provides scope) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val expanded=maxWidth>=600.dp
         Row {

@@ -274,18 +274,20 @@ fun memberAvailability(item:InventoryItem):String=when {
 }
 @Composable private fun MemberEventsScreen(holder:MemberStateHolder,onBack:()->Unit) {
     val actions=LocalMemberActions.current
+    val actionScope=LocalMemberActionScope.current
     val state by holder.state.collectAsStateWithLifecycle();val scope=rememberCoroutineScope()
     LaunchedEffect(holder,state.scope) {kotlinx.coroutines.yield();if(holder.state.value.events.value==null && !holder.state.value.events.loading)holder.refreshEvents()}
     var selected by remember(state.scope){mutableStateOf<MemberEvent?>(null)}
     BackHandler {if(selected!=null)selected=null else onBack()}
     MemberPageColumn(if(selected==null)"Explore events" else "Event details",makerspaceLabel(state.scope?.slug.orEmpty())) {
         BrandTextButton(if(selected==null)"Back to Home" else "Back to events",{if(selected==null)onBack() else selected=null})
-        if(selected!=null){val event=requireNotNull(selected);MemberImage(event.imageUrl,event.title,Modifier.fillMaxWidth().height(180.dp));Text(event.title,style=MaterialTheme.typography.headlineMedium);Text(event.description);Text(memberDate(event.startsAt));Text(event.location);Text(event.availability);Text("${event.currency} ${event.paymentAmount}");actions?.let {action->BrandButton("Register for this event",{scope.launch {action.openEvent(event.id)}},event.registrationOpen)}}
+        if(selected!=null){val event=requireNotNull(selected);MemberImage(event.imageUrl,event.title,Modifier.fillMaxWidth().height(180.dp));Text(event.title,style=MaterialTheme.typography.headlineMedium);Text(event.description);Text(memberDate(event.startsAt));Text(event.location);Text(event.availability);Text("${event.currency} ${event.paymentAmount}");actions?.let {action->BrandButton("Register for this event",{(actionScope?:scope).launch {action.openEvent(event.id)}},event.registrationOpen)}}
         else MemberLoaded(state.events,{scope.launch {holder.refreshEvents()}}) {events->if(events.isEmpty())MemberEmpty() else events.forEach {event->OutlinedCard(onClick={selected=event},modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){Text(event.title,style=MaterialTheme.typography.titleLarge);Text(memberDate(event.startsAt));Text(event.availability)}}}}
     }
 }
 @Composable private fun MemberSpacesScreen(holder:MemberStateHolder,onBack:()->Unit) {
     val actions=LocalMemberActions.current
+    val actionScope=LocalMemberActionScope.current
     val state by holder.state.collectAsStateWithLifecycle();val scope=rememberCoroutineScope()
     LaunchedEffect(holder,state.scope) {kotlinx.coroutines.yield();if(holder.state.value.spaces.value==null && !holder.state.value.spaces.loading)holder.refreshSpaces()}
     var selected by remember(state.scope){mutableStateOf<MemberSpace?>(null)}
@@ -293,7 +295,7 @@ fun memberAvailability(item:InventoryItem):String=when {
     MemberPageColumn(if(selected==null)"Find a space" else "Space details",makerspaceLabel(state.scope?.slug.orEmpty())) {
         BrandTextButton(if(selected==null)"Back to Home" else "Back to spaces",{if(selected==null)onBack() else selected=null})
         if(selected!=null){val space=requireNotNull(selected);MemberImage(space.imageUrl,space.name,Modifier.fillMaxWidth().height(180.dp));Text(space.name,style=MaterialTheme.typography.headlineMedium);Text(space.description);Text(space.location);Text("Capacity: ${space.capacity}");Text("Approval: ${memberStatus(space.approvalMode)}");if(!space.showAvailability)Text("Ask your makerspace about availability.")}
-        else MemberLoaded(state.spaces,{scope.launch {holder.refreshSpaces()}}) {spaces->if(spaces.isEmpty())MemberEmpty() else spaces.forEach {space->OutlinedCard(onClick={if(actions!=null)scope.launch {actions.openSpace(space.id)}else selected=space},modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){Text(space.name,style=MaterialTheme.typography.titleLarge);Text(space.location);Text("Capacity: ${space.capacity}")}}}}
+        else MemberLoaded(state.spaces,{scope.launch {holder.refreshSpaces()}}) {spaces->if(spaces.isEmpty())MemberEmpty() else spaces.forEach {space->OutlinedCard(onClick={if(actions!=null)(actionScope?:scope).launch {actions.openSpace(space.id)}else selected=space},modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){Text(space.name,style=MaterialTheme.typography.titleLarge);Text(space.location);Text("Capacity: ${space.capacity}")}}}}
     }
 }
 @Composable fun MemberProfileSummary(holder:MemberStateHolder) {

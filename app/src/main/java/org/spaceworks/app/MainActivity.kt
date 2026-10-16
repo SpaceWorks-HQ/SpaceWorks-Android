@@ -1,6 +1,10 @@
 package org.spaceworks.app
 
 import android.os.Bundle
+import android.app.Activity
+import android.content.ContextWrapper
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -30,6 +34,17 @@ class MainActivity:ComponentActivity() {
     demoFactory:()->AuthBundle?={DemoSupport.create()},onExitDemo:()->Unit={},onboarding:OnboardingStateHolder?=null,appearance:AppearanceStateHolder?=null) {
     var localDark by rememberSaveable {mutableStateOf(false)}
     val dark=appearance?.dark?.collectAsStateWithLifecycle()?.value ?: localDark
+    val view=LocalView.current
+    SideEffect {
+        var context=view.context
+        while(context is ContextWrapper && context !is Activity)context=context.baseContext
+        (context as? Activity)?.window?.let {window->
+            WindowCompat.getInsetsController(window,view).apply {
+                isAppearanceLightStatusBars=!dark
+                isAppearanceLightNavigationBars=!dark
+            }
+        }
+    }
     var demo by rememberSaveable {mutableStateOf(false)}
     val connection by holder.state.collectAsStateWithLifecycle()
     val introComplete=onboarding?.completed?.collectAsStateWithLifecycle()?.value ?: true
