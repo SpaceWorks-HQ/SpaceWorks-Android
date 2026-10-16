@@ -1,10 +1,21 @@
 package org.spaceworks.app.member
 
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.async
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.junit.Assert.*
 import org.junit.Test
 
 class DemoMemberTest {
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test fun leavingProfileCannotAbandonTheSelectedDemoScenarioRefresh()=runTest {
+        val holder=MemberStateHolder(DemoMemberGateway());holder.activate(MemberScope(1,"first"))
+        val changing=async {holder.preview(MemberPreviewScenario.UNKNOWN_DUES)}
+        runCurrent();changing.cancel();changing.join()
+        assertNotNull(holder.state.value.overview.value);assertNull(holder.state.value.overview.value!!.dues)
+        assertFalse(holder.state.value.overview.loading);assertFalse(holder.state.value.inventory.loading)
+    }
     @Test fun inventorySearchCategoryAndPagesStayInSelectedMakerspace()=runTest {
         val api=DemoMemberGateway();val first=MemberScope(1,"fab-lab-kochi");val second=MemberScope(2,"maker-space-bengaluru")
         val page=api.inventory(first);assertEquals(4,page.count);assertEquals(2,page.items.size)

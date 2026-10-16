@@ -87,6 +87,7 @@ fun memberAvailability(item:InventoryItem):String=when {
     val state by holder.state.collectAsStateWithLifecycle();val scope=rememberCoroutineScope()
     var extra by rememberSaveable(state.scope){mutableStateOf<String?>(null)}
     ProtectSecrets(!demo && extra=="card")
+    LaunchedEffect(holder,state.scope) {kotlinx.coroutines.yield();if(holder.state.value.overview.value==null && !holder.state.value.overview.loading)holder.refreshOverview()}
     BackHandler(extra!=null){extra=null}
     if(extra!=null) {
         when(extra){"card"->MemberCardScreen(holder,{extra=null});"events"->MemberEventsScreen(holder,{extra=null});else->MemberSpacesScreen(holder,{extra=null})}
@@ -144,6 +145,7 @@ fun memberAvailability(item:InventoryItem):String=when {
     var menu by remember {mutableStateOf(false)}
     val listState=rememberLazyListState()
     val focus=LocalFocusManager.current;val keyboard=LocalSoftwareKeyboardController.current
+    LaunchedEffect(holder,state.scope) {kotlinx.coroutines.yield();if(holder.state.value.inventory.value==null && !holder.state.value.inventory.loading)holder.refreshInventory()}
     LaunchedEffect(query){if(query!=state.query){kotlinx.coroutines.delay(300);holder.search(query)}}
     BackHandler(state.productId!=null){holder.closeProduct()}
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -183,6 +185,7 @@ fun memberAvailability(item:InventoryItem):String=when {
 }
 @Composable private fun MemberProductDetail(holder:MemberStateHolder,onBack:()->Unit) {
     val state by holder.state.collectAsStateWithLifecycle();val scope=rememberCoroutineScope()
+    LaunchedEffect(holder,state.scope,state.productId) {kotlinx.coroutines.yield();val current=holder.state.value;if(current.product.value==null && !current.product.loading)current.productId?.let {holder.selectProduct(it)}}
     MemberPageColumn("Item details",makerspaceLabel(state.scope?.slug.orEmpty())) {
         BrandTextButton("Back to inventory",onBack)
         MemberLoaded(state.product,{state.productId?.let {scope.launch {holder.selectProduct(it)}}}) {item->
@@ -197,6 +200,7 @@ fun memberAvailability(item:InventoryItem):String=when {
 }
 @Composable fun MemberActivityScreen(holder:MemberStateHolder) {
     val state by holder.state.collectAsStateWithLifecycle();val scope=rememberCoroutineScope()
+    LaunchedEffect(holder,state.scope) {kotlinx.coroutines.yield();if(holder.state.value.overview.value==null && !holder.state.value.overview.loading)holder.refreshOverview()}
     MemberPageColumn("Activity",makerspaceLabel(state.scope?.slug.orEmpty())) {
         MemberLoaded(state.overview,{scope.launch {holder.refreshOverview()}}) {overview->
             MemberSection("Requests") {if(overview.requests.isEmpty() && overview.serviceRequests.isEmpty())MemberEmpty()
@@ -213,6 +217,7 @@ fun memberAvailability(item:InventoryItem):String=when {
 }
 @Composable fun MemberInboxScreen(holder:MemberStateHolder) {
     val state by holder.state.collectAsStateWithLifecycle();val scope=rememberCoroutineScope()
+    LaunchedEffect(holder,state.scope) {kotlinx.coroutines.yield();if(holder.state.value.inbox.value==null && !holder.state.value.inbox.loading)holder.refreshInbox()}
     var selected by remember(state.scope){mutableStateOf<InboxItem?>(null)}
     val listState=rememberLazyListState()
     BackHandler(selected!=null){selected=null}
@@ -244,6 +249,7 @@ fun memberAvailability(item:InventoryItem):String=when {
 }
 @Composable fun MemberCardScreen(holder:MemberStateHolder,onBack:()->Unit) {
     val state by holder.state.collectAsStateWithLifecycle();val scope=rememberCoroutineScope()
+    LaunchedEffect(holder,state.scope) {kotlinx.coroutines.yield();if(holder.state.value.card.value==null && !holder.state.value.card.loading)holder.refreshCard()}
     MemberPageColumn("Membership card",makerspaceLabel(state.scope?.slug.orEmpty())) {
         BrandTextButton("Back to Home",onBack)
         MemberLoaded(state.card,{scope.launch {holder.refreshCard()}}) {card->
@@ -259,6 +265,7 @@ fun memberAvailability(item:InventoryItem):String=when {
 }
 @Composable private fun MemberEventsScreen(holder:MemberStateHolder,onBack:()->Unit) {
     val state by holder.state.collectAsStateWithLifecycle();val scope=rememberCoroutineScope()
+    LaunchedEffect(holder,state.scope) {kotlinx.coroutines.yield();if(holder.state.value.events.value==null && !holder.state.value.events.loading)holder.refreshEvents()}
     var selected by remember(state.scope){mutableStateOf<MemberEvent?>(null)}
     BackHandler {if(selected!=null)selected=null else onBack()}
     MemberPageColumn(if(selected==null)"Explore events" else "Event details",makerspaceLabel(state.scope?.slug.orEmpty())) {
@@ -269,6 +276,7 @@ fun memberAvailability(item:InventoryItem):String=when {
 }
 @Composable private fun MemberSpacesScreen(holder:MemberStateHolder,onBack:()->Unit) {
     val state by holder.state.collectAsStateWithLifecycle();val scope=rememberCoroutineScope()
+    LaunchedEffect(holder,state.scope) {kotlinx.coroutines.yield();if(holder.state.value.spaces.value==null && !holder.state.value.spaces.loading)holder.refreshSpaces()}
     var selected by remember(state.scope){mutableStateOf<MemberSpace?>(null)}
     BackHandler {if(selected!=null)selected=null else onBack()}
     MemberPageColumn(if(selected==null)"Find a space" else "Space details",makerspaceLabel(state.scope?.slug.orEmpty())) {

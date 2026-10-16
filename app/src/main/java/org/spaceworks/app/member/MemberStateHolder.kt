@@ -51,8 +51,11 @@ class MemberStateHolder(private val api:MemberGateway,private val now:()->Long=S
     suspend fun preview(scenario:MemberPreviewScenario) {
         val control=api as? MemberPreviewControl ?: return
         val scope=state.value.scope ?: return
-        control.scenario(scenario);epoch.incrementAndGet();mutable.value=MemberState(scope=scope)
-        loadAll()
+        // A local fixture switch must finish even when its initiating Profile screen leaves.
+        withContext(NonCancellable) {
+            control.scenario(scenario);epoch.incrementAndGet();mutable.value=MemberState(scope=scope)
+            loadAll()
+        }
     }
     private fun alive(expected:Long)=expected==epoch.get()
     private fun ready()=now()>=state.value.retryAtMillis
@@ -76,7 +79,10 @@ class MemberStateHolder(private val api:MemberGateway,private val now:()->Long=S
         try {
             val value=operation(scope)
             if(current())mutable.update {write(it,MemberLoad(value))}
-        }catch(cancelled:CancellationException){throw cancelled}
+        }catch(cancelled:CancellationException){
+            if(current())mutable.update {write(it,MemberLoad(if(clear)null else read(it).value))}
+            throw cancelled
+        }
         catch(f:Exception){val text=failure(f,expected);if(current())mutable.update {write(it,MemberLoad(if(clear)null else read(it).value,error=text))}}
     }
     suspend fun refreshOverview() {

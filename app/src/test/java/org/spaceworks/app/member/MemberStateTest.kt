@@ -3,6 +3,7 @@ package org.spaceworks.app.member
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
@@ -13,6 +14,14 @@ import org.spaceworks.app.network.ApiFailure
 class MemberStateTest {
     private val first = MemberScope(7, "first")
     private val second = MemberScope(8, "second")
+    @Test fun leavingAReadScreenClearsBusyStateAndAllowsAReentryRefresh() = runTest {
+        val api=FakeGateway();val holder=MemberStateHolder(api);holder.activate(first)
+        val gate=CompletableDeferred<MemberCard>();api.cardBlock={gate.await()}
+        val reading=async {holder.refreshCard()};runCurrent()
+        assertTrue(holder.state.value.card.loading);reading.cancelAndJoin()
+        assertFalse(holder.state.value.card.loading);assertNull(holder.state.value.card.value);assertNull(holder.state.value.card.error)
+        api.cardBlock={card()};holder.refreshCard();assertEquals("valid-qr",holder.state.value.card.value!!.qrImage)
+    }
 
     @Test fun delayedOldScopeCannotOverwriteTheSelectedMakerspace() = runTest {
         val gate = CompletableDeferred<MemberPage<InventoryItem>>()

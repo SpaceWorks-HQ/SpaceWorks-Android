@@ -32,6 +32,7 @@ import java.util.Base64
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManagerFactory
@@ -268,17 +269,22 @@ class StorageTransferTest {
             server.enqueue(MockResponse().setHeader("Content-Type", "application/pdf").setBody("%PDF-" + "x".repeat(1024))
                 .throttleBody(1, 1, TimeUnit.SECONDS))
             val reading = CountDownLatch(1)
-            val failed = CountDownLatch(1)
+            val closed = CountDownLatch(1)
+            val activeCall = AtomicReference<Call>()
             val listener = object : EventListener() {
-                override fun responseBodyStart(call: Call) { reading.countDown() }
-                override fun callFailed(call: Call, ioe: IOException) { failed.countDown() }
+                override fun responseBodyStart(call: Call) { activeCall.set(call); reading.countDown() }
+                // Closing an HTTP/2 response can finish its exchange normally or fail its read.
+                // callFailed alone is not a body-close invariant and differs with that race.
+                override fun responseBodyEnd(call: Call, byteCount: Long) { closed.countDown() }
+                override fun responseFailed(call: Call, ioe: IOException) { closed.countDown() }
             }
             val directory = cache()
             val client = transfer(directory, listener)
             val waiting = async(Dispatchers.IO) { client.download(server.localUrl("/slow").toString(), StorageDocumentKind.PDF, "receipt") }
             assertTrue(reading.await(5, TimeUnit.SECONDS))
             withTimeout(5000) { waiting.cancelAndJoin() }
-            assertTrue(failed.await(5, TimeUnit.SECONDS))
+            assertTrue("The active storage call must be canceled", activeCall.get().isCanceled())
+            assertTrue("The response body must close or terminate its read", closed.await(5, TimeUnit.SECONDS))
             awaitEmpty(directory)
         }
     }
