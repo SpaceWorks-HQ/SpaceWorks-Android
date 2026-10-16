@@ -1,0 +1,11 @@
+# White-label builds
+
+1. Clone this repo recursively: `git clone --recurse-submodules https://github.com/SpaceWorks-HQ/SpaceWorks-Android.git`. Keep `design/` pinned; review token changes before updating its commit.
+2. Edit only `branding/brand.json` and assets next to it. Set `app_name`, a unique `android_application_id` owned by your organisation, `app_icon` (SVG containing paths and optional rounded rectangles), and `theme_tokens` (same semantic light/dark token shape). Supply your actual support and privacy HTTPS URLs before store submission; null values intentionally indicate owner setup is outstanding.
+3. Set `server_url` to your HTTPS deployment origin to lock the build to it. Leave null for first-launch server entry. The app performs generated `/api/v1/health/` validation before entering the shell. Official builds never bundle a staging URL or credentials.
+4. Install Java 21, Python 3, Android SDK platform 36/build tools and run `./gradlew lint test assembleDebug`. Gradle reads the identity/name/server directly and regenerates the semantic Compose theme and vector launcher icon. `./gradlew :app:openApiGenerate` regenerates the API client.
+5. Create your own Google Play Console application and enable Play App Signing. Store your upload keystore/passwords in CI secrets. Configure release signing using injected local Gradle properties or a CI init script; this A0 scaffold ships no release signing configuration. Review the signed release's package ID and icon before upload.
+6. For later push/attestation phases, create your own Firebase project and Android app matching the application ID. Enable/link Play Integrity to your own Play application. Inject `google-services.json` from CI secrets only when A1/A4 adds those capabilities. APNs applies to the companion iOS build and needs your own Apple account and key.
+7. Complete privacy policy/Data safety details, reviewer demo account, closed testing and signing with your own accounts in A7/A8. Build a signed AAB (`bundleRelease`) after release signing is configured and publish through your Play Console.
+
+No secrets, signing keys, `.p8` files, Firebase config or test credentials are committed. Gilroy app-embedding rights must be cleared with the owner before embedding; A0 uses the platform font and supports font scaling. Do not treat an A0 debug artifact as a store release.
