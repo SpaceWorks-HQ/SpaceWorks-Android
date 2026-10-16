@@ -47,6 +47,7 @@ val LocalMemberActionScope=staticCompositionLocalOf<kotlinx.coroutines.Coroutine
     var discard by remember {mutableStateOf(false)}
     var clock by remember {mutableLongStateOf(System.currentTimeMillis())}
     LaunchedEffect(s.retryAtMillis){do {clock=System.currentTimeMillis();if(clock<s.retryAtMillis)kotlinx.coroutines.delay(250)}while(clock<s.retryAtMillis)}
+    val asyncLabel=if(s.busy)"Saving your changes"else"Loading details"
     val enabled=!s.busy&&!s.loading&&clock>=s.retryAtMillis
     fun close(){if(s.busy)return;focus.clearFocus();keyboard?.hide();if(s.route==ActionRoute.PROFILE&&holder.profileDirty)discard=true else if(holder.close())onClose()}
     BackHandler {close()}
@@ -58,7 +59,7 @@ val LocalMemberActionScope=staticCompositionLocalOf<kotlinx.coroutines.Coroutine
             BrandTextButton("Back",{close()},!s.busy)
             Text(when(s.route){ActionRoute.CART->"Review your request";ActionRoute.REQUEST_RECEIPT->"Your request";ActionRoute.RENEW->"Renew loan";ActionRoute.SPACE->"Book a space";ActionRoute.BOOKING->"Manage booking";ActionRoute.EVENT->"Register for an event";ActionRoute.REGISTRATION->"Your registration";ActionRoute.PROFILE->"Edit profile";ActionRoute.PREFERENCES->"Communication preferences";null->"Your makerspace"},style=MaterialTheme.typography.headlineLarge,modifier=Modifier.semantics {heading()})
             Text(makerspaceLabel(s.scope?.slug.orEmpty()),color=MaterialTheme.colorScheme.onSurfaceVariant)
-            if(s.busy||s.loading)LinearProgressIndicator(Modifier.fillMaxWidth().semantics {contentDescription=if(s.busy)"Saving your changes" else "Loading details"})
+            if(s.busy||s.loading)LinearProgressIndicator(Modifier.fillMaxWidth().semantics {contentDescription=asyncLabel})
             if(clock<s.retryAtMillis)Text("Try again in ${((s.retryAtMillis-clock+999)/1000).coerceAtLeast(0)}s.",Modifier.semantics {liveRegion=LiveRegionMode.Polite})
             BrandError(s.error)
             s.receipt?.let {receipt->ActionCard {

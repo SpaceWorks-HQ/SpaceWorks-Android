@@ -41,6 +41,7 @@ val BrandAccentFont=FontFamily(Font(R.font.unbounded,FontWeight.Medium))
     role:FieldRole=if(secret)FieldRole.PASSWORD else FieldRole.TEXT,onDone:(()->Unit)?=null,errorMessage:String?=null) {
     var visible by remember {mutableStateOf(false)}
     val fieldFocus=remember {FocusRequester()}
+    val passwordIsVisible=visible
     val focus=LocalFocusManager.current
     val keyboard=when(role){FieldRole.NUMBER->KeyboardType.Decimal;FieldRole.PHONE->KeyboardType.Phone;FieldRole.EMAIL,FieldRole.IDENTITY->KeyboardType.Email;FieldRole.SERVER->KeyboardType.Uri;FieldRole.CODE,FieldRole.ONE_TIME_CODE->KeyboardType.Number;FieldRole.PASSWORD,FieldRole.NEW_PASSWORD->KeyboardType.Password;else->KeyboardType.Text}
     OutlinedTextField(value=value,onValueChange=onValueChange,label={Text(label)},singleLine=true,enabled=enabled,readOnly=readOnly,
@@ -48,7 +49,7 @@ val BrandAccentFont=FontFamily(Font(R.font.unbounded,FontWeight.Medium))
         visualTransformation=if(secret && !visible) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=keyboard,autoCorrectEnabled=false,capitalization=if(role==FieldRole.NAME)KeyboardCapitalization.Words else KeyboardCapitalization.None,imeAction=if(onDone==null)ImeAction.Next else ImeAction.Done),
         keyboardActions=KeyboardActions(onNext={focus.moveFocus(FocusDirection.Next)},onDone={onDone?.invoke()}),
-        trailingIcon=if(secret) {{BrandTextButton(if(visible)"Hide" else "Show",{visible=!visible;fieldFocus.requestFocus()},modifier=Modifier.semantics {contentDescription=if(visible)"Hide password" else "Show password";stateDescription=if(visible)"Password visible" else "Password hidden"})}} else null,
+        trailingIcon=if(secret) {{BrandTextButton(if(visible)"Hide" else "Show",{visible=!visible;fieldFocus.requestFocus()},modifier=Modifier.semantics {contentDescription=if(passwordIsVisible)"Hide password" else "Show password";stateDescription=if(passwordIsVisible)"Password visible" else "Password hidden"})}} else null,
         shape=RoundedCornerShape(10.dp),modifier=modifier.fillMaxWidth().focusRequester(fieldFocus).semantics {
             when(role){FieldRole.PHONE->contentType=ContentType.PhoneNumber;FieldRole.NAME->contentType=ContentType.PersonFullName;FieldRole.ONE_TIME_CODE->contentType=ContentType.SmsOtpCode;FieldRole.IDENTITY->contentType=ContentType.Username+ContentType.EmailAddress;FieldRole.EMAIL->contentType=ContentType.EmailAddress;FieldRole.PASSWORD->contentType=ContentType.Password;FieldRole.NEW_PASSWORD->contentType=ContentType.NewPassword;else->Unit}
         },

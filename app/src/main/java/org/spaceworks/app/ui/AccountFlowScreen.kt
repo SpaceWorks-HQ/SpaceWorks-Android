@@ -47,7 +47,7 @@ import org.spaceworks.app.auth.*
                 BrandTextButton("Add phone number (optional)",{showPhone=!showPhone},!state.busy)
                 if(showPhone)BrandField(phone,{phone=it.take(32)},"Phone number (optional)",enabled=!state.busy,role=FieldRole.PHONE)
                 BrandField(password,{password=it.take(128)},"Password",Modifier.testTag("accountPassword"),!state.busy,secret=true,role=FieldRole.NEW_PASSWORD)
-                BrandField(confirmation,{confirmation=it.take(128)},"Confirm password",Modifier.testTag("accountConfirmation"),!state.busy,secret=true,role=FieldRole.NEW_PASSWORD)
+                BrandField(confirmation,{confirmation=it.take(128)},"Confirm password",Modifier.testTag("accountConfirmation"),!state.busy,secret=true,role=FieldRole.NEW_PASSWORD,onDone={if(ready)submit {holder.signUp(name,email,password,confirmation,phone)}})
                 BrandButton(if(state.busy)"Creating account…" else "Create account",{submit {holder.signUp(name,email,password,confirmation,phone)}},ready)
             }
             AccountRoute.FORGOT_PASSWORD -> {
@@ -58,7 +58,7 @@ import org.spaceworks.app.auth.*
                 Text(state.email,style=MaterialTheme.typography.bodyMedium)
                 BrandField(code,{code=it.filter {c->c in '0'..'9'}.take(6)},"Six-digit code",Modifier.testTag("accountCode"),!state.busy,role=FieldRole.ONE_TIME_CODE)
                 BrandField(password,{password=it.take(128)},"New password",Modifier.testTag("accountPassword"),!state.busy,secret=true,role=FieldRole.NEW_PASSWORD)
-                BrandField(confirmation,{confirmation=it.take(128)},"Confirm password",Modifier.testTag("accountConfirmation"),!state.busy,secret=true,role=FieldRole.NEW_PASSWORD)
+                BrandField(confirmation,{confirmation=it.take(128)},"Confirm password",Modifier.testTag("accountConfirmation"),!state.busy,secret=true,role=FieldRole.NEW_PASSWORD,onDone={if(ready)submit {holder.reset(code,password,confirmation)}})
                 BrandButton(if(state.busy)"Updating…" else "Update password",{submit {holder.reset(code,password,confirmation)}},ready)
                 val seconds=((state.resendAtMillis-now+999)/1000).coerceAtLeast(0)
                 BrandTextButton(if(seconds>0)"Request another code in ${seconds}s" else "Request another code",{submit {holder.forgot(state.email,true)}},ready && seconds==0L)
@@ -66,7 +66,7 @@ import org.spaceworks.app.auth.*
             }
             AccountRoute.VERIFY_EMAIL -> {
                 if(state.email.isNotBlank())Text(state.email)
-                BrandField(code,{code=it.filter {c->c in '0'..'9'}.take(6)},"Verification code",Modifier.testTag("accountCode"),!state.busy,role=FieldRole.ONE_TIME_CODE)
+                BrandField(code,{code=it.filter {c->c in '0'..'9'}.take(6)},"Verification code",Modifier.testTag("accountCode"),!state.busy,role=FieldRole.ONE_TIME_CODE,onDone={if(ready)submit {holder.verifyEmail(code)}})
                 BrandButton("Confirm email",{submit {holder.verifyEmail(code)}},ready)
                 val seconds=((state.resendAtMillis-now+999)/1000).coerceAtLeast(0)
                 BrandTextButton(if(seconds>0)"Send another code in ${seconds}s" else "Send another code",{submit {holder.resendVerification()}},ready && seconds==0L)

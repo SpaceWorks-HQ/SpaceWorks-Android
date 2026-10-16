@@ -173,7 +173,10 @@ fun memberAvailability(item:InventoryItem):String=when {
                 }
                 },footer={
                     if(state.inventory.value?.next!=null)BrandButton(if(state.inventory.loading)"Loading…" else "Load more",{scope.launch {holder.moreInventory()}},!state.inventory.loading)
-                }) {item->OutlinedCard(onClick={scope.launch {holder.selectProduct(item.id)}},modifier=Modifier.fillMaxWidth().semantics {selected=state.productId==item.id}) {
+                }) {item->
+                    // Capture during composition; detached cards must not observe live state through semantics.
+                    val picked=state.productId==item.id
+                    OutlinedCard(onClick={scope.launch {holder.selectProduct(item.id)}},modifier=Modifier.fillMaxWidth().semantics {selected=picked}) {
                         Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
                             MemberImage(item.imageUrl,item.name,Modifier.fillMaxWidth().height(144.dp))
                             Text(item.name,style=MaterialTheme.typography.titleLarge)

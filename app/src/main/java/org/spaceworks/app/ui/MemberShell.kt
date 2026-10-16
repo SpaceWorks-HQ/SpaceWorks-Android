@@ -27,7 +27,8 @@ fun makerspaceLabel(slug:String)=slug.split('-').joinToString(" "){it.replaceFir
     if(signingOut)SignOutConfirmation({signingOut=false},{signingOut=false;scope.launch {bundle.holder.signOut()}})
     AuthLayout(if(state.memberships.isEmpty())"No makerspace access yet" else "Choose your makerspace",if(state.memberships.isEmpty())"Ask your makerspace to add or reactivate your membership." else "Where would you like to make today?") {
         state.memberships.forEach {membership ->
-            OutlinedCard(onClick={candidate=membership.id},modifier=Modifier.fillMaxWidth().heightIn(min=72.dp).semantics {selected=candidate==membership.id;role=Role.RadioButton}) {
+            val picked=candidate==membership.id
+            OutlinedCard(onClick={candidate=membership.id},modifier=Modifier.fillMaxWidth().heightIn(min=72.dp).semantics {selected=picked;role=Role.RadioButton}) {
                 Column(Modifier.padding(16.dp)) {
                     Text(makerspaceLabel(membership.slug),style=MaterialTheme.typography.titleMedium)
                     Text(membership.roleName,style=MaterialTheme.typography.bodyMedium)

@@ -90,7 +90,7 @@ class OnboardingAuthTest {
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithTag("accountConfirmation").performTextInput("new-demo-password")
         DeviceWindowGuard.awaitClear()
-        compose.onNodeWithText("Create account",useUnmergedTree=true).performScrollTo().performClick();waitText("Account created")
+        compose.onNodeWithTag("accountConfirmation").performImeAction();waitText("Account created")
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("Home").assertDoesNotExist();screenshot("ux-signup-acknowledgement")
         DeviceWindowGuard.awaitClear()
