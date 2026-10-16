@@ -2,6 +2,10 @@
 
 Native Kotlin/Compose app implementing phase A0 of [the PRD](docs/PRD.md). Later phases require the preceding phase to be merged.
 
+## Development workflow
+
+Use `dev` for ongoing changes and push commits to `origin/dev`. After implementation and CI validation finish, open the final pull request from `dev` to `main`. The A0 foundation is already merged into `main`.
+
 ## Build
 
 Install Java 21, Python 3 and Android SDK 36. Clone with `--recurse-submodules`, set `ANDROID_HOME` or untracked `local.properties`, then run:

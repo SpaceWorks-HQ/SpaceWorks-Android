@@ -17,3 +17,11 @@
 6. Secrets: none in the repo, ever. No analytics or third-party SDKs beyond §6 without asking.
 7. Accessibility and dark mode are part of "done" in every phase, not a final polish pass.
 
+## Branch delivery workflow
+
+The owner merged the A0 foundation and requested this workflow on 2026-10-16:
+
+- Start ongoing work from `dev`, commit there, and push to `origin/dev`.
+- Finish the phase's implementation and validation before opening its final `dev` → `main` pull request.
+- Keep `main` for reviewed merges. Preserve the owner's configured commit identity and the required Codex co-author trailer.
+

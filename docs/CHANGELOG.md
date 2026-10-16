@@ -19,3 +19,9 @@ Validation: local `./gradlew lint test assembleDebug assembleDebugAndroidTest` p
 The concurrent-auth fake-server test starts 12 generated health calls, holds a five-request stale-token wave and verifies exactly one generated refresh call followed by the new bearer token. Additional tests cover a disconnected rotation with no replay, cancelled caller completing atomic rotation, framework/field errors, Retry-After cooldown and same-origin pagination. Refresh uses an independent dispatcher to avoid starving behind waiting authenticated calls. Redirects and implicit connection retries are disabled, and raw transport/decoder text is never shown to users.
 
 Owner inputs remaining for later phases: staging server/test accounts, support/privacy URLs, app-store/signing/Firebase/Integrity setup, Gilroy app-embedding permission. No A1 work starts before A0 is merged.
+
+## Development branch workflow (2026-10-16)
+
+The owner made the repository public and merged A0 through PR #1. `dev` starts from the merged `main` commit `8f8126bfe79bae686801c9ad565c722446bfa4fe`. Ongoing work is committed and pushed on `dev`; its final pull request targets `main` after validation. The workflow is recorded in `AGENTS.md` and the README.
+
+After attribution was updated to the owner's GitHub identity, [push CI](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/actions/runs/38912584191) and [PR CI](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/actions/runs/38912591048) both passed on `7238889823937c0d577df22a5165b7711eae90ea`. The merged application source is unchanged by this documentation update.
