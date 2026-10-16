@@ -23,8 +23,12 @@ interface AuthGateway {
     suspend fun enroll(challenge:String):MFAEnrollment
     suspend fun verify(challenge:String,code:String,enrollment:Boolean):MFACompleted
     suspend fun me():AuthUserPayload
+    suspend fun me(expectedEpoch:Long):AuthUserPayload=me()
     suspend fun logout()
+    /** The caller's installation is captured before private cleanup, which may invoke callbacks. */
+    suspend fun logout(expectedEpoch:Long) {logout()}
     suspend fun changePassword(current:String,replacement:String) {throw MobileCopyException(CoreStrings.CORE_PASSWORD_UPDATES_ARE_UNAVAILABLE_CONTACT_YOUR_MAKERSPACE)}
+    suspend fun changePassword(current:String,replacement:String,expectedEpoch:Long) {changePassword(current,replacement)}
     suspend fun forgotPassword(email:String):String {throw MobileCopyException(CoreStrings.CORE_PASSWORD_RECOVERY_IS_UNAVAILABLE_CONTACT_YOUR_MAKERSPACE)}
     suspend fun resetPassword(email:String,code:String,replacement:String):String {throw MobileCopyException(CoreStrings.CORE_PASSWORD_RECOVERY_IS_UNAVAILABLE_CONTACT_YOUR_MAKERSPACE)}
     suspend fun signUp(name:String,email:String,password:String,phone:String):String {throw MobileCopyException(CoreStrings.CORE_ACCOUNT_REGISTRATION_IS_UNAVAILABLE_CONTACT_YOUR_MAKERSPACE)}
@@ -43,7 +47,8 @@ class DevelopmentAttestation(private val debug:Boolean,private val emulator:Bool
 }
 class GeneratedAuthGateway(private val session:ApiSession,private val appId:String,
     private val environment:EnvironmentEnum,private val attestation:AttestationProvider,
-    private val onNativeSignOut:suspend()->Unit={},private val onBeforeNativeSignOut:suspend()->Unit={},private val text:MobileText=MobileText.ENGLISH):AuthGateway {
+    private val onNativeSignOut:suspend()->Unit={},private val onBeforeNativeSignOut:suspend()->Unit={},private val text:MobileText=MobileText.ENGLISH,
+    private val onBeforeOwnedSignOut:suspend(Long)->Unit={onBeforeNativeSignOut()}):AuthGateway {
     constructor(session:ApiSession,appId:String,environment:EnvironmentEnum,attestation:AttestationProvider,onNativeSignOut:suspend()->Unit={},onBeforeNativeSignOut:suspend()->Unit)
         :this(session,appId,environment,attestation,onNativeSignOut,onBeforeNativeSignOut,MobileText.ENGLISH)
 
@@ -58,22 +63,44 @@ class GeneratedAuthGateway(private val session:ApiSession,private val appId:Stri
         val input=MFAVerify(challenge,code)
         return (if(enrollment) session.mfa.apiV1AuthMfaConfirmCreate(input) else session.mfa.apiV1AuthMfaVerifyCreate(input)).requireBody()
     }
-    override suspend fun me()=session.auth.apiV1AuthMeRetrieve().requireBody()
-    override suspend fun logout():Unit=withContext(kotlinx.coroutines.NonCancellable) {
-        // Remove associations while the grant is still usable; local sign-out always follows.
+    override suspend fun me()=me(session.installationEpoch)
+    override suspend fun me(expectedEpoch:Long)=session.pinnedGlobalApi(org.spaceworks.generated.api.AuthApi::class.java,expectedEpoch)
+        .apiV1AuthMeRetrieve().requireBody()
+    override suspend fun logout()=logout(session.installationEpoch)
+    override suspend fun logout(expectedEpoch:Long):Unit=withContext(kotlinx.coroutines.NonCancellable) {
+        val expected=expectedEpoch
+        fun requireOwner() {
+            if(session.installationEpoch!=expected)throw kotlinx.coroutines.CancellationException("Session changed")
+        }
+        // Push cleanup may suspend. Neither its later logout nor SDK cleanup may target a new login.
+        requireOwner()
         var cleanupFailure:Exception?=null
-        try {onBeforeNativeSignOut()}catch(f:Exception){cleanupFailure=f}
-        try {session.deviceAuthenticated.apiV1AuthDeviceLogoutCreate().requireBody()}
-        finally {onNativeSignOut()}
+        try {onBeforeOwnedSignOut(expected)}catch(f:Exception){cleanupFailure=f}
+        requireOwner()
+        try {
+            val api=session.pinnedGlobalApi(org.spaceworks.generated.api.DeviceAuthApi::class.java,expected) {call->
+                if(session.installationEpoch!=expected)call.cancel()
+            }
+            requireOwner()
+            api.apiV1AuthDeviceLogoutCreate().requireBody()
+        } finally {
+            if(session.installationEpoch==expected)onNativeSignOut()
+        }
         cleanupFailure?.let {throw it}
         Unit
     }
-    override suspend fun changePassword(current:String,replacement:String) {session.auth.apiV1AuthChangePasswordCreate(ChangePassword(current,replacement)).requireBody()}
+    override suspend fun changePassword(current:String,replacement:String)=changePassword(current,replacement,session.installationEpoch)
+    override suspend fun changePassword(current:String,replacement:String,expectedEpoch:Long) {
+        if(session.installationEpoch!=expectedEpoch)throw kotlinx.coroutines.CancellationException("Session changed")
+        session.pinnedGlobalApi(org.spaceworks.generated.api.AuthApi::class.java,expectedEpoch) {call->
+            if(session.installationEpoch!=expectedEpoch)call.cancel()
+        }.apiV1AuthChangePasswordCreate(ChangePassword(current,replacement)).requireBody()
+    }
     override suspend fun forgotPassword(email:String)=session.authPublic.apiV1AuthForgotPasswordCreate(ForgotPasswordRequest(email)).requireBody().detail
     override suspend fun resetPassword(email:String,code:String,replacement:String)=session.authPublic.apiV1AuthResetPasswordCreate(ResetPasswordConfirmRequest.OtpResetPasswordConfirmValue(OtpResetPasswordConfirm(email,code,replacement))).requireBody().detail
     override suspend fun signUp(name:String,email:String,password:String,phone:String)=session.authPublic.apiV1AuthMemberSignUpCreate(MemberSignUp(name,email,password,phone,"")).requireBody().detail
-    override suspend fun confirmEmail(code:String)=session.auth.apiV1AuthEmailVerificationConfirmCreate(EmailVerificationConfirm(code)).requireBody().detail
-    override suspend fun resendEmail()=session.auth.apiV1AuthEmailVerificationResendCreate().requireBody().detail
+    override suspend fun confirmEmail(code:String)=session.globalApi(org.spaceworks.generated.api.AuthApi::class.java).apiV1AuthEmailVerificationConfirmCreate(EmailVerificationConfirm(code)).requireBody().detail
+    override suspend fun resendEmail()=session.globalApi(org.spaceworks.generated.api.AuthApi::class.java).apiV1AuthEmailVerificationResendCreate().requireBody().detail
     override val nativeSocialReady get()=(attestation as? DevelopmentAttestation)?.available==true
     override suspend fun google(clientId:String,credential:suspend(String,String)->String):SocialLoginResponse {
         val challenge=session.devicePublic.apiV1AuthDeviceAttestationChallengeCreate(DeviceIdentity(PlatformEnum.android,appId,environment)).requireBody()

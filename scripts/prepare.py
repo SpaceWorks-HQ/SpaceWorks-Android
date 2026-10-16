@@ -1,8 +1,10 @@
 """Generate native semantic colors and Android vector icon from brand.json inputs."""
 from pathlib import Path
 import json,xml.etree.ElementTree as ET,re
+from brand_links import generate_brand_links
 root=Path(__file__).resolve().parents[1]
 brand=json.loads((root/'branding/brand.json').read_text(encoding='utf-8'))
+generate_brand_links(root, brand)
 tokens=json.loads((root/brand['theme_tokens']).read_text(encoding='utf-8'))
 out=root/'app/build/generated/source/brand/org/spaceworks/app/theme';out.mkdir(parents=True,exist_ok=True)
 lines=['package org.spaceworks.app.theme','', 'import androidx.compose.ui.graphics.Color','import androidx.compose.material3.*','', 'object BrandTokens {']

@@ -19,7 +19,14 @@ class GeneratedPushGateway(private val session:ApiSession,private val environmen
     }
     override suspend fun remove(makerspaceId:Int,deviceId:Int) {
         require(makerspaceId>0 && deviceId>0)
-        val response=session.scopedApi(NativePushApi::class.java,makerspaceId).apiV1IntegrationsPushDevicesDestroy(deviceId)
+        remove(session.scopedApi(NativePushApi::class.java,makerspaceId),deviceId)
+    }
+    override suspend fun remove(makerspaceId:Int,deviceId:Int,expectedEpoch:Long) {
+        require(makerspaceId>0 && deviceId>0)
+        remove(session.pinnedScopedApi(NativePushApi::class.java,makerspaceId,expectedEpoch),deviceId)
+    }
+    private suspend fun remove(api:NativePushApi,deviceId:Int) {
+        val response=api.apiV1IntegrationsPushDevicesDestroy(deviceId)
         if(response.code()==204 || response.code()==404)return
         throw Errors.map(response.code(),response.errorBody()?.string(),response.headers()["Retry-After"])
     }

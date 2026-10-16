@@ -34,8 +34,10 @@ android {
     lint { abortOnError = true }
 }
 val prepareBrand by tasks.registering(Exec::class) {
+    dependsOn("testBrandLinks")
     inputs.files(brand.filterKeys {it.toString().startsWith("logo_")}.values.map {rootProject.file(it as String)})
     inputs.file(rootProject.file("tokens/mobile-motion.json"))
+    inputs.file(rootProject.file("scripts/brand_links.py"))
     inputs.files(brandFile, rootProject.file(brand["theme_tokens"] as String), rootProject.file(brand["app_icon"] as String), rootProject.file("scripts/prepare.py"))
     outputs.dirs(layout.buildDirectory.dir("generated/source/brand"),layout.buildDirectory.dir("generated/res/brand"))
     commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3", rootProject.file("scripts/prepare.py"))
@@ -80,6 +82,11 @@ val testMobileCopyGenerator by tasks.registering(Exec::class) {
     inputs.files(rootProject.file("scripts/generate_mobile_copy.py"),rootProject.file("scripts/tests/test_mobile_copy.py"))
     commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3","-m","unittest","discover","-s","scripts/tests","-p","test_mobile_copy.py","-v")
 }
+val testBrandLinks by tasks.registering(Exec::class) {
+    workingDir(rootProject.projectDir)
+    inputs.files(rootProject.file("scripts/brand_links.py"),rootProject.file("scripts/prepare.py"),rootProject.file("scripts/tests/test_brand_links.py"))
+    commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3","-m","unittest","discover","-s","scripts/tests","-p","test_brand_links.py","-v")
+}
 openApiGenerate {
     workerIsolation.set("process")
     templateDir.set(nativeTemplateOutput.get().asFile.path)
@@ -90,7 +97,7 @@ openApiGenerate {
     apiPackage.set("org.spaceworks.generated.api")
     modelPackage.set("org.spaceworks.generated.model")
     configOptions.set(mapOf("serializationLibrary" to "kotlinx_serialization", "generateOneOfAnyOfWrappers" to "true", "useCoroutines" to "true", "dateLibrary" to "java8", "omitGradleWrapper" to "true", "useResponseAsReturnType" to "true"))
-    typeMappings.set(mapOf("AnyType" to "JsonElement", "Any" to "JsonElement"))
+    typeMappings.set(mapOf("AnyType" to "JsonElement", "Any" to "JsonElement", "object" to "JsonElement"))
     importMappings.set(mapOf("JsonElement" to "kotlinx.serialization.json.JsonElement","String" to "kotlin.String"))
     // The owner wire types remain unchanged: URI-or-empty is a String; unused
     // empty-or-structured opening-hours objects stay lossless JSON. This avoids
@@ -100,13 +107,13 @@ openApiGenerate {
         "TenantBootstrapMakerspace_opening_hours" to "kotlinx.serialization.json.JsonElement",
         "TenantBootstrapMakerspace_opening_hours_oneOf_weekly" to "kotlinx.serialization.json.JsonElement"
     ))
-    enumNameMappings.set(mapOf("name" to "nameAscending"))
+    enumNameMappings.set(mapOf("name" to "nameAscending", "" to "none"))
     languageSpecificPrimitives.set(listOf("JsonElement"))
     globalProperties.set(mapOf("apis" to "", "models" to "", "apiTests" to "false", "modelTests" to "false", "apiDocs" to "false", "modelDocs" to "false", "supportingFiles" to "CollectionFormats.kt,UUIDAdapter.kt,OffsetDateTimeAdapter.kt,URIAdapter.kt,BigDecimalAdapter.kt"))
 }
 tasks.named("openApiGenerate") { dependsOn(prepareContract,prepareNativeTemplates); inputs.dir(nativeTemplateOutput); doFirst { delete(layout.buildDirectory.dir("generated/openapi")) } }
-tasks.named("preBuild") { dependsOn(prepareBrand,"openApiGenerate",verifyNativeTemplates,verifyMobileCopy,testMobileCopyGenerator) }
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach { dependsOn(prepareBrand,"openApiGenerate",verifyNativeTemplates,verifyMobileCopy,testMobileCopyGenerator) }
+tasks.named("preBuild") { dependsOn(prepareBrand,"openApiGenerate",verifyNativeTemplates,verifyMobileCopy,testMobileCopyGenerator,testBrandLinks) }
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach { dependsOn(prepareBrand,"openApiGenerate",verifyNativeTemplates,verifyMobileCopy,testMobileCopyGenerator,testBrandLinks) }
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2025.10.01"))
     implementation("androidx.activity:activity-compose:1.11.0")

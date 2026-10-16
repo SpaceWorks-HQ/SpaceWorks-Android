@@ -1,6 +1,7 @@
 package org.spaceworks.app.auth
 
 import org.spaceworks.app.platform.MobileText
+import org.spaceworks.app.account.*
 
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.*
@@ -8,8 +9,12 @@ import org.spaceworks.app.network.*
 import org.spaceworks.generated.model.*
 
 object DemoSupport {
-    fun create(text:MobileText=MobileText.ENGLISH,paymentFiles:org.spaceworks.app.payments.PaymentFileStore?=null,context:android.content.Context?=null):AuthBundle {
+    fun create(text:MobileText=MobileText.ENGLISH,paymentFiles:org.spaceworks.app.payments.PaymentFileStore?=null,context:android.content.Context?=null,management:AccountManagementCoordinator?=null):AuthBundle {
         val copyText=text
+        val accountCoordinator=management?:AccountManagementCoordinator(
+            {copy->context?.resources?.accountText(copy)?:copy.english},copyText)
+        var runtime:NativeAccountRuntime?=null
+        var accounts:AccountStateHolder?=null
         val tokens=MemoryTokenStore()
         val gateway=DemoAuthGateway()
         var clearPrivate:()->Unit={}
@@ -20,7 +25,7 @@ object DemoSupport {
         val actions=org.spaceworks.app.actions.MemberActionsStateHolder(workspace,member,onUnauthorized={holder.foreground()},onProfileSaved={gateway.updatePreviewProfile(it);holder.foreground()},capabilities=workspace,text=copyText)
         var staff:org.spaceworks.app.staff.StaffStateHolder?=null
         val push=org.spaceworks.app.notifications.DemoPushSupport.create(text=copyText)
-        val links=org.spaceworks.app.notifications.DemoPushSupport.links(holder,text=copyText,beforeSelect={if(staff?.protectsNavigation==true)throw kotlinx.coroutines.CancellationException()})
+        val links=org.spaceworks.app.notifications.DemoPushSupport.links(holder,text=copyText,beforeSelect={if(staff?.protectsNavigation==true || accountCoordinator.protectsNavigation())throw kotlinx.coroutines.CancellationException()})
         val payments=org.spaceworks.app.payments.PaymentsStateHolder(org.spaceworks.app.payments.DemoPaymentsGateway(),
             paymentFiles?:org.spaceworks.app.payments.PaymentFileStore {_,_->throw org.spaceworks.app.platform.MobileCopyException(org.spaceworks.app.platform.DocumentStrings.DOCUMENT_PREPARE_FAILED)},text=copyText)
         val staffApi=context?.applicationContext?.let {org.spaceworks.app.staff.DemoStaffGateway(it)}
@@ -30,11 +35,21 @@ object DemoSupport {
                 staffApi?.authority?.allows(scope,action)==true
         }
         staff=staffApi?.let {org.spaceworks.app.staff.StaffStateHolder(it,staffAuthority,it.uploads,text=copyText)}
-        clearScope={staff?.clear();member.clear();actions.clear();payments.clear()}
-        clearPrivate={staff?.resetAccount();clearScope();links.clear();push.holder.pause()}
+        clearScope={runtime?.let(accountCoordinator::scopeChanged);staff?.clear();member.clear();actions.clear();payments.clear()}
+        clearPrivate={accounts?.clear();runtime?.let(accountCoordinator::sessionEnded);staff?.resetAccount();clearScope();links.clear();push.holder.pause()}
         gateway.beforeSignOut={push.holder.disable(forgetConsent=false)}
-        return AuthBundle(holder,tokens,true,AccountStateHolder(gateway,{true},{holder.foreground()},text=copyText),DemoAuthFlow(holder,text=copyText),member,actions,origin="https://demo.invalid/",push=push.holder,links=links,pushConfigured=true,sessionEpoch={tokens.snapshot().epoch},pushPreview=push.control,payments=payments,staff=staff,
-            staffAvailable={staff!=null && holder.state.value.user?.username=="staff.demo" && holder.state.value.selected!=null})
+        accounts=AccountStateHolder(gateway,{true},{holder.foreground()},text=copyText)
+        runtime=NativeAccountRuntime("https://demo.invalid/",tokens,{holder.acceptedInstallationEpoch},
+            {holder.state.value.user?.id?.toString()},
+            {holder.state.value.selected?.let {org.spaceworks.app.member.MemberScope(it.id,it.slug)}},
+            holder::endLocalSession,holder::foreground,holder::dropConfirmedMembership)
+        val bundle=AuthBundle(holder,tokens,true,accounts,DemoAuthFlow(holder,text=copyText),member,actions,origin="https://demo.invalid/",push=push.holder,links=links,pushConfigured=true,sessionEpoch={tokens.snapshot().epoch},pushPreview=push.control,payments=payments,staff=staff,
+            staffAvailable={staff!=null && holder.state.value.user?.username=="staff.demo" && holder.state.value.selected!=null},management=accountCoordinator,
+            deletionPreview={ids->DemoDeletionPreview(ids,{id->holder.state.value.memberships.firstOrNull {it.id==id}?.slug?.let {org.spaceworks.app.ui.makerspaceLabel(it)}},
+                {id->staff!=null && holder.state.value.user?.username=="staff.demo" && holder.state.value.selectedId==id})})
+        accountCoordinator.register(bundle,requireNotNull(runtime)) {DemoAccountGateway()}
+        accountCoordinator.show(bundle)
+        return bundle
     }
 }
 class DemoAuthGateway:AuthGateway {

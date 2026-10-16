@@ -80,6 +80,23 @@ data class PushHint(val makerspaceId: Int, val feature: String?, val event: Stri
 /** Background delivery uses only a private consent/membership hint; content stays generic.
  * A notification tap must freshly authenticate and authorize the route before showing data. */
 object NativePushEvents {
+    internal val ownership = PushOwnerLeaseCoordinator()
+    fun claim(owner:PushOwnerIdentity,enabled:Boolean=true):PushOwnerLease =
+        ownership.claim(owner,enabled).also { lease ->
+            if(!enabled)ownership.publish(lease,requireEnabled=false){updateDelivery(false,emptySet())}
+        }
+    fun cleanupLease(owner:PushOwnerIdentity):PushOwnerLease? = ownership.cleanupLease(owner)
+    fun configure(context:Context,lease:PushOwnerLease,active:Boolean,makers:Set<Int>):Boolean =
+        ownership.publish(lease,requireEnabled=false) {
+            if(active)ownership.enable(lease)else ownership.disable(lease)
+            synchronized(this) { persistDelivery(context,active,makers) }
+        }
+    internal fun updateToken(lease:PushOwnerLease,value:String,isCurrent:()->Boolean) {
+        ownership.publish(lease) { if(isCurrent())updateToken(value) }
+    }
+    internal fun clearToken(lease:PushOwnerLease) {
+        ownership.publish(lease,requireEnabled=false) { clearToken() }
+    }
     private val mutableToken = MutableStateFlow<String?>(null)
     val token = mutableToken.asStateFlow()
     private val mutableHints = MutableSharedFlow<PushHint>(replay = 0, extraBufferCapacity = 16, onBufferOverflow = BufferOverflow.DROP_OLDEST)
@@ -91,7 +108,7 @@ object NativePushEvents {
         loaded=true;enabled=active;members=if(active)makers.filter {it>0}.toSet()else emptySet()
         if(!active)mutableToken.value=null
     }
-    @Synchronized fun configure(context:Context,active:Boolean,makers:Set<Int>) {
+    private fun persistDelivery(context:Context,active:Boolean,makers:Set<Int>) {
         updateDelivery(active,makers)
         val prefs=context.getSharedPreferences("native-push-delivery",Context.MODE_PRIVATE)
         check(prefs.edit().putBoolean("active",active).putStringSet("makers",members.map(Int::toString).toSet()).commit())
@@ -112,27 +129,46 @@ object NativePushEvents {
 
 object FcmRegistration {
     fun configured(context:Context):Boolean=FirebaseApp.getApps(context).any {it.name==FirebaseApp.DEFAULT_APP_NAME}
-    /** Call only after explicit push setup/sign-in, then register once per verified membership. */
-    suspend fun token(context:Context):String {
-        if(!configured(context))throw PlatformUnavailable(context.getString(R.string.mobile_notifications_are_not_configured_for_this_build))
-        val messaging=FirebaseMessaging.getInstance()
+
+    /** One shared SDK queue prevents an old deletion finishing after a new owner's token request. */
+    suspend fun token(context:Context,lease:PushOwnerLease,isCurrent:()->Boolean):String {
         try {
-            messaging.isAutoInitEnabled=true
-            return messaging.token.awaitPlatformTask().also(NativePushEvents::updateToken)
+            return NativePushEvents.ownership.serialized(lease) {
+                if(!isCurrent())throw CancellationException("Push owner changed")
+                if(!configured(context))throw PlatformUnavailable(context.getString(R.string.mobile_notifications_are_not_configured_for_this_build))
+                val messaging=FirebaseMessaging.getInstance()
+                var started=false
+                NativePushEvents.ownership.publish(lease) {
+                    if(isCurrent()){ messaging.isAutoInitEnabled=true; started=true }
+                }
+                if(!started)throw CancellationException("Push owner changed")
+                messaging.token.awaitPlatformTask().also { value ->
+                    NativePushEvents.updateToken(lease,value,isCurrent)
+                }
+            }?.takeIf { isCurrent() } ?: throw CancellationException("Push owner changed")
         }catch(cancelled:CancellationException){throw cancelled}
+        catch(unavailable:PlatformUnavailable){throw unavailable}
         catch(_:Exception){throw PlatformUnavailable(context.getString(R.string.mobile_notifications_are_unavailable_try_again_later))}
     }
-    /** Pauses local delivery for an isolated demo without acquiring/deleting an SDK token. */
-    fun pause(context:Context) {
-        NativePushEvents.configure(context,false,emptySet())
-        if(configured(context))FirebaseMessaging.getInstance().isAutoInitEnabled=false
-    }
-    /** The generated gateway first removes returned registration IDs while auth is available. */
-    suspend fun stop(context:Context) {
-        try {
-            pause(context)
-            if(configured(context))FirebaseMessaging.getInstance().deleteToken().awaitPlatformTask()
-        }finally {NativePushEvents.clearToken()}
+
+    /** Explicit old-owner cleanup remains valid after its private UI has already been cleared. */
+    suspend fun stop(context:Context,lease:PushOwnerLease,isCurrent:()->Boolean) {
+        NativePushEvents.ownership.serialized(lease,requireEnabled=false) {
+            if(!isCurrent())return@serialized
+            var shouldDelete=false
+            NativePushEvents.ownership.publish(lease,requireEnabled=false) {
+                if(isCurrent()) {
+                    NativePushEvents.configure(context,lease,false,emptySet())
+                    if(configured(context)) {
+                        FirebaseMessaging.getInstance().isAutoInitEnabled=false
+                        shouldDelete=true
+                    }
+                }
+            }
+            try {
+                if(shouldDelete && isCurrent())FirebaseMessaging.getInstance().deleteToken().awaitPlatformTask()
+            } finally { NativePushEvents.clearToken(lease) }
+        }
     }
 }
 

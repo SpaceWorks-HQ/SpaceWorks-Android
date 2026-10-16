@@ -65,6 +65,7 @@ phase3_operations |= {
     'api_v1_admin_bookings_approve_create',
     'api_v1_admin_bookings_reject_create',
 }
+phase3_operations |= {'api_v1_member_makerspaces_account_exports_download_create', 'api_v1_auth_device_grants_destroy', 'api_v1_member_makerspaces_account_sessions_destroy', 'api_v1_auth_mfa_recovery_create', 'api_v1_member_makerspaces_account_exports_create', 'api_v1_member_makerspaces_account_exports_retrieve', 'api_v1_auth_phone_link_start_create', 'api_v1_auth_device_grants_list', 'api_v1_auth_phone_destroy', 'api_v1_auth_mfa_retrieve', 'api_v1_member_makerspaces_account_leave_create', 'api_v1_member_makerspaces_account_exports_retrieve_2', 'api_v1_auth_mfa_disable_create', 'api_v1_auth_social_providers_destroy', 'api_v1_auth_phone_link_confirm_create', 'api_v1_member_makerspaces_account_cancel_create', 'api_v1_data_exports_download_retrieve', 'api_v1_member_makerspaces_account_membership_retrieve', 'api_v1_auth_social_providers_list', 'api_v1_member_makerspaces_account_sessions_retrieve'}
 base_paths=set(selected)
 base_operations={op['operationId'] for path in base_paths for op in s['paths'][path].values() if isinstance(op,dict) and 'operationId' in op}
 found=set()

@@ -56,8 +56,18 @@ class MemoryTokenStore:TokenStore {
         this.pair=pair;return true
     }
 }
+/** Share only the lock: API instances and their owner callbacks stay controller-local. */
+private object RefreshLocks {
+    private data class Entry(val store:java.lang.ref.WeakReference<TokenStore>,val mutex:Mutex)
+    private val entries=mutableListOf<Entry>()
+    @Synchronized fun forStore(store:TokenStore):Mutex {
+        entries.removeAll {it.store.get()==null}
+        entries.firstOrNull {it.store.get()===store}?.let {return it.mutex}
+        return Mutex().also {entries+=Entry(java.lang.ref.WeakReference(store),it)}
+    }
+}
 class RefreshCoordinator(private val store:TokenStore,private val rotate:suspend(String)->TokenPair) {
-    private val mutex=Mutex()
+    private val mutex=RefreshLocks.forStore(store)
     suspend fun refresh(rejectedAccess:String,expectedEpoch:Long):TokenPair?=mutex.withLock {
         val expected=store.snapshot()
         if(expected.epoch!=expectedEpoch)return@withLock null
@@ -176,6 +186,16 @@ object Pagination {
 class ApiSession(val server: HttpUrl, private val store: TokenStore = MemoryTokenStore(), makerspace: () -> String? = { null }) {
     /** Non-secret installation identity for generated operations with several awaited calls. */
     val installationEpoch:Long get()=store.snapshot().epoch
+    @Volatile private var identityEpoch:(()->Long?)?=null
+    /** Controller-local identity proof; authentication bootstrap uses its explicit auth services. */
+    fun bindIdentityEpoch(expected:()->Long?) {
+        check(identityEpoch==null)
+        identityEpoch=expected
+    }
+    private fun serviceEpoch():Long {
+        val identity=identityEpoch?:return store.snapshot().epoch
+        return identity()?:throw java.io.IOException("Session changed")
+    }
     private val json = Json {
         ignoreUnknownKeys = true; explicitNulls = false
         serializersModule = SerializersModule {
@@ -190,9 +210,9 @@ class ApiSession(val server: HttpUrl, private val store: TokenStore = MemoryToke
         .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
         .callTimeout(45,java.util.concurrent.TimeUnit.SECONDS)
         .addInterceptor(RestoreServiceResponse()).addNetworkInterceptor(PreventServiceReplay()).build()
-    private fun authenticatedCalls(client:OkHttpClient,onCall:(Call)->Unit={}):Call.Factory=Call.Factory {request->
+    private fun authenticatedCalls(client:OkHttpClient,onCall:(Call)->Unit={},expectedEpoch:Long?=null):Call.Factory=Call.Factory {request->
         // Capture before enqueue: a queued old mutation must never first-send as a newly signed-in account.
-        val tagged=request.newBuilder().tag(SessionEpochTag::class.java,SessionEpochTag(store.snapshot().epoch)).build()
+        val tagged=request.newBuilder().tag(SessionEpochTag::class.java,SessionEpochTag(expectedEpoch?:store.snapshot().epoch)).build()
         client.newCall(tagged).also(onCall)
     }
     private fun retrofit(client:OkHttpClient,authenticated:Boolean=false)=Retrofit.Builder().baseUrl(server)
@@ -202,21 +222,27 @@ class ApiSession(val server: HttpUrl, private val store: TokenStore = MemoryToke
         .callFactory(Call.Factory {request->baseClient.newCall(request).also(onCall)})
         .addConverterFactory(json.asConverterFactory("application/json".toMediaType())).build().create(type)
     /** Authenticated account-global operation; no selected-maker header or fabricated maker ID. */
-    fun <T> globalApi(type:Class<T>,onCall:(Call)->Unit={}):T {
+    fun <T> globalApi(type:Class<T>,onCall:(Call)->Unit={}):T =
+        pinnedGlobalApi(type,serviceEpoch(),onCall)
+    /** Narrow cleanup seam: callers must supply the immutable operation owner's epoch. */
+    fun <T> pinnedGlobalApi(type:Class<T>,expectedEpoch:Long,onCall:(Call)->Unit={}):T {
         val global=client.newBuilder().addInterceptor {chain->
             chain.proceed(chain.request().newBuilder().removeHeader("X-Makerspace-Id").build())
         }.build()
-        return Retrofit.Builder().baseUrl(server).callFactory(authenticatedCalls(global,onCall))
+        return Retrofit.Builder().baseUrl(server).callFactory(authenticatedCalls(global,onCall,expectedEpoch))
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType())).build().create(type)
     }
-    fun <T> scopedApi(type: Class<T>, makerId: Int, onCall: (Call) -> Unit = {}): T {
+    fun <T> scopedApi(type: Class<T>, makerId: Int, onCall: (Call) -> Unit = {}): T =
+        pinnedScopedApi(type,makerId,serviceEpoch(),onCall)
+    /** Owned push cleanup stays possible after cached private identity has been cleared. */
+    fun <T> pinnedScopedApi(type:Class<T>,makerId:Int,expectedEpoch:Long,onCall:(Call)->Unit={}):T {
         require(makerId > 0)
         val scoped = client.newBuilder().addInterceptor { chain ->
             chain.proceed(chain.request().newBuilder().header("X-Makerspace-Id", makerId.toString()).build())
         }.build()
         // Observe only this generated service instance's calls so streamed consumers can
         // cancel their socket without closing a ResponseBody concurrently with its reader.
-        val factory = authenticatedCalls(scoped,onCall)
+        val factory = authenticatedCalls(scoped,onCall,expectedEpoch)
         return Retrofit.Builder().baseUrl(server).callFactory(factory)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType())).build().create(type)
     }

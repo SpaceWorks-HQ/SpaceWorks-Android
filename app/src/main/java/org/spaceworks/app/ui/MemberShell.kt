@@ -24,7 +24,7 @@ import org.spaceworks.app.payments.*
 
 fun makerspaceLabel(slug:String)=slug.split('-').joinToString(" "){it.replaceFirstChar(Char::uppercase)}
 
-@Composable fun MakerspacePicker(bundle:AuthBundle) {
+@Composable fun MakerspacePicker(bundle:AuthBundle,onAccount:(()->Unit)?=null) {
     val copyText=rememberMobileText()
 
     val state by bundle.holder.state.collectAsStateWithLifecycle()
@@ -45,6 +45,7 @@ fun makerspaceLabel(slug:String)=slug.split('-').joinToString(" "){it.replaceFir
         }
         candidate?.let {BrandButton(copyText(UiStrings.MOBILE_CONTINUE),{bundle.holder.select(it)},!state.busy)}
         if(state.user?.emailVerified==false && state.config?.emailEnabled==true)bundle.accounts?.let {BrandTextButton(copyText(UiStrings.MOBILE_CONFIRM_YOUR_EMAIL),{it.open(AccountRoute.VERIFY_EMAIL,state.user?.email.orEmpty())})}
+        onAccount?.let {BrandTextButton(androidx.compose.ui.res.stringResource(org.spaceworks.app.R.string.account_access),it,!state.busy,modifier=Modifier.semantics {testTag="account-entry"})}
         BrandError(state.error)
         BrandTextButton(copyText(UiStrings.MOBILE_REFRESH_ACCESS),{scope.launch {bundle.holder.foreground()}},!state.busy)
         if(state.memberships.isEmpty())BrandTextButton(copyText(UiStrings.MOBILE_USE_ANOTHER_ACCOUNT),{signingOut=true},!state.busy)
@@ -54,7 +55,8 @@ fun makerspaceLabel(slug:String)=slug.split('-').joinToString(" "){it.replaceFir
 
 private val destinations=listOf(UiStrings.MOBILE_HOME,UiStrings.MOBILE_INVENTORY,UiStrings.MOBILE_ACTIVITY,UiStrings.MOBILE_INBOX,UiStrings.MOBILE_PROFILE)
 private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Icons.Outlined.DateRange,Icons.Outlined.Email,Icons.Outlined.Person)
-@Composable fun MemberShell(bundle:AuthBundle,onChangeServer:(()->Unit)?,onShowIntro:(()->Unit)?=null) {
+@Composable fun MemberShell(bundle:AuthBundle,onChangeServer:(()->Unit)?,onShowIntro:(()->Unit)?=null,onAccount:(()->Unit)?=null,
+    openStaff:Boolean=false,onStaffOpened:()->Unit={}) {
     val copyText=rememberMobileText()
 
     val state by bundle.holder.state.collectAsStateWithLifecycle()
@@ -71,6 +73,7 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
     val staffState=staff?.state?.collectAsStateWithLifecycle()?.value
     val staffAvailable=bundle.staffAvailable()
     var showingStaff by remember(state.selectedId){mutableStateOf(false)}
+    LaunchedEffect(openStaff,staffAvailable) {if(openStaff && staffAvailable){showingStaff=true;onStaffOpened()}}
     val payments=bundle.payments
     val paymentState=payments?.state?.collectAsStateWithLifecycle()?.value
     var showingPayments by remember(state.selectedId){mutableStateOf(false)}
@@ -179,6 +182,7 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
                                 Text(copyText(UiStrings.MOBILE_VALUE_VALUE_C1AACD,state.selected?.roleName.orEmpty(),makerspaceLabel(state.selected?.slug.orEmpty())))
                                 if(content?.scope?.id==state.selectedId && member!=null)MemberProfileSummary(member)
                                 if(staff!=null && staffAvailable)BrandTextButton(copyText(org.spaceworks.app.staff.StaffStrings.STAFF_STAFF_TOOLS),{showingStaff=true},!state.busy,modifier=Modifier.semantics {testTag="staff-entry"})
+                                onAccount?.let {BrandTextButton(androidx.compose.ui.res.stringResource(org.spaceworks.app.R.string.account_title),it,!state.busy,modifier=Modifier.semantics {testTag="account-entry"})}
                                 if(payments!=null)BrandTextButton(copyText(PaymentStrings.PAYMENT_PAYMENTS),{showingPayments=true},!state.busy,modifier=Modifier.semantics {testTag="payments-entry"})
                                 state.memberships.filter {it.id!=state.selectedId}.forEach {membership ->
                                     BrandTextButton(copyText(UiStrings.MOBILE_SWITCH_TO_VALUE,makerspaceLabel(membership.slug)),{bundle.links?.clear();bundle.holder.select(membership.id)},!state.busy)

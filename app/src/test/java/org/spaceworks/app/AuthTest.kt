@@ -148,7 +148,13 @@ class AuthTest {
         holder.initialize();holder.signIn("member","pass");now=301000;holder.verify("123456")
         assertEquals("Your verification session expired. Sign in to request a new one.",holder.state.value.error)
         holder.cancelMfa();api.throttle=true;holder.signIn("member","pass");holder.signIn("member","pass")
-        assertEquals(2,api.calls);store.replace(TokenPair("a","r"));holder.signOut();assertNull(store.read())
+        assertEquals(2,api.calls)
+        // Establish an owned native session after the deadline; an arbitrary store replacement
+        // would belong to another window and must never be erased by this anonymous holder.
+        now+=60_001;api.throttle=false;holder.signIn("member","pass");holder.verify("123456")
+        assertNotNull(holder.state.value.user);assertNotNull(store.read())
+        api.throttle=true;holder.signIn("member","pass");assertTrue(holder.state.value.retryAtMillis>now)
+        holder.signOut();assertNull(store.read());assertNull(holder.state.value.user)
     }
     @Test fun superadminIsRefusedAndSessionErased()=runTest {
         val api=FakeAuth().apply {who=who.copy(isSuperuser=true)};val store=MemoryTokenStore();val holder=AuthStateHolder(api,store)

@@ -4,6 +4,8 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.AtomicFile
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
@@ -23,6 +25,9 @@ interface SessionFile { fun read(): ByteArray?; fun write(bytes: ByteArray); fun
 // Both tokens are one encrypted record. A failed disk write never publishes a half-rotated pair.
 class EncryptedTokenStore(private val file: SessionFile, private val cipher: SessionCipher) : TokenStore {
     private var epoch=0L
+    private val mutableInstallationEpoch=MutableStateFlow(epoch)
+    /** Non-secret process-wide installation changes. Token rotation keeps its identity. */
+    val installationEpoch=mutableInstallationEpoch.asStateFlow()
     private var loaded = false
     private var cached: TokenPair? = null
     @Synchronized override fun read(): TokenPair? {
@@ -40,14 +45,21 @@ class EncryptedTokenStore(private val file: SessionFile, private val cipher: Ses
     }
     @Synchronized override fun snapshot()=TokenSnapshot(epoch,read())
     @Synchronized override fun replace(pair:TokenPair?) {
-        if(pair==null)epoch++
-        writePair(pair)
-        if(pair!=null)epoch++
+        if(pair==null) {
+            epoch++
+            try {writePair(null)} finally {mutableInstallationEpoch.value=epoch}
+        } else {
+            writePair(pair)
+            epoch++
+            mutableInstallationEpoch.value=epoch
+        }
     }
     @Synchronized override fun rotateIfCurrent(expected:TokenSnapshot,pair:TokenPair?):Boolean {
         if(expected.pair==null || expected.epoch!=epoch || expected.pair!=read())return false
-        if(pair==null)epoch++
-        writePair(pair)
+        if(pair==null) {
+            epoch++
+            try {writePair(null)} finally {mutableInstallationEpoch.value=epoch}
+        } else writePair(pair)
         return true
     }
     private fun writePair(pair:TokenPair?) {
