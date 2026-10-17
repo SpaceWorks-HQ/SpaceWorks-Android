@@ -1,5 +1,13 @@
 # Phase notes
 
+## B3 — native motion and owned tactile feedback (2026-10-18)
+
+Onboarding retains its static supplied logo while content uses the existing short brand transitions and density-aware offsets. App guide disclosures animate their existing single content body; the shared production theme observes Android's animation-duration setting and removes custom motion when it is off. Component hosts use the same production theme.
+
+Explicit onboarding progression, owned authentication progression/acceptance or rejection, successful QR resolution and newly server-confirmed member/staff receipts receive settings-aware native feedback. Authentication feedback carries a nonsecret completion stamp from the existing guarded operation; canceled or replaced operations cannot borrow a later account's accepted state. Screen disposal, owner replacement, background lifecycle, disabled view feedback and duplicate completions suppress dispatch. No polling, session restoration, payment SDK submission, generic navigation or every-button vibration is added. Android controls the actual tactile effect and respects system settings; no custom waveform, ignore-setting flag or vibration permission is introduced.
+
+Regression coverage includes real delayed/canceled authentication and replacement-account ownership, feedback consumption and native view dispatch/settings gates. Existing large-text guide journeys also exercise animation-off expansion with a single accessible body. Local and fresh ten-profile runtime/visual validation are recorded with the final source gate; native dispatch checks do not establish physical tactile quality on emulator hardware.
+
 ## B2 — native payment SDK brand appearance (2026-10-18)
 
 The pinned Stripe 22.8.1 public Appearance API now receives the semantic light/dark brand colors, a table-preserving Gilroy XML family with explicit weights, 10 dp controls and branded primary/success colors. SDK sizing, accessibility, native layout and system appearance selection remain unchanged. Razorpay Android Standard Checkout receives its documented brand accent only; unsupported font/dark-palette options are not invented, and the merchant's provider logo is retained. No payment intent, authority, callback, retry or server-status behavior changes.

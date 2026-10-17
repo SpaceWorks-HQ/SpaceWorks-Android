@@ -49,6 +49,46 @@ private class FakeAuth:AuthGateway {
     override suspend fun changePassword(current:String,replacement:String){changed=true}
 }
 class AuthTest {
+    @Test fun delayedVerificationCannotEmitFeedbackForReplacementInstallation()=runTest {
+        val api=FakeAuth();val store=MemoryTokenStore();val holder=AuthStateHolder(api,store)
+        holder.initialize();holder.signIn("member","pass")
+        api.verifyGate=CompletableDeferred()
+        val outcomes=mutableListOf<AuthOperationOutcome>()
+        val old=launch {holder.verifyWithOutcome("123456",outcomes::add)};runCurrent()
+        val replacement=TokenPair("new-account-access","new-account-refresh")
+        store.replace(replacement)
+        api.verifyGate!!.complete(Unit);old.join()
+        assertTrue(outcomes.isEmpty());assertEquals(replacement,store.read())
+        assertNull(holder.state.value.user)
+    }
+    @Test fun acceptedOutcomeBelongsToExactHolderAndInstallationNotLaterAcceptedAccount()=runTest {
+        val api=FakeAuth();val store=MemoryTokenStore();val holder=AuthStateHolder(api,store)
+        val outcomes=mutableListOf<AuthOperationOutcome>()
+        holder.initialize();holder.signInWithOutcome("member","pass",outcomes::add)
+        assertEquals(AuthOperationKind.PROGRESSED,outcomes.single().kind)
+        holder.verifyWithOutcome("123456",outcomes::add)
+        val accepted=outcomes.last()
+        assertEquals(AuthOperationKind.ACCEPTED,accepted.kind);assertTrue(holder.isCurrentOutcome(accepted))
+        val otherHolder=AuthStateHolder(api,store)
+        assertFalse(otherHolder.isCurrentOutcome(accepted))
+        holder.signOut();api.who=api.who.copy(id=2,username="replacement")
+        holder.signIn("replacement","pass");holder.verifyWithOutcome("123456",outcomes::add)
+        assertEquals(2,holder.state.value.user!!.id)
+        assertFalse(holder.isCurrentOutcome(accepted));assertTrue(holder.isCurrentOutcome(outcomes.last()))
+    }
+    @Test fun cancelledVerificationNeverEmitsCompletionButFreshOwnedActionCan()=runTest {
+        val api=FakeAuth();val store=MemoryTokenStore();val holder=AuthStateHolder(api,store)
+        holder.initialize();holder.signIn("member","pass")
+        api.verifyGate=CompletableDeferred()
+        val outcomes=mutableListOf<AuthOperationOutcome>()
+        val cancelled=launch {holder.verifyWithOutcome("123456",outcomes::add)};runCurrent()
+        cancelled.cancelAndJoin()
+        assertTrue(outcomes.isEmpty());assertFalse(holder.state.value.busy);assertNull(store.read())
+        api.verifyGate=null
+        holder.verifyWithOutcome("123456",outcomes::add)
+        assertEquals(AuthOperationKind.ACCEPTED,outcomes.single().kind)
+        assertTrue(holder.isCurrentOutcome(outcomes.single()))
+    }
     @Test fun delayedLogoutInvalidatesPrivateFlowsBeforeAwaitingServerRevocation()=runTest {
         val api=FakeAuth();val store=MemoryTokenStore();var privateScopeAccessible=true
         val holder=AuthStateHolder(api,store,onSessionEnded={privateScopeAccessible=false})

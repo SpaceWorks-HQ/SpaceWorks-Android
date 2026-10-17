@@ -5,11 +5,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.spaceworks.app.R
+import org.spaceworks.app.platform.LocalReducedMotion
+import org.spaceworks.app.platform.rememberReducedMotion
 
 // The supplied faces carry legacy OS/2 weight=400 metadata. Declare each actual face's
 // role explicitly, without rewriting the owner's name, outlines or metrics tables.
@@ -42,6 +45,9 @@ val BrandTypography = Typography().run {
 }
 
 @Composable fun SpaceWorksTheme(dark:Boolean,content:@Composable ()->Unit) {
+    val reduced=rememberReducedMotion()
+    CompositionLocalProvider(LocalReducedMotion provides reduced) {
     MaterialTheme(colorScheme=if(dark)DarkScheme else LightScheme,typography=BrandTypography,
         shapes=Shapes(small=RoundedCornerShape(10.dp),medium=RoundedCornerShape(16.dp)),content=content)
+    }
 }

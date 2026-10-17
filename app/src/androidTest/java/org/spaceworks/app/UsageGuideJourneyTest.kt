@@ -68,10 +68,11 @@ class UsageGuideJourneyTest {
 
     @Test fun guideRemainsReadableAndActionsReachableAtLargestTextWithoutStartingAnotherFlow() {
         var replayed = 0; var reset = 0; var back = 0
-        compose.setContent { Host(largeText = true) {
+        var reducedMotion by mutableStateOf(false)
+        compose.setContent { Host(largeText = true) { CompositionLocalProvider(org.spaceworks.app.platform.LocalReducedMotion provides reducedMotion) {
             UsageGuideScreen(demo = true, staffAvailable = false, onBack = { back++ },
                 onReplayIntro = { replayed++ }, onResetTips = { reset++ })
-        } }
+        } } }
         journey.systemBars(DeviceProfile.dark)
         journey.visible(compose.onNodeWithTag("usage-guide-heading"))
         compose.onNodeWithText("Staff handovers").assertDoesNotExist()
@@ -89,6 +90,12 @@ class UsageGuideJourneyTest {
         inventory.assert(SemanticsMatcher.keyIsDefined(SemanticsActions.Expand))
         compose.onNodeWithTag("usage-section-inventory-body-0").assertDoesNotExist()
         compose.onNodeWithTag("usage-section-inventory-body-5").assertDoesNotExist()
+        // Reduced motion keeps one immediate semantic body and the same native controls.
+        compose.runOnIdle { reducedMotion = true }
+        journey.click(inventory)
+        compose.onAllNodesWithTag("usage-section-inventory-body-0").assertCountEquals(1)
+        journey.click(inventory)
+        compose.onNodeWithTag("usage-section-inventory-body-0").assertDoesNotExist()
         journey.clickTag("usage-replay-intro"); assertEquals(1, replayed)
         journey.clickTag("usage-reset-tips"); assertEquals(1, reset)
         journey.visible(compose.onNodeWithTag("usage-reset-notice"))

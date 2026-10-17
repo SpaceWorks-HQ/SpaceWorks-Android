@@ -1,5 +1,11 @@
 package org.spaceworks.app.guidance
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import org.spaceworks.app.platform.LocalReducedMotion
+import org.spaceworks.app.theme.BrandMotion
+
 import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -115,7 +121,8 @@ private data class GuideTopic(val id: String, val title: MobileCopyKey, val body
     val copy = rememberMobileText()
     var expanded by rememberSaveable(topic.id) { mutableStateOf(false) }
     val isExpanded = expanded
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+    val reduced=LocalReducedMotion.current
+    Card(Modifier.fillMaxWidth().animateContentSize(animationSpec=if(reduced)snap()else tween(BrandMotion.EXPAND)), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             TextButton(onClick = { expanded = !isExpanded }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
