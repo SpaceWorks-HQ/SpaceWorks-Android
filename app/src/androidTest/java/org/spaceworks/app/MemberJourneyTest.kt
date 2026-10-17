@@ -12,6 +12,13 @@ import java.io.File
 class MemberJourneyTest {
     @get:Rule val compose=createComposeRule()
     private fun waitText(text:String){DeviceWindowGuard.awaitClear();try {compose.waitUntil(10000){compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()}}catch(f:Throwable){screenshot("a2-failure-${text.filter {it.isLetterOrDigit()}.take(30)}");throw f}}
+    private fun inboxText(text:String) {
+        DeviceWindowGuard.awaitClear()
+        try {compose.waitUntil(10000) { runCatching {
+            compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(text))
+            compose.onNodeWithText(text).assertIsDisplayed();true
+        }.getOrDefault(false) }}catch(f:Throwable){screenshot("a2-inbox-failure");throw f}
+    }
     private fun screenshot(name:String) {DeviceWindowGuard.awaitClear();
         val dir=InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("validation")!!;dir.mkdirs()
         File(dir,"$name.png").outputStream().use {compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it)}
@@ -59,18 +66,20 @@ class MemberJourneyTest {
         compose.onNodeWithTag("inventorySearch").performImeAction();waitText("Cordless drill")
     }
     @Test fun inboxReadActionsRefreshTheUnreadList() {
-        signedIn();tab("Inbox");waitText("Loan due soon")
+        signedIn();tab("Inbox");inboxText("Loan due soon")
         DeviceWindowGuard.awaitClear()
-        compose.onAllNodesWithText("Unread",substring=false).onFirst().performClick();waitText("Loan due soon")
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(0)
+        compose.onAllNodesWithText("Unread",substring=false).onFirst().performScrollTo().performClick();inboxText("Loan due soon")
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("Loan due soon").performScrollTo().performClick();waitText("Mark as read")
         screenshot("a2-inbox-message")
         DeviceWindowGuard.awaitClear()
-        compose.onNodeWithText("Mark as read").performScrollTo().performClick();waitText("You're registered")
+        compose.onNodeWithText("Mark as read").performScrollTo().performClick();inboxText("You're registered")
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("Loan due soon").assertDoesNotExist()
         DeviceWindowGuard.awaitClear()
-        compose.onNodeWithText("Mark all as read").performScrollTo().performClick();waitText("Nothing here yet.")
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(0)
+        compose.onNodeWithText("Mark all as read").performScrollTo().performClick();inboxText("Nothing here yet.")
         screenshot("a2-inbox-unread-empty")
     }
     @Test fun revokedCardUnknownDuesAndMakerspaceSwitchNeverShowPriorData() {

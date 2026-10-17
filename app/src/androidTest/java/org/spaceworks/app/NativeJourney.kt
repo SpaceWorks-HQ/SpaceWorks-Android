@@ -42,7 +42,7 @@ class NativeJourney(private val compose:ComposeTestRule,private val phase:String
     fun clickText(text:String)=click(compose.onNodeWithText(text))
     fun clickTag(tag:String)=click(compose.onNodeWithTag(tag))
     fun replace(node:SemanticsNodeInteraction,value:String) {
-        DeviceWindowGuard.awaitClear();visible(node)
+        DeviceWindowGuard.awaitClear();dismissKeyboard();visible(node)
         // An error or sent-code message can be composed before an in-flight action releases
         // its busy state. Interact only when the real field is enabled, without a timed sleep.
         compose.waitUntil(5000){runCatching {node.assertIsEnabled();true}.getOrDefault(false)}

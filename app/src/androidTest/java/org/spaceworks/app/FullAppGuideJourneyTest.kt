@@ -45,7 +45,8 @@ class FullAppGuideJourneyTest {
         compose.onNodeWithTag("usage-start-here").assertDoesNotExist()
         profile();journey.clickTag("usage-guide-entry");journey.clickTag("usage-reset-tips")
         journey.visible(compose.onNodeWithTag("usage-reset-notice"));journey.clickTag("usage-guide-back")
-        home();journey.visible(compose.onNodeWithTag("usage-start-here"))
+        home();journey.visible(compose.onNodeWithText("Start here"))
+        journey.visible(compose.onNodeWithTag("usage-browse-inventory"))
         assertEquals(before,preferences.all.toMap())
         journey.shot("a8-app-guide-reset-home")
     }

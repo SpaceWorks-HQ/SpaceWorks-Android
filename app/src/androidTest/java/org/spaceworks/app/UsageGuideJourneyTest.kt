@@ -74,7 +74,7 @@ class UsageGuideJourneyTest {
         } }
         journey.systemBars(DeviceProfile.dark)
         journey.visible(compose.onNodeWithTag("usage-guide-heading"))
-        compose.onNodeWithText("Staff: review and hand over").assertDoesNotExist()
+        compose.onNodeWithText("Staff handovers").assertDoesNotExist()
         val inventory = compose.onNodeWithTag("usage-section-inventory")
         inventory.assert(SemanticsMatcher.keyIsDefined(SemanticsActions.Expand))
         compose.onNodeWithTag("usage-section-inventory-body-0").assertDoesNotExist()
@@ -92,6 +92,7 @@ class UsageGuideJourneyTest {
         journey.clickTag("usage-replay-intro"); assertEquals(1, replayed)
         journey.clickTag("usage-reset-tips"); assertEquals(1, reset)
         journey.visible(compose.onNodeWithTag("usage-reset-notice"))
+            .assertTextEquals("Tips reset for this account and makerspace.")
         journey.shot("a8-usage-guide-large-text")
         journey.clickTag("usage-guide-back"); assertEquals(1, back)
     }
@@ -101,7 +102,7 @@ class UsageGuideJourneyTest {
             UsageGuideScreen(demo = true, staffAvailable = true, onBack = {}, onReplayIntro = {}, onResetTips = null)
         } }
         journey.systemBars(DeviceProfile.dark)
-        journey.visible(compose.onNodeWithText("Staff: review and hand over"))
+        journey.visible(compose.onNodeWithText("Staff handovers"))
         val scan = compose.onNodeWithTag("usage-section-staff-scan")
         scan.assert(SemanticsMatcher.keyIsDefined(SemanticsActions.Expand))
         compose.onNodeWithTag("usage-section-staff-scan-body-0").assertDoesNotExist()
@@ -110,7 +111,7 @@ class UsageGuideJourneyTest {
         journey.visible(compose.onNodeWithTag("usage-section-staff-scan-body-0"))
             .assertTextContains("Scanning alone never confirms an action.", substring = true)
         compose.onNodeWithTag("usage-reset-tips").assertDoesNotExist()
-        journey.visible(compose.onNodeWithText("Choose permissions when you need them"))
+        journey.visible(compose.onNodeWithText("Permissions"))
         journey.shot("a8-usage-staff-permissions")
     }
 }

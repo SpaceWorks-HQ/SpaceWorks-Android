@@ -23,6 +23,8 @@ cleanup() {
   adb shell wm density reset || true
   adb shell settings put system font_scale 1 || true
   adb shell settings put system accelerometer_rotation 1 || true
+  adb shell wm user-rotation free || true
+  adb shell wm fixed-to-user-rotation default || true
   adb shell cmd uimode night auto || true
   for setting in window_animation_scale transition_animation_scale animator_duration_scale; do
     adb shell settings put global "$setting" 1 || true
@@ -34,6 +36,13 @@ adb shell wm density "$density"
 adb shell settings put system font_scale "$font"
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation "$rotation"
+# Freeze WindowManager's actual display state, rather than relying on settings observers.
+# Tablet device-state rotation policy can retain the initial portrait lock otherwise.
+adb shell wm fixed-to-user-rotation enabled
+adb shell wm user-rotation lock "$rotation"
+adb shell wm user-rotation > "validation/$profile/rotation-settings.txt"
+adb shell wm fixed-to-user-rotation >> "validation/$profile/rotation-settings.txt"
+adb shell dumpsys window displays > "validation/$profile/display-before-tests.txt"
 adb shell cmd uimode night "$night"
 for setting in window_animation_scale transition_animation_scale animator_duration_scale; do
   adb shell settings put global "$setting" "$animation_scale"

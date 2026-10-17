@@ -25,8 +25,9 @@ import org.spaceworks.app.ui.BrandLogo
                 BrandLogo(compact=true)
                 Text(text(PaymentStrings.PAYMENT_CHECK_PAYMENT_STATUS),style=MaterialTheme.typography.headlineMedium,
                     modifier=Modifier.semantics {heading()})
-                Text(text(PaymentStrings.PAYMENT_INTERRUPTED_RECOVERY_BODY),
-                    modifier=Modifier.testTag("checkout-recovery-message"))
+                text(PaymentStrings.PAYMENT_INTERRUPTED_RECOVERY_BODY).split("\n\n").forEachIndexed { index, paragraph ->
+                    Text(paragraph,modifier=Modifier.testTag("checkout-recovery-message-$index"))
+                }
                 BrandButton(text(PaymentStrings.PAYMENT_CHECK_PAYMENT_STATUS),onCheckStatus,
                     modifier=Modifier.testTag("checkout-recovery-action"))
             }

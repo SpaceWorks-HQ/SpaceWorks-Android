@@ -118,12 +118,16 @@ private data class GuideTopic(val id: String, val title: MobileCopyKey, val body
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             TextButton(onClick = { expanded = !isExpanded }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("usage-section-${topic.id}").semantics {
                     heading()
                     if (isExpanded) collapse { expanded = false; true } else expand { expanded = true; true }
                 }) {
-                Text(copy(topic.title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                Icon(if (isExpanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, contentDescription = null)
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(copy(topic.title), style = MaterialTheme.typography.labelLarge, modifier = Modifier.fillMaxWidth())
+                    Icon(if (isExpanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, contentDescription = null)
+                }
             }
             if (isExpanded) for ((index, paragraph) in copy(topic.body).split("\n\n").withIndex()) {
                 Text(paragraph, modifier = Modifier.fillMaxWidth().testTag("usage-section-${topic.id}-body-$index"))

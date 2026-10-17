@@ -27,8 +27,8 @@ class CheckoutRecoveryJourneyTest {
             }
         }
         journey.systemBars(DeviceProfile.dark)
-        journey.visible(compose.onNodeWithTag("checkout-recovery-message"))
-            .assertTextEquals("If checkout was interrupted, return to check your payment status.")
+        journey.visible(compose.onNodeWithTag("checkout-recovery-message-0")).assertTextEquals("If checkout was interrupted,")
+        journey.visible(compose.onNodeWithTag("checkout-recovery-message-1")).assertTextEquals("return to check your payment status.")
         assertEquals(0,refreshes)
         journey.clickTag("checkout-recovery-action")
         assertEquals(1,refreshes)

@@ -93,5 +93,5 @@ object PaymentStrings {
     val PAYMENT_DEMO_DELAYED=MobileCopyKey(R.string.payment_demo_delayed,"Confirmation delayed")
     val PAYMENT_DEMO_OFFLINE=MobileCopyKey(R.string.payment_demo_offline,"Offline")
     val PAYMENT_DEMO_UNAVAILABLE=MobileCopyKey(R.string.payment_demo_unavailable,"Payment unavailable")
-    val PAYMENT_INTERRUPTED_RECOVERY_BODY=MobileCopyKey(R.string.payment_interrupted_recovery_body,"If checkout was interrupted, return to check your payment status.")
+    val PAYMENT_INTERRUPTED_RECOVERY_BODY=MobileCopyKey(R.string.payment_interrupted_recovery_body,"If checkout was interrupted,\n\nreturn to check your payment status.")
 }
