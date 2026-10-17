@@ -122,8 +122,18 @@ class PaymentsJourneyTest {
         assertTrue("Full $label action must fit the actual document scroll viewport",actual.width>0 && actual.height>0 &&
             actual.left>=viewport.left && actual.right<=viewport.right && actual.top>=viewport.top && actual.bottom<=viewport.bottom)
     }
+    private fun demoAction(label:String) {
+        val action=journey.visible(compose.onNodeWithText(label)).assertIsEnabled()
+        val viewport=compose.onNodeWithTag("demo-payment-outcome-scroll").fetchSemanticsNode().boundsInRoot
+        val actual=action.fetchSemanticsNode().boundsInRoot
+        assertTrue("Full $label action must fit the actual demo scroll viewport",viewport.width>0 && viewport.height>0 &&
+            actual.width>0 && actual.height>0 && actual.left>=viewport.left && actual.right<=viewport.right &&
+            actual.top>=viewport.top && actual.bottom<=viewport.bottom)
+    }
     @Test fun serverConfirmedPreviewCheckoutOpensNativeReceiptWithoutAnySDKCharge(){
-        val holder=start(largeText=true,configurationBackedDocument=true);openDeposit();shot("a5-payment-review");click("Continue to payment");waitText("Preview checkout");click("Server confirms payment");waitText("Paid online");shot("a5-server-confirmed-payment")
+        val holder=start(largeText=true,configurationBackedDocument=true);openDeposit();shot("a5-payment-review");click("Continue to payment");waitText("Preview checkout")
+        listOf("Server confirms payment","Checkout cancelled","Checkout failed","Confirmation delayed","Offline","Payment unavailable","Keep reviewing").forEach(::demoAction)
+        demoAction("Server confirms payment");shot("a5-demo-checkout-confirm-action");click("Server confirms payment");waitText("Paid online");shot("a5-server-confirmed-payment")
         click("Receipts and credit notes");waitText("Receipt DEMO-RECEIPT-001");journey.click(compose.onNodeWithContentDescription("Open PDF DEMO-RECEIPT-001"));waitText("Save PDF")
         compose.waitUntil(10000){compose.onAllNodesWithContentDescription("DEMO-RECEIPT-001, page 1 of 1").fetchSemanticsNodes().isNotEmpty()}
         val file=holder.state.value.preview!!.file;assertTrue(file.exists())

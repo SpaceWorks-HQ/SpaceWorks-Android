@@ -13,8 +13,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import org.spaceworks.app.platform.*
@@ -48,10 +51,17 @@ import org.spaceworks.app.ui.*
     val row=s.selectedId?.let(holder::record)
     val enabled=hostAvailable && !s.busy && clock>=s.retryAtMillis
     val providerBusy=!demo && nativeState !is NativePaymentState.Idle
-    if(demoCheckout!=null && demo)AlertDialog(onDismissRequest={demoCheckout=null},title={Text(text(PaymentStrings.PAYMENT_PREVIEW_CHECKOUT))},text={Column(Modifier.heightIn(max=420.dp).verticalScroll(rememberScrollState())){
-        Text(text(PaymentStrings.PAYMENT_SAMPLE_PAYMENTS_ONLY_NO_PAYMENT_PROVIDER_OPENS_AND_NO_MONEY))
-        DemoPaymentScenario.entries.forEach{scenario->BrandTextButton(demoPaymentLabel(scenario,text),{val id=demoCheckout;demoCheckout=null;if(id!=null)work.launch{holder.simulate(id,scenario)}})}
-    }},confirmButton={BrandTextButton(text(PaymentStrings.PAYMENT_KEEP_REVIEWING),{demoCheckout=null})})
+    if(demoCheckout!=null && demo)Dialog(onDismissRequest={demoCheckout=null},properties=DialogProperties(usePlatformDefaultWidth=false)) {
+        Surface(Modifier.widthIn(max=560.dp).fillMaxWidth(.94f).fillMaxHeight(.94f),shape=MaterialTheme.shapes.large) {
+            Column(Modifier.testTag("demo-payment-outcome-scroll").verticalScroll(rememberScrollState()).padding(24.dp),
+                verticalArrangement=Arrangement.spacedBy(16.dp)) {
+                Text(text(PaymentStrings.PAYMENT_PREVIEW_CHECKOUT),style=MaterialTheme.typography.titleMedium,modifier=Modifier.semantics{heading()})
+                Text(text(PaymentStrings.PAYMENT_SAMPLE_PAYMENTS_ONLY_NO_PAYMENT_PROVIDER_OPENS_AND_NO_MONEY),style=MaterialTheme.typography.bodyMedium)
+                DemoPaymentScenario.entries.forEach{scenario->BrandTextButton(demoPaymentLabel(scenario,text),{val id=demoCheckout;demoCheckout=null;if(id!=null)work.launch{holder.simulate(id,scenario)}},modifier=Modifier.fillMaxWidth())}
+                BrandTextButton(text(PaymentStrings.PAYMENT_KEEP_REVIEWING),{demoCheckout=null},modifier=Modifier.fillMaxWidth())
+            }
+        }
+    }
     Box(Modifier.fillMaxSize(),contentAlignment=androidx.compose.ui.Alignment.TopCenter){
         Column(Modifier.widthIn(max=800.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
             BrandTextButton(text(PaymentStrings.PAYMENT_BACK),{back()},!s.busy)
