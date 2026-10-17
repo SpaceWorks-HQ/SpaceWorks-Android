@@ -10,6 +10,43 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class NetworkTest {
+    @Test(timeout=15000) fun serviceRetryAfterZeroNeverReplaysHealthOrRefresh() = runBlocking {
+        for (status in listOf(408, 421, 503)) MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(status).setHeader("Retry-After", "0")
+                .setHeader("X-Original", "preserved").setBody("""{"detail":"Wait for the server."}"""))
+            server.enqueue(MockResponse().setBody("""{"status":"ok"}"""))
+            val response = ApiSession(server.url("/")).health.apiV1HealthRetrieve()
+            assertEquals(status, response.code()); assertEquals("0", response.headers()["Retry-After"])
+            assertEquals("preserved", response.headers()["X-Original"])
+            assertEquals("Wait for the server.", Errors.map(response.code(), response.errorBody()?.string()).detail)
+            assertEquals(1, server.requestCount)
+        }
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(503).setHeader("Retry-After", "0")
+                .setBody("""{"detail":"Rotation unavailable."}"""))
+            server.enqueue(MockResponse().setBody("""{"access":"bogus","refresh":"replayed"}"""))
+            val store = MemoryTokenStore().apply { replace(TokenPair("old", "single-use")) }
+            try { ApiSession(server.url("/"), store).coordinator.refresh("old",store.snapshot().epoch); fail("Must fail without replay") }
+            catch (failure: ApiFailure) {
+                assertEquals(503, failure.status); assertEquals(0L, failure.retryAfterSeconds)
+                assertEquals("Rotation unavailable.", failure.detail)
+            }
+            assertEquals(1, server.requestCount); assertNull(store.read())
+        }
+    }
+    @Test(timeout=10000) fun serviceRetryAfterZeroNeverReplaysMutation() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(503).setHeader("Retry-After", "0")
+                .setBody("""{"detail":"Not changed."}"""))
+            server.enqueue(MockResponse().setBody("""{"detail":"Changed twice."}"""))
+            val session = ApiSession(server.url("/"))
+            val response = session.auth.apiV1AuthChangePasswordCreate(
+                org.spaceworks.generated.model.ChangePassword("old-password", "new-password"))
+            assertEquals(503, response.code()); assertEquals("0", response.headers()["Retry-After"])
+            assertEquals(1, server.requestCount)
+            assertEquals("POST", server.takeRequest().method)
+        }
+    }
     @Test fun healthUsesGeneratedClientAndSanitizedHeaders() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody("""{"status":"ok"}"""))
@@ -65,7 +102,7 @@ class NetworkTest {
             server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST))
             val store=MemoryTokenStore().apply {replace(TokenPair("old","single-use-refresh"))}
             val session=ApiSession(server.url("/"),store)
-            try { session.coordinator.refresh("old");fail("Expected disconnection") } catch(_:java.io.IOException) { }
+            try { session.coordinator.refresh("old",store.snapshot().epoch);fail("Expected disconnection") } catch(_:java.io.IOException) { }
             assertEquals(1,server.requestCount)
             assertEquals("/api/v1/auth/device/refresh",server.takeRequest().path)
             assertNull(store.read())
@@ -75,6 +112,12 @@ class NetworkTest {
         assertEquals("Maintenance",Errors.map(503,"""{"detail":"Maintenance"}""").detail)
         assertEquals("email: Enter a valid email.",Errors.map(400,"""{"email":["Enter a valid email."]}""").detail)
         assertEquals("Check the details and try again.",Errors.map(400,"bad json").detail)
+    }
+    @Test fun customAnswerErrorsKeepNestedPathsAndRespectDetailAndSpecialCodes() {
+        val fields="""{"custom_answers":{"voltage":["Enter a number.","Use a whole number."],"safety":"Answer this question."}}"""
+        assertEquals("custom_answers.voltage: Enter a number. Use a whole number.\ncustom_answers.safety: Answer this question.",Errors.map(400,fields).detail)
+        assertEquals("Review the form.",Errors.map(400,"""{"detail":"Review the form.","custom_answers":{"voltage":["Enter a number."]}}""").detail)
+        assertEquals("Use the web console",Errors.map(400,"""{"code":"device_superadmin_not_supported","detail":"Review the form.","custom_answers":{"voltage":"Invalid"}}""").detail)
     }
     @Test fun addressAndPaginationRejectCredentialLeaks() {
         assertEquals("https://example.org/",ServerAddress.parse("https://example.org",false).toString())
@@ -93,9 +136,9 @@ class NetworkTest {
         val release=CompletableDeferred<Unit>()
         var calls=0
         val coordinator=RefreshCoordinator(store){calls++;started.complete(Unit);release.await();TokenPair("b","s")}
-        val caller=launch {coordinator.refresh("a")}
+        val caller=launch {coordinator.refresh("a",store.snapshot().epoch)}
         started.await();caller.cancel();release.complete(Unit);caller.join()
         assertEquals(TokenPair("b","s"),store.read())
-        assertEquals(TokenPair("b","s"),coordinator.refresh("a"));assertEquals(1,calls)
+        assertEquals(TokenPair("b","s"),coordinator.refresh("a",store.snapshot().epoch));assertEquals(1,calls)
     }
 }

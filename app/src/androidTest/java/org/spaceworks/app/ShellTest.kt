@@ -1,36 +1,107 @@
 package org.spaceworks.app
+
+import android.graphics.Bitmap
 import androidx.compose.ui.test.*
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
 import org.junit.Test
+import java.io.File
+
 class ShellTest {
     @get:Rule val compose=createComposeRule()
+    private fun screenshot(name:String) {DeviceWindowGuard.awaitClear();
+        val dir=InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("validation")!!
+        dir.mkdirs();File(dir,"$name.png").outputStream().use {compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it)}
+        val full=requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
+        try {File(dir,"$name-screen.png").outputStream().use {full.compress(Bitmap.CompressFormat.PNG,100,it)}}finally {full.recycle()}
+    }
+    private fun waitText(text:String) {DeviceWindowGuard.awaitClear();try {compose.waitUntil(10000){compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()}}catch(f:Throwable){screenshot("shell-failure-${text.filter(Char::isLetterOrDigit).take(30)}");throw f}}
+    private fun enterDemo() {
+        DeviceWindowGuard.awaitClear()
+        compose.setContent {SpaceWorksApp(ConnectionStateHolder("",false,true,{},{}), appearance = DeviceProfile.appearance())}
+        DeviceWindowGuard.awaitClear()
+        compose.onNodeWithText("Explore demo").performScrollTo().performClick()
+        waitText("Email or username")
+    }
     @Test fun invalidConnectionRemainsAccessibleAtLargeFontScale() {
         val holder=ConnectionStateHolder("",false,false,{}, {})
-        compose.setContent { val density=LocalDensity.current; CompositionLocalProvider(LocalDensity provides Density(density.density,2f)) {SpaceWorksApp(holder)} }
+        DeviceWindowGuard.awaitClear()
+        compose.setContent { val density=LocalDensity.current; CompositionLocalProvider(LocalDensity provides Density(density.density,2f)) {SpaceWorksApp(holder, appearance = DeviceProfile.appearance(initialDark = false))} }
+        DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("Dark mode").assertIsDisplayed().performClick()
+        DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("Light mode").assertIsDisplayed()
+        DeviceWindowGuard.awaitClear()
         compose.onNodeWithTag("serverUrl").performTextInput("http://example.org")
-        compose.onNodeWithText("Connect",useUnmergedTree=true).performScrollTo().performClick()
-        compose.onNodeWithTag("connectionError").performScrollTo().assertIsDisplayed()
+        DeviceWindowGuard.awaitClear()
+        // Use the real keyboard Done action while the IME occupies the large-font viewport.
+        compose.onNodeWithTag("serverUrl").performImeAction()
+        waitText("Enter a valid HTTPS server URL.")
+        DeviceWindowGuard.awaitClear()
+        compose.waitUntil(5000) {
+            DeviceWindowGuard.awaitClear()
+            compose.onNodeWithTag("connectionError").performScrollTo()
+            try {compose.onNodeWithTag("connectionError").assertIsDisplayed();true}catch(_:AssertionError){false}
+        }
+        compose.onNodeWithText("Connect",useUnmergedTree=true).performScrollTo().assertIsDisplayed().assertIsEnabled()
+        screenshot("a1-server-error-dark-font2")
+        DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("Sign in").assertDoesNotExist()
     }
-    @Test fun connectAndNavigateEmptyShell() {
-        val holder=ConnectionStateHolder("",false,true,{}, {})
-        compose.setContent {SpaceWorksApp(holder)}
-        compose.onNodeWithText("Connect to your Space Works server").assertIsDisplayed()
-        compose.onNodeWithTag("serverUrl").performTextInput("https://example.org")
-        compose.onNodeWithText("Connect",useUnmergedTree=true).performClick()
-        compose.onNodeWithText("Sign-in will be available in the next phase.").assertIsDisplayed()
-        listOf("Inventory","Activity","Inbox","Profile").forEach {tab ->
-            compose.onNodeWithText(tab).performClick()
-            compose.onNodeWithText("Nothing here yet.").assertIsDisplayed()
-        }
-        compose.onNodeWithText("Staff").assertDoesNotExist()
-        compose.onNodeWithText("Dark mode").performClick()
-        compose.onNodeWithText("Light mode").assertIsDisplayed()
+    @Test fun demoSignInSelectMakerspaceNavigateAndSignOut() {
+        enterDemo();screenshot("a1-sign-in")
+        DeviceWindowGuard.awaitClear()
+        compose.onNodeWithTag("submitSignIn").performScrollTo().performClick()
+        waitText("Choose your makerspace");screenshot("a1-makerspace-picker")
+        DeviceWindowGuard.awaitClear()
+        compose.onNodeWithText("Fab Lab Kochi").performClick()
+        DeviceWindowGuard.awaitClear()
+        compose.onNodeWithText("Continue").performScrollTo().performClick()
+        waitText("Welcome back, Meera Nair.");screenshot("a1-home")
+        DeviceWindowGuard.awaitClear()
+        compose.onNodeWithText("Profile",useUnmergedTree=true).performClick()
+        DeviceWindowGuard.awaitClear()
+        compose.onNodeWithText("Sign out").performScrollTo().performClick()
+        DeviceWindowGuard.awaitClear()
+        compose.onAllNodesWithText("Sign out").onLast().performClick()
+        waitText("Email or username")
+        DeviceWindowGuard.awaitClear()
+        compose.onNodeWithText("Signed out.").assertExists()
+        DeviceWindowGuard.awaitClear()
+        compose.onNodeWithText("Exit demo").performClick()
+        DeviceWindowGuard.awaitClear()
+        compose.onNodeWithText("Connect to your makerspace").assertExists()
+    }
+    @Test fun demoMfaEnrollmentRequiresRecoveryAcknowledgement() {
+        enterDemo()
+        DeviceWindowGuard.awaitClear()
+        compose.onNodeWithText("Demo scenarios").performScrollTo().performClick()
+        DeviceWindowGuard.awaitClear()
+        compose.onNodeWithText("Enrollment").performScrollTo().performClick()
+        DeviceWindowGuard.awaitClear()
+        compose.onNodeWithTag("submitSignIn").performScrollTo().performClick()
+        waitText("Show setup code")
+        DeviceWindowGuard.awaitClear()
+        compose.onNodeWithText("Show setup code").performScrollTo().performClick()
+        waitText("Authentication code")
+        screenshot("a1-mfa-enrollment")
+        DeviceWindowGuard.awaitClear()
+        val journey=NativeJourney(compose,"shell-mfa")
+        journey.replace(compose.onNodeWithTag("mfaCode"),"123456")
+        DeviceWindowGuard.awaitClear()
+        journey.clickText("Verify and continue")
+        waitText("Save your recovery codes");screenshot("a1-recovery")
+        DeviceWindowGuard.awaitClear()
+        compose.onNodeWithText("Choose your makerspace").assertDoesNotExist()
+        DeviceWindowGuard.awaitClear()
+        compose.onNodeWithContentDescription("I've saved my recovery codes").performScrollTo().performClick()
+        DeviceWindowGuard.awaitClear()
+        compose.onNodeWithText("Continue").performScrollTo().performClick()
+        waitText("Choose your makerspace")
     }
 }

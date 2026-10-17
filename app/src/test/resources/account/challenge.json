@@ -1,0 +1,6 @@
+{
+  "challenge": "demo-account-challenge",
+  "enrollment_required": true,
+  "expires_in": 300,
+  "mfa_required": true
+}

@@ -1,0 +1,3 @@
+# Unbounded native font provenance
+
+`app/src/main/res/font/unbounded.ttf` was converted without outlines/name/glyph changes from `design/fonts/Unbounded-Variable.woff2`, pinned design commit fd28f825086a2cac7fa297881f1860b9d332db69. Isolated build tooling: fontTools 4.67.0, WOFF2 decompression only; wght 200–900. TTF SHA256 87526b420190c9008a880bbf1780ab8c1563d55abb772a9cc6ed7e7b81306c3d. The bundled SIL OFL permits app embedding. Use weight500–600 for a short brand accent phrase only; platform Roboto remains body/UI pending Gilroy app-embedding clearance.

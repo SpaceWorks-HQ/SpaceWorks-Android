@@ -1,0 +1,23 @@
+{
+  "allowed_actions": [
+    "view",
+    "contents",
+    "record_scan"
+  ],
+  "qr": {
+    "created_at": "2026-10-16T09:00:00Z",
+    "id": 1201,
+    "makerspace": 7,
+    "payload": "DEMO-BOX",
+    "revoked_at": null,
+    "status": "active",
+    "target_id": 91,
+    "target_type": "box",
+    "updated_at": "2026-10-16T09:00:00Z"
+  },
+  "target": {
+    "type": "box",
+    "id": 91,
+    "label": "Sample kit box"
+  }
+}

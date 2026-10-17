@@ -9,3 +9,6 @@ google-services.json
 *.p8
 /.local/
 /.kotlin/
+/validation/
+__pycache__/
+*.pyc

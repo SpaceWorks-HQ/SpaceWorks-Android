@@ -17,3 +17,21 @@
 6. Secrets: none in the repo, ever. No analytics or third-party SDKs beyond §6 without asking.
 7. Accessibility and dark mode are part of "done" in every phase, not a final polish pass.
 
+## Branch delivery workflow
+
+The owner merged the A0 foundation and requested this workflow on 2026-10-16:
+
+- Start ongoing work from `dev`, commit there, and push to `origin/dev`.
+- Finish the phase's implementation and validation before opening its final `dev` → `main` pull request.
+- Keep `main` for reviewed merges. Preserve the owner's configured commit identity and the required Codex co-author trailer.
+
+
+## Owner execution extension — 2026-10-16
+
+The owner's latest complete-build instruction extends the original PRD: implement remaining phases on `dev`, commit and push tested progress there, and prepare the final `dev` → `main` PR after the batch. Intermediate merge gates are superseded; green CI remains mandatory before proceeding between phases. Phone AND tablet layouts are now in scope, including 320/360dp phones, common/large phones, 600/840dp tablets, portrait/landscape, light/dark and 2× font scale. Keep `docs/PRD.md` byte-identical to its owner source; record extensions here and in `docs/IMPLEMENTATION-PLAN.md`. Preserve Shaan's GitHub identity plus the Codex co-author trailer. Use the local Docker API for integration, contract/generated models only, no backend implementation edits or provider/attestation bypasses. Document precise backend-request issues for unavailable native capabilities; continue independent supported work.
+
+Owner backend deferment: complete and test the full native flow using an explicit DEBUG-only, isolated in-memory demo. The backend will be supplied later. Never infer live success or invent production routes/models; missing native contract/provider configuration stays visibly unavailable outside demo.
+
+Owner UX extension: implement the shared `docs/mobile-auth-ux-spec.md`, first-use introduction/replay, branded native auth and full-app usage guidance. Keep master logos static, generate motion from `tokens/mobile-motion.json`, respect system reduced motion and native autofill, and exercise all sign-in methods in explicitly labelled DEBUG previews when the production native contract is unavailable. Authenticated account/security management remains A7. Green CI, scalable phone/tablet layouts and screenshot review apply to this checkpoint as to every phase.
+
+Owner repository boundary correction: keep app-specific UX specifications, motion JSON and implementation artifacts inside this mobile repository. The Design submodule stays pinned to the original brand baseline `fd28f825086a2cac7fa297881f1860b9d332db69`; do not push app-specific additions to the Design repository. Shared brand masters/tokens are consumed unchanged.

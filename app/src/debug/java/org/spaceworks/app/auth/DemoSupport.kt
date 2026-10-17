@@ -1,0 +1,95 @@
+package org.spaceworks.app.auth
+
+import org.spaceworks.app.platform.MobileText
+import org.spaceworks.app.account.*
+
+import kotlinx.coroutines.delay
+import kotlinx.serialization.json.*
+import org.spaceworks.app.network.*
+import org.spaceworks.generated.model.*
+
+object DemoSupport {
+    fun create(text:MobileText=MobileText.ENGLISH,paymentFiles:org.spaceworks.app.payments.PaymentFileStore?=null,context:android.content.Context?=null,management:AccountManagementCoordinator?=null):AuthBundle {
+        val copyText=text
+        val accountCoordinator=management?:AccountManagementCoordinator(
+            {copy->context?.resources?.accountText(copy)?:copy.english},copyText)
+        var runtime:NativeAccountRuntime?=null
+        var accounts:AccountStateHolder?=null
+        val tokens=MemoryTokenStore()
+        val gateway=DemoAuthGateway()
+        var clearPrivate:()->Unit={}
+        var clearScope:()->Unit={}
+        val holder=AuthStateHolder(gateway,tokens,onSessionEnded={clearPrivate()},onScopeChanged={clearScope()},text=copyText)
+        val workspace=org.spaceworks.app.actions.DemoMemberWorkspace(initialProfile={gateway.previewProfile()})
+        val member=org.spaceworks.app.member.MemberStateHolder(workspace,onUnauthorized={holder.foreground()},text=copyText)
+        val actions=org.spaceworks.app.actions.MemberActionsStateHolder(workspace,member,onUnauthorized={holder.foreground()},onProfileSaved={gateway.updatePreviewProfile(it);holder.foreground()},capabilities=workspace,text=copyText)
+        var staff:org.spaceworks.app.staff.StaffStateHolder?=null
+        val push=org.spaceworks.app.notifications.DemoPushSupport.create(text=copyText)
+        val links=org.spaceworks.app.notifications.DemoPushSupport.links(holder,text=copyText,beforeSelect={if(staff?.protectsNavigation==true || accountCoordinator.protectsNavigation())throw kotlinx.coroutines.CancellationException()})
+        val payments=org.spaceworks.app.payments.PaymentsStateHolder(org.spaceworks.app.payments.DemoPaymentsGateway(),
+            paymentFiles?:org.spaceworks.app.payments.PaymentFileStore {_,_->throw org.spaceworks.app.platform.MobileCopyException(org.spaceworks.app.platform.DocumentStrings.DOCUMENT_PREPARE_FAILED)},text=copyText)
+        val staffApi=context?.applicationContext?.let {org.spaceworks.app.staff.DemoStaffGateway(it)}
+        val staffAuthority=org.spaceworks.app.staff.StaffAuthorizer {scope,action->
+            val identity=holder.state.value
+            identity.user?.username=="staff.demo" && identity.selected?.id==scope.id && identity.selected?.slug==scope.slug &&
+                staffApi?.authority?.allows(scope,action)==true
+        }
+        staff=staffApi?.let {org.spaceworks.app.staff.StaffStateHolder(it,staffAuthority,it.uploads,text=copyText)}
+        clearScope={runtime?.let(accountCoordinator::scopeChanged);staff?.clear();member.clear();actions.clear();payments.clear()}
+        clearPrivate={accounts?.clear();runtime?.let(accountCoordinator::sessionEnded);staff?.resetAccount();clearScope();links.clear();push.holder.pause()}
+        gateway.beforeSignOut={push.holder.disable(forgetConsent=false)}
+        accounts=AccountStateHolder(gateway,{true},{holder.foreground()},text=copyText)
+        runtime=NativeAccountRuntime("https://demo.invalid/",tokens,{holder.acceptedInstallationEpoch},
+            {holder.state.value.user?.id?.toString()},
+            {holder.state.value.selected?.let {org.spaceworks.app.member.MemberScope(it.id,it.slug)}},
+            holder::endLocalSession,holder::foreground,holder::dropConfirmedMembership)
+        val bundle=AuthBundle(holder,tokens,true,accounts,DemoAuthFlow(holder,text=copyText),member,actions,origin="https://demo.invalid/",push=push.holder,links=links,pushConfigured=true,sessionEpoch={tokens.snapshot().epoch},pushPreview=push.control,payments=payments,staff=staff,
+            staffAvailable={staff!=null && holder.state.value.user?.username=="staff.demo" && holder.state.value.selected!=null},management=accountCoordinator,
+            deletionPreview={ids->DemoDeletionPreview(ids,{id->holder.state.value.memberships.firstOrNull {it.id==id}?.slug?.let {org.spaceworks.app.ui.makerspaceLabel(it)}},
+                {id->staff!=null && holder.state.value.user?.username=="staff.demo" && holder.state.value.selectedId==id})})
+        accountCoordinator.register(bundle,requireNotNull(runtime)) {DemoAccountGateway()}
+        accountCoordinator.show(bundle)
+        return bundle
+    }
+}
+class DemoAuthGateway:AuthGateway {
+    var beforeSignOut:suspend()->Unit={}
+    private var username="meera.demo"
+    private val profileNames=mutableMapOf<String,String>()
+    fun updatePreviewProfile(value:org.spaceworks.app.actions.ActionProfile){profileNames[username]=value.displayName.orEmpty()}
+    fun previewProfile():org.spaceworks.app.actions.ActionProfile {val name=profileNames[username]?:registrations[username]?:if(username.contains("staff"))"Arjun Rao"else"Meera Nair";return org.spaceworks.app.actions.ActionProfile(name,name.substringBefore(" "),name.substringAfter(" ",""),"")}
+    private var verified=false
+    private var passwordChanged=false
+    private val registrations=mutableMapOf<String,String>()
+    override suspend fun config()=PublicConfig(true,10485760,passwordLogin=mapOf("enabled" to JsonPrimitive(true)))
+    override suspend fun login(username:String,password:String):DeviceLoginResult {
+        delay(350);this.username=username
+        when {
+            username.contains("offline") -> throw java.io.IOException("Preview network failure")
+            username.contains("throttle") -> throw ApiFailure(429,"Too many requests. Try again later.","throttled",5)
+            password=="incorrect" -> throw ApiFailure(401,"Check your email or username and password.","invalid_credentials",null)
+            username.contains("mfa") || username.contains("enroll") || username.contains("expired") -> return DeviceLoginResult.MFAChallengeResponseValue(MFAChallengeResponse(true,username.contains("enroll"),"demo-first-factor-proof-only",if(username.contains("expired"))0 else 300))
+        }
+        return DeviceLoginResult.DeviceTokenResponseValue(DeviceTokenResponse("demo-access","demo-refresh",emptyMap(),grant()))
+    }
+    override suspend fun enroll(challenge:String)=MFAEnrollment("JBSWY3DPEHPK3PXP","otpauth://totp/Space%20Works:demo?secret=JBSWY3DPEHPK3PXP&issuer=Space%20Works","data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAcIAAAHCAQAAAABUY/ToAAAENElEQVR4nO1cbW6jMBAdD0j5CVIO0KOQm1V7pL0BHKUHWAl+VnI0q/GMCbRCbiBtipknFQj4qSE8zZfHOIJ16HAlEcCYKWByxBKMmQImRyzBmClgcsQSjJkCJkcswZgpYHLEEoyZ4y/kFCVAV1+dbGAoQTYdX4Ahjro8+duuAa5iMYyZQim7puXtcAbX9CBhtoPKA3SXgo96PlN4vRBgv20KeDDmEO0LmyD3+nYiaHo2RozmrYRwVUzV87/t/cAVHIExUyg/nRlKoK4ueNMTBBPUvXggGObj7LdNAQ/KpLby4F77K5ulKwdFzlE7Wqlv+Z9fB94xdg5jfr8dqjgICpYmRNKspu5yItfwed4EtzYtSNpTSQEPwixl10nkU3BMffaO42c+Ao6zvWv+njmcjuHR874tGvPXaohuJzT2Yb1U7yyaq4sf59Mi9jxTwIMwgRjQhF1fzGTCuX3TF0Qt3DbKoHZf94nG/GYNUVuFnYcglSApaPgj9WGI/8ywp5ICHoQJoohgghrWi5gbNkEQ1aTiCjLjYmM4ZxrKTAm4MR5y/EfdC7HzOvPHE8Ug+lpC06qTcxwUWZ06SyXg1ngoQO2QHk0dGqkvU3tldihDJeDWvKy7FB7YDoW5MSdHQ83X1ASpziRXe9a3RWP+5ngIJAcLhkdSsjEeAv6oWVvI1cwOfQl4vNwegt+65fEjQK5Klm95WaZKwM2+zLG3Gs5j6Mx2aajDOR+uAs/DhgYQJ40i+7pPNOZPxNQ0z94lsIZqlvlruchy+68ADxYPUcy8gpB4E6MgiLladGgWD2WpBNxuhwoWTZSP5vZe5zrYDoW6o1QbzQ7lqAR8RF5G7cShRUlRrF3LaHFo5ssyVAJuZlYxo+e+Vy0DDY5n67UlTf0bR9zWk5+zElaAxKqIpSk+WiRQJ+encZPVh3JUAq5mwqQONLqxiXyasfjIrk39m/myDJWA23s//HSWLFyQILrX3o+YnJkdylQJuLlO3WthWszNmI3BmJzNHJrVh/JTAm7XEMT5slhK1PCIYqVI5j+sfyhXJeB2ZqETqgznXnT6zIUFQiwu99rzhVonzXZ7n3cD76cceY3iIM0eHrqL4wmynjs+CpJVH13N3WfVP0d7vE805o/kZQxtRJMWDz/G2RpJa7TEA60XNgk8YB8jxLYPuSAuq9JW6hgt2XxZpkrAh60NIu2FHRd39NNI2upD+SoBH5aXURCSVIVuNmccPdYAzJflpgR8HLOrb2nau77N6rZo6E9t82X7ep5PYVac0YfXV7nTuPaVc3vieVjryd/b83zOez+8rirr65jHy6L70ClbkK0vy1IJ+LC8DGReQ5Z0+EkjmvUxZq4EfNh7PwiA3/shR0Xs/Zic06O93ScaMwFMDViEMVPA5IglGDMFTI5YgjFTwOSIJRgzBUyOWIIxU1j/C/0HRAdYqSwb7u4AAAAASUVORK5CYII=")
+    override suspend fun verify(challenge:String,code:String,enrollment:Boolean):MFACompleted {
+        delay(250)
+        if(code!="123456" && code!="DEMO-001-ABCD") throw ApiFailure(400,"Check the code and try again.","invalid_code",null)
+        return MFACompleted(me(),"demo-access","device",refresh="demo-refresh",deviceGrant=mapOf("id" to JsonPrimitive("00000000-0000-0000-0000-000000000001")),recoveryCodes=if(enrollment) listOf("DEMO-001-ABCD","DEMO-002-EFGH","DEMO-003-IJKL") else null)
+    }
+    override suspend fun me():AuthUserPayload=AuthUserPayload(
+        id=1,username=username,email="meera@example.invalid",displayName=profileNames[username] ?: registrations[username] ?: if(username.contains("staff")) "Arjun Rao" else "Meera Nair",
+        phone="",emailVerified=!username.contains("unverified") || verified,role="member",isSuperuser=username.contains("superadmin"),mustChangePassword=username.contains("temporary") && !passwordChanged,
+        makerspaces=if(username.contains("empty") || registrations.containsKey(username))emptyList() else if(username.contains("single"))listOf(membership(1,"fab-lab-kochi")) else listOf(membership(1,"fab-lab-kochi"),membership(2,"maker-space-bengaluru")))
+    override suspend fun forgotPassword(email:String):String {if(email.contains("unavailable"))throw ApiFailure(503,"Recovery unavailable","recovery_unavailable",null);return "If the details are valid, a verification email has been sent."}
+    override suspend fun resetPassword(email:String,code:String,replacement:String):String {if(code!="123456")throw ApiFailure(400,"This account does not exist.",null,null);return "Password updated."}
+    override suspend fun signUp(name:String,email:String,password:String,phone:String):String {registrations[email]=name;return "Account created"}
+    override suspend fun confirmEmail(code:String):String {if(code!="123456")throw ApiFailure(400,"Invalid verification code.",null,null);verified=true;return "Your email is verified."}
+    override suspend fun resendEmail()="If the details are valid, a verification email has been sent."
+    override suspend fun logout() {beforeSignOut();delay(100);profileNames.clear()}
+    override suspend fun changePassword(current:String,replacement:String) {delay(200);passwordChanged=true}
+    private fun membership(id:Int,slug:String)=AuthMembership(id,slug,"member",1,"Member","member",AuthMembershipSourceEnum.membership,emptyList(),false,false,false,false,null,false)
+    private fun grant()=DeviceGrant(java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"),"android","org.spaceworks.app","development","active",java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"),java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"),java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"))
+}
+
