@@ -69,11 +69,21 @@ class PaymentsJourneyTest {
         assertNull(session.payments!!.state.value.selectedId);assertEquals(0,launches.get());shot("a5-app-maker-payment-isolation")
     }
 
+    private fun documentAction(label:String) {
+        val action=journey.visible(compose.onNodeWithText(label)).assertIsEnabled()
+        val viewport=action.onAncestors().filter(hasScrollAction()).onFirst().fetchSemanticsNode().boundsInRoot
+        val actual=action.fetchSemanticsNode().boundsInRoot
+        assertTrue("Full $label action must fit the actual document scroll viewport",actual.width>0 && actual.height>0 &&
+            actual.left>=viewport.left && actual.right<=viewport.right && actual.top>=viewport.top && actual.bottom<=viewport.bottom)
+    }
     @Test fun serverConfirmedPreviewCheckoutOpensNativeReceiptWithoutAnySDKCharge(){
-        val holder=start();openDeposit();shot("a5-payment-review");click("Continue to payment");waitText("Preview checkout");click("Server confirms payment");waitText("Paid online");shot("a5-server-confirmed-payment")
+        val holder=start(largeText=true);openDeposit();shot("a5-payment-review");click("Continue to payment");waitText("Preview checkout");click("Server confirms payment");waitText("Paid online");shot("a5-server-confirmed-payment")
         click("Receipts and credit notes");waitText("Receipt DEMO-RECEIPT-001");journey.click(compose.onNodeWithContentDescription("Open PDF DEMO-RECEIPT-001"));waitText("Save PDF")
         compose.waitUntil(10000){compose.onAllNodesWithContentDescription("DEMO-RECEIPT-001, page 1 of 1").fetchSemanticsNodes().isNotEmpty()}
-        val file=holder.state.value.preview!!.file;assertTrue(file.exists());shot("a5-native-pdf-receipt");click("Done");compose.waitForIdle();assertNull(holder.state.value.preview);assertFalse(file.exists());assertEquals(0,launches.get())
+        val file=holder.state.value.preview!!.file;assertTrue(file.exists());shot("a5-native-pdf-receipt")
+        documentAction("Save PDF");shot("a5-native-pdf-save-action")
+        documentAction("Share document");shot("a5-native-pdf-share-action")
+        documentAction("Done");shot("a5-native-pdf-done-action");click("Done");compose.waitForIdle();assertNull(holder.state.value.preview);assertFalse(file.exists());assertEquals(0,launches.get())
     }
     @Test fun delayedConfirmationStaysPendingUntilALaterServerRefresh(){
         val holder=start();openDeposit();click("Continue to payment");click("Confirmation delayed");waitText("Your payment is awaiting server confirmation. Check its status again shortly.")
@@ -83,6 +93,6 @@ class PaymentsJourneyTest {
     @Test fun cancelledAndFailedCheckoutAreReadableAtLargestTextInDarkMode(){
         val holder=start(dark=true,largeText=true);openDeposit();click("Continue to payment");click("Checkout cancelled");waitText("Checkout closed. Check the current payment status before trying again.")
         assertEquals("pending",holder.record("501")!!.status);click("Continue to payment");click("Checkout failed");waitText("Checkout could not finish. Check the payment status and try again.")
-        assertEquals("pending",holder.record("501")!!.status);assertFalse(holder.state.value.busy);shot("a5-payment-failed-dark-large-text");assertEquals(0,launches.get())
+        assertEquals("pending",holder.record("501")!!.status);assertFalse(holder.state.value.busy);journey.visible(compose.onNodeWithText("Check payment status")).assertIsEnabled();shot("a5-payment-failed-dark-large-text");assertEquals(0,launches.get())
     }
 }

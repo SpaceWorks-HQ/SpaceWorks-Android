@@ -4,7 +4,7 @@ Native Kotlin/Compose app for Android 8+ (API 26), targeting API 36, for phones 
 
 ## Development workflow
 
-Use `dev` for ongoing changes and push commits to `origin/dev`. After implementation and CI validation finish, open the final pull request from `dev` to `main`. The A0 foundation is already merged into `main`.
+Consolidate ongoing mobile changes on `dev` and push tested commits to `origin/dev`. Do not create feature branches or pull requests. After exact-source CI, the full device matrix and actual screenshot review pass, merge tested `dev` directly to `main`.
 
 ## Build
 
@@ -22,7 +22,7 @@ Open this repository in Android Studio and run `app`. Choose a server on launch 
 
 The backend and owner provisioning are deferred. Unsupported native contracts remain unavailable; see [backend dependencies](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/issues/3). Real integrity, providers, push, checkout, account deletion and store distribution require the deployment inputs and verification in the release guide. The Debug APK can be installed for development and the isolated preview. Play distribution uses an owner-signed release build; CI release outputs are unsigned.
 
-Gradle regenerates native semantic colors and branding from the pinned Design submodule, motion from local `tokens/mobile-motion.json`, and the API client from the [contract](api/README.md). Generated sources stay out of Git. Never replace the pinned schema with a local server's schema or hand-write API payload models. See [WHITE-LABEL.md](docs/WHITE-LABEL.md) for configuration. Space Works uses static logo masters, native system text and licensed Unbounded accent text. Gilroy is not embedded without app-embedding permission. Never commit signing material, provider secrets or test credentials.
+Gradle regenerates native semantic colors and branding from the pinned Design submodule, motion from local `tokens/mobile-motion.json`, and the API client from the [contract](api/README.md). Generated sources stay out of Git. Never replace the pinned schema with a local server's schema or hand-write API payload models. See [WHITE-LABEL.md](docs/WHITE-LABEL.md) for configuration. Space Works uses static logo masters, supplied Gilroy native text and one short Unbounded accent per layout; font provenance and license metadata are retained in `docs/licenses/`. Never commit signing material, provider secrets or test credentials.
 
 ## Use and review the app
 
@@ -33,6 +33,6 @@ guidance appears only in an authorized staff context. See [USER-GUIDE.md](docs/U
 Prepared store copy, screenshot selection and private reviewer-access notes are in
 [STORE-LISTING.md](docs/STORE-LISTING.md).
 
-Build and device evidence is linked from the [dev → main pull request](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/pull/2).
+Record the final tested commit, successful dev-push/full-matrix runs and reviewed artifacts in the release handoff before merging to `main`. [PR #2](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/pull/2) is historical A8 evidence, not final proof of later changes.
 Keep simulator/demo checks separate from live provider and physical-device acceptance; the
 [release handoff](docs/RELEASE-READINESS.md) records those deployment inputs.

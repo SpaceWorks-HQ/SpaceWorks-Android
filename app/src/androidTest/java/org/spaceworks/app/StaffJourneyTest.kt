@@ -91,7 +91,15 @@ class StaffJourneyTest {
         replace("staff-product-901","1");tag("staff-handover-next");photoAndConfirm();waitText("Issue #702 recorded");assertEquals(StaffHandoverMode.DIRECT_ISSUE,holder.state.value.handover!!.mode);shot("a6-direct-receipt")
     }
     @Test fun checkInRequiresConfirmationAndBookingApprovalIsReadableInLargeDarkLayout(){
-        val holder=start(dark=true,large=true);tag("staff-tab-events");waitText("Sample repair workshop");tag("staff-event-801");tag("staff-checkin-code-demo");waitText("Confirm attendance")
+        val holder=start(dark=true,large=true);tag("staff-tab-events");waitText("Sample repair workshop");tag("staff-event-801")
+        val sample=journey.visible(compose.onNodeWithTag("staff-checkin-code-demo")).assertIsEnabled()
+        val label=compose.onNodeWithText("Use sample code",useUnmergedTree=true)
+        label.assertIsDisplayed()
+        val actionBounds=sample.fetchSemanticsNode().boundsInRoot;val labelBounds=label.fetchSemanticsNode().boundsInRoot
+        assertTrue("Whole sample-code label must fit its action",labelBounds.left>=actionBounds.left && labelBounds.right<=actionBounds.right && labelBounds.top>=actionBounds.top && labelBounds.bottom<=actionBounds.bottom)
+        // Full-OS review verifies the rendered leading glyphs against the actual native corner clip.
+        shot("a6-checkin-code-action-large")
+        tag("staff-checkin-code-demo");waitText("Confirm attendance")
         compose.onAllNodesWithTag("staff-attendance-receipt").assertCountEquals(0);assertNotNull(holder.state.value.person);shot("a6-checkin-review-dark-large")
         tag("staff-checkin-confirm");waitText("Confirm attendance?");tag("staff-confirm-action");waitText("Attendance recorded for Meera Nair.");shot("a6-attendance-receipt")
         click("Back");tag("staff-tab-spaces");waitText("Sample project room");tag("staff-space-901");tag("staff-booking-approve-1001");waitText("Approve booking?");tag("staff-confirm-action");waitText("Booking approved.")

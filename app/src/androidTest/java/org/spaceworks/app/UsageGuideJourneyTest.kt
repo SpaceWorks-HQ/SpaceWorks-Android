@@ -9,6 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
@@ -66,6 +68,16 @@ class UsageGuideJourneyTest {
         journey.shot("a8-usage-start-here-reset")
     }
 
+    private fun assertWordBoundaries(node: SemanticsNodeInteraction) {
+        val text=node.fetchSemanticsNode().config[SemanticsProperties.Text].single().text
+        val layouts=mutableListOf<TextLayoutResult>()
+        node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) {it(layouts)}
+        val layout=layouts.single()
+        for(line in 0 until layout.lineCount-1) {
+            val end=layout.getLineEnd(line,visibleEnd=true)
+            assertTrue("Guide text must wrap between complete words: $text",end>=text.length || text[end].isWhitespace() || (end>0 && text[end-1].isWhitespace()))
+        }
+    }
     @Test fun guideRemainsReadableAndActionsReachableAtLargestTextWithoutStartingAnotherFlow() {
         var replayed = 0; var reset = 0; var back = 0
         var reducedMotion by mutableStateOf(false)
@@ -85,6 +97,7 @@ class UsageGuideJourneyTest {
             .assertTextEquals("Search Inventory or choose a category.")
         journey.visible(compose.onNodeWithTag("usage-section-inventory-body-5"))
             .assertTextEquals("Use its renewal action when available.")
+        assertWordBoundaries(compose.onNodeWithTag("usage-section-inventory-body-5"))
         journey.shot("a8-usage-inventory-large-text")
         journey.click(inventory)
         inventory.assert(SemanticsMatcher.keyIsDefined(SemanticsActions.Expand))
@@ -100,6 +113,7 @@ class UsageGuideJourneyTest {
         journey.clickTag("usage-reset-tips"); assertEquals(1, reset)
         journey.visible(compose.onNodeWithTag("usage-reset-notice"))
             .assertTextEquals("Tips reset for this account and makerspace.")
+        assertWordBoundaries(compose.onNodeWithTag("usage-reset-notice"))
         journey.shot("a8-usage-guide-large-text")
         journey.clickTag("usage-guide-back"); assertEquals(1, back)
     }

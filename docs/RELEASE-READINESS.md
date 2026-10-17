@@ -2,7 +2,8 @@
 
 Prepared 16 October 2026. This procedure is not a claim of store submission. Phase implementation
 and passing checks are recorded in `docs/CHANGELOG.md`. The owner requested phones/tablets and
-deferred backend setup; work stays on `dev` until final review of the `dev` to `main` pull request.
+deferred backend setup. The owner now requires all mobile work consolidated on `dev`, exact-source
+checks and artifact/visual review, then a direct tested `dev` to `main` merge without a new pull request.
 
 ## Reproduce the app
 
@@ -164,9 +165,11 @@ Record distribution evidence after owner provisioning; do not put credentials in
 
 | Evidence | Value |
 |---|---|
-| Accepted app / Design commits | Exact tested source SHA and pinned Design input are recorded in the final [dev → main PR](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/pull/2) and matching CI artifacts |
-| Full device-matrix CI run | The final PR validation section links the accepted ten-profile run and reviewed artifacts; check that run before acceptance |
+| Accepted app / Design commits | Record the exact tested `dev` SHA, pinned Design input and direct `dev` to `main` delivery in the final handoff, with matching CI artifacts |
+| Full device-matrix CI run | The final handoff must link successful exact-source dev-push and ten-profile runs, observed profile evidence and actually reviewed full-OS images; fresh brand/motion validation remains required |
 | Signed bundle / versionCode / certificate fingerprint | Owner signing environment required |
 | Real-device provider test record | Owner backend/configuration required |
 | Whole-account deletion and web resource verification | Updated owner contract/site required |
 | Play test-track build / tester acceptance | Owner Play Console access required |
+
+[PR #2](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/pull/2) records the historical A8 checkpoint. It does not substitute for final proof of later brand, SDK appearance, motion or accessibility corrections.

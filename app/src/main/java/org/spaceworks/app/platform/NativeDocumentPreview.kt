@@ -115,15 +115,15 @@ class NativeDocumentFiles(private val directory:File,private val now:()->Long=Sy
                 if(file.kind==NativeDocumentKind.PDF){
                     Text(text(DocumentStrings.DOCUMENT_PAGE_1_S_OF_2_S, page+1, pages))
                     if(pages>1)Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick={page--},enabled=page>0&&!rendering,colors=textColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_PREVIOUS_PAGE))}
-                        TextButton(onClick={page++},enabled=page+1<pages&&!rendering,colors=textColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_NEXT_PAGE))}
+                        TextButton(shape=MaterialTheme.shapes.small,onClick={page--},enabled=page>0&&!rendering,colors=textColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_PREVIOUS_PAGE))}
+                        TextButton(shape=MaterialTheme.shapes.small,onClick={page++},enabled=page+1<pages&&!rendering,colors=textColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_NEXT_PAGE))}
                     }
                     Text(text(DocumentStrings.DOCUMENT_FOR_SELECTABLE_TEXT_OR_ASSISTIVE_READING_OPEN_THE_PDF_IN_A_D),style=MaterialTheme.typography.bodySmall)
-                    OutlinedButton(onClick={send(true)},colors=outlineColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_OPEN_IN_ANOTHER_APP))}
+                    OutlinedButton(shape=MaterialTheme.shapes.small,onClick={send(true)},colors=outlineColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_OPEN_IN_ANOTHER_APP))}
                 }else Text(text(DocumentStrings.DOCUMENT_ZIP_ARCHIVE_SAVE_IT_TO_A_PRIVATE_LOCATION_TO_INSPECT_ITS_CON))
-                OutlinedButton(onClick={export.launch("Document.${file.kind.extension}")},colors=outlineColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_SAVE_1_S, file.kind.extension.uppercase()))}
-                OutlinedButton(onClick={send(false)},colors=outlineColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_SHARE_DOCUMENT))}
-                TextButton(onClick=onClose,colors=textColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_DONE))}
+                OutlinedButton(shape=MaterialTheme.shapes.small,onClick={export.launch("Document.${file.kind.extension}")},colors=outlineColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_SAVE_1_S, file.kind.extension.uppercase()))}
+                OutlinedButton(shape=MaterialTheme.shapes.small,onClick={send(false)},colors=outlineColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_SHARE_DOCUMENT))}
+                TextButton(shape=MaterialTheme.shapes.small,onClick=onClose,colors=textColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_DONE))}
             }
         }
     }

@@ -23,17 +23,18 @@ class BrandTypographyTest {
             Triple(R.font.gilroy_semibold,FontWeight.SemiBold,.810f),
             Triple(R.font.gilroy_bold,FontWeight.Bold,.815f)
         )
+        // measureText deliberately ceils widths; compare fractional native runs to supplied hmtx.
         faces.forEach {(resource,weight,advance) ->
             val native=requireNotNull(ResourcesCompat.getFont(context,resource))
             val resolved=resolver.resolve(BrandFontFamily,weight,fontSynthesis=FontSynthesis.None).value as Typeface
             listOf(16f,32f,51.2f).forEach {size ->
                 val paint=Paint().apply {textSize=size;typeface=native;isSubpixelText=true;isLinearText=true}
-                assertEquals("Supplied face $weight",advance*size,paint.measureText("M"),.03f)
+                assertEquals("Supplied face $weight",advance*size,paint.getRunAdvance("M",0,1,0,1,false,1),.03f)
                 paint.typeface=resolved
-                assertEquals("Compose must select supplied weight $weight",advance*size,paint.measureText("M"),.03f)
+                assertEquals("Compose must select supplied weight $weight",advance*size,paint.getRunAdvance("M",0,1,0,1,false,1),.03f)
                 if(android.os.Build.VERSION.SDK_INT>=28) {
                     paint.typeface=Typeface.create(xmlFamily,weight.weight,false)
-                    assertEquals("SDK XML family must resolve the actual weight $weight",advance*size,paint.measureText("M"),.03f)
+                    assertEquals("SDK XML family must resolve the actual weight $weight",advance*size,paint.getRunAdvance("M",0,1,0,1,false,1),.03f)
                 }
             }
         }
@@ -43,7 +44,7 @@ class BrandTypographyTest {
             val boldResolver=createFontFamilyResolver(boldContext)
             val bold=boldResolver.resolve(BrandFontFamily,FontWeight.Normal,fontSynthesis=FontSynthesis.None).value as Typeface
             val paint=Paint().apply {textSize=100f;typeface=bold;isSubpixelText=true;isLinearText=true}
-            assertEquals("System bold-text adjustment selects the supplied Bold face",81.5f,paint.measureText("M"),.03f)
+            assertEquals("System bold-text adjustment selects the supplied Bold face",81.5f,paint.getRunAdvance("M",0,1,0,1,false,1),.03f)
         }
     }
 }

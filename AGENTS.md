@@ -19,16 +19,16 @@
 
 ## Branch delivery workflow
 
-The owner merged the A0 foundation and requested this workflow on 2026-10-16:
+The owner's latest delivery instruction, updated 2026-10-18, supersedes the earlier PR workflow:
 
-- Start ongoing work from `dev`, commit there, and push to `origin/dev`.
-- Finish the phase's implementation and validation before opening its final `dev` → `main` pull request.
-- Keep `main` for reviewed merges. Preserve the owner's configured commit identity and the required Codex co-author trailer.
+- Consolidate ongoing mobile work on `dev`, commit there, and push tested progress to `origin/dev`; do not create feature branches or pull requests.
+- Complete exact-source local/CI checks, the required full device matrix and actual screenshot review, then merge tested `dev` directly to `main`.
+- Preserve the owner's configured commit identity, the required Codex co-author trailer and all immutable inputs. A failed or skipped required gate cannot establish acceptance.
 
 
 ## Owner execution extension — 2026-10-16
 
-The owner's latest complete-build instruction extends the original PRD: implement remaining phases on `dev`, commit and push tested progress there, and prepare the final `dev` → `main` PR after the batch. Intermediate merge gates are superseded; green CI remains mandatory before proceeding between phases. Phone AND tablet layouts are now in scope, including 320/360dp phones, common/large phones, 600/840dp tablets, portrait/landscape, light/dark and 2× font scale. Keep `docs/PRD.md` byte-identical to its owner source; record extensions here and in `docs/IMPLEMENTATION-PLAN.md`. Preserve Shaan's GitHub identity plus the Codex co-author trailer. Use the local Docker API for integration, contract/generated models only, no backend implementation edits or provider/attestation bypasses. Document precise backend-request issues for unavailable native capabilities; continue independent supported work.
+The owner's complete-build extension adds remaining phases on `dev` with tested progress committed and pushed there. The latest delivery instruction removes PR/feature-branch steps: consolidate and validate `dev`, then merge that tested source directly to `main`. Intermediate merge waits are superseded; green CI remains mandatory for phase acceptance. Phone AND tablet layouts are now in scope, including 320/360dp phones, common/large phones, 600/840dp tablets, portrait/landscape, light/dark and 2× font scale. Keep `docs/PRD.md` byte-identical to its owner source; record extensions here and in `docs/IMPLEMENTATION-PLAN.md`. Preserve Shaan's GitHub identity plus the Codex co-author trailer. Use the local Docker API for integration, contract/generated models only, no backend implementation edits or provider/attestation bypasses. Document precise backend-request issues for unavailable native capabilities; continue independent supported work.
 
 Owner backend deferment: complete and test the full native flow using an explicit DEBUG-only, isolated in-memory demo. The backend will be supplied later. Never infer live success or invent production routes/models; missing native contract/provider configuration stays visibly unavailable outside demo.
 
