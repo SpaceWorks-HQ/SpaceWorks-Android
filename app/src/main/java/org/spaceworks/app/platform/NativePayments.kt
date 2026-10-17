@@ -210,7 +210,7 @@ class RazorpayCheckoutActivity : ComponentActivity(), PaymentResultWithDataListe
                 isAppearanceLightNavigationBars=!dark
             }
             setContent {
-                androidx.compose.material3.MaterialTheme(colorScheme=if(dark)org.spaceworks.app.theme.DarkScheme else org.spaceworks.app.theme.LightScheme) {
+                org.spaceworks.app.theme.SpaceWorksTheme(dark) {
                     CheckoutRecoveryScreen {
                         setResult(Activity.RESULT_CANCELED, Intent().putExtra("interrupted", true)); finish()
                     }

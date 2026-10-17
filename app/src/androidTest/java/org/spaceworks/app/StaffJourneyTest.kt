@@ -30,7 +30,7 @@ class StaffJourneyTest {
         val holder=StaffStateHolder(api,api.authority,api.uploads).apply{activate(MemberScope(7,"demo-makerspace"))}
         compose.setContent{val density=LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density,if(large)3.2f else density.fontScale)){
-                MaterialTheme(colorScheme=if(dark)DarkScheme else LightScheme,shapes=Shapes(small=RoundedCornerShape(10.dp),medium=RoundedCornerShape(16.dp))){Surface(Modifier.fillMaxSize()){Box(Modifier.fillMaxSize().safeDrawingPadding()){StaffScreen(holder,true,{},previewScope=MemberScope(7,"demo-makerspace"))}}}
+                org.spaceworks.app.theme.SpaceWorksTheme(dark){Surface(Modifier.fillMaxSize()){Box(Modifier.fillMaxSize().safeDrawingPadding()){StaffScreen(holder,true,{},previewScope=MemberScope(7,"demo-makerspace"))}}}
             }}
         journey.systemBars(dark);waitText("Request #601");return holder
     }

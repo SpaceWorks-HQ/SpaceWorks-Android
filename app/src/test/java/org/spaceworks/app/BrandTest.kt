@@ -9,7 +9,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import org.spaceworks.app.theme.LightScheme
 import org.spaceworks.app.theme.DarkScheme
+import org.spaceworks.app.theme.BrandTypography
+import org.spaceworks.app.theme.BrandFontFamily
+import androidx.compose.material3.Typography
 class BrandTest {
+    @Test fun allMaterialRolesUseGilroyWithoutChangingNativeTypeScale() {
+        fun roles(t:Typography)=listOf(t.displayLarge,t.displayMedium,t.displaySmall,
+            t.headlineLarge,t.headlineMedium,t.headlineSmall,t.titleLarge,t.titleMedium,t.titleSmall,
+            t.bodyLarge,t.bodyMedium,t.bodySmall,t.labelLarge,t.labelMedium,t.labelSmall)
+        roles(BrandTypography).zip(roles(Typography())).forEach {(brand,native) ->
+            assertEquals(BrandFontFamily,brand.fontFamily)
+            assertEquals(native.fontSize,brand.fontSize)
+            assertEquals(native.lineHeight,brand.lineHeight)
+            assertEquals(native.letterSpacing,brand.letterSpacing)
+        }
+    }
     @Test fun themeMatchesPinnedSource() {
         assertEquals(0xFFFFF4E8.toInt(),BrandTokens.Light.bg.toArgb())
         assertEquals(0xFF142C2A.toInt(),BrandTokens.Dark.bg.toArgb())

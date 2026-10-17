@@ -33,7 +33,7 @@ class PaymentsJourneyTest {
         compose.setContent {
             val density=LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density,if(largeText)3.2f else density.fontScale)){
-                MaterialTheme(colorScheme=if(dark)DarkScheme else LightScheme,shapes=Shapes(small=RoundedCornerShape(10.dp),medium=RoundedCornerShape(16.dp))){
+                org.spaceworks.app.theme.SpaceWorksTheme(dark){
                     Surface(Modifier.fillMaxSize()){Box(Modifier.fillMaxSize().safeDrawingPadding()){
                         PaymentsScreen(holder,true,{},launchStripe={launches.incrementAndGet();PaymentLaunchResult.DEMO_BLOCKED})
                     }}

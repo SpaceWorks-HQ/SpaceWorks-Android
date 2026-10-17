@@ -30,7 +30,7 @@ class UsageGuideJourneyTest {
     @Composable private fun Host(largeText: Boolean = false, content: @Composable () -> Unit) {
         val density = LocalDensity.current
         CompositionLocalProvider(LocalDensity provides Density(density.density, if (largeText) 3.2f else density.fontScale)) {
-            MaterialTheme(colorScheme = if (DeviceProfile.dark) DarkScheme else LightScheme, shapes = Shapes(small = RoundedCornerShape(10.dp), medium = RoundedCornerShape(16.dp))) {
+            org.spaceworks.app.theme.SpaceWorksTheme(DeviceProfile.dark) {
                 Surface(Modifier.fillMaxSize()) { Box(Modifier.fillMaxSize().safeDrawingPadding()) { content() } }
             }
         }
