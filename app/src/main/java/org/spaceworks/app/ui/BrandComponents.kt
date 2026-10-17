@@ -46,9 +46,11 @@ val BrandAccentFont=FontFamily(Font(R.font.unbounded,FontWeight.Medium))
     var visible by remember {mutableStateOf(false)}
     val fieldFocus=remember {FocusRequester()}
     val passwordIsVisible=visible
+    val externalLabel=secret && LocalDensity.current.fontScale>=2f
     val focus=LocalFocusManager.current
     val keyboard=when(role){FieldRole.NUMBER->KeyboardType.Decimal;FieldRole.PHONE->KeyboardType.Phone;FieldRole.EMAIL,FieldRole.IDENTITY->KeyboardType.Email;FieldRole.SERVER->KeyboardType.Uri;FieldRole.CODE,FieldRole.ONE_TIME_CODE->KeyboardType.Number;FieldRole.PASSWORD,FieldRole.NEW_PASSWORD->KeyboardType.Password;else->KeyboardType.Text}
-    OutlinedTextField(value=value,onValueChange=onValueChange,label={Text(label)},singleLine=true,enabled=enabled,readOnly=readOnly,
+    val input: @Composable ()->Unit = {
+    OutlinedTextField(value=value,onValueChange=onValueChange,label=if(externalLabel)null else {{Text(label)}},singleLine=true,enabled=enabled,readOnly=readOnly,
         isError=errorMessage!=null,supportingText=errorMessage?.let {{Text(it,Modifier.semantics {liveRegion=LiveRegionMode.Polite})}},
         visualTransformation=if(secret && !visible) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=keyboard,autoCorrectEnabled=false,capitalization=if(role==FieldRole.NAME)KeyboardCapitalization.Words else KeyboardCapitalization.None,imeAction=if(onDone==null)ImeAction.Next else ImeAction.Done),
@@ -65,10 +67,20 @@ val BrandAccentFont=FontFamily(Font(R.font.unbounded,FontWeight.Medium))
             }
         }} else null,
         shape=RoundedCornerShape(10.dp),modifier=modifier.fillMaxWidth().focusRequester(fieldFocus).semantics {
+            if(externalLabel)contentDescription=label
             when(role){FieldRole.PHONE->contentType=ContentType.PhoneNumber;FieldRole.NAME->contentType=ContentType.PersonFullName;FieldRole.ONE_TIME_CODE->contentType=ContentType.SmsOtpCode;FieldRole.IDENTITY->contentType=ContentType.Username+ContentType.EmailAddress;FieldRole.EMAIL->contentType=ContentType.EmailAddress;FieldRole.PASSWORD->contentType=ContentType.Password;FieldRole.NEW_PASSWORD->contentType=ContentType.NewPassword;else->Unit}
         },
         colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=MaterialTheme.colorScheme.onPrimaryContainer,
             focusedLabelColor=MaterialTheme.colorScheme.onPrimaryContainer,cursorColor=MaterialTheme.colorScheme.onPrimaryContainer))
+    }
+    if(externalLabel) Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        // Keep the label fully scaled and outside the input/visibility-action width budget.
+        // TalkBack reads the same name from the editable field; avoid a duplicate label stop.
+        Text(label,style=MaterialTheme.typography.bodySmall,
+            color=if(errorMessage!=null)MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier=Modifier.fillMaxWidth().semantics {hideFromAccessibility()})
+        input()
+    } else input()
 }
 @Composable fun AuthLayout(title:String,subtitle:String,content:@Composable ColumnScope.()->Unit) {
     val copyText=rememberMobileText()

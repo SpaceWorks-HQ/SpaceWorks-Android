@@ -2,7 +2,9 @@ package org.spaceworks.app
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import kotlinx.coroutines.runBlocking
@@ -53,6 +55,26 @@ class AccountPasswordJourneyTest {
         requestedFontScale=3.2f
         compose.setContent { A7ComponentHost(largeText=true) { AccountScreens(holder, true, {}) } }
         journey.systemBars(DeviceProfile.dark)
+        // Empty-field labels must remain readable beside the entire usable editable control.
+        val label="Confirm new password"
+        val labelNode=compose.onNodeWithText(label)
+        journey.visible(labelNode)
+        val confirmation=field("account-password-confirmation")
+        labelNode.assertIsDisplayed()
+        val clippedLabel=labelNode.fetchSemanticsNode().boundsInRoot
+        val fullLabel=labelNode.getUnclippedBoundsInRoot()
+        assertTrue("Complete password label must remain visible with its editable field",
+            clippedLabel.width+1f>=(fullLabel.right-fullLabel.left).value*compose.density.density &&
+                clippedLabel.height+1f>=(fullLabel.bottom-fullLabel.top).value*compose.density.density)
+        confirmation.assertContentDescriptionEquals(label)
+        val layouts=mutableListOf<TextLayoutResult>()
+        labelNode.performSemanticsAction(SemanticsActions.GetTextLayoutResult) {it(layouts)}
+        val layout=layouts.single()
+        for(line in 0 until layout.lineCount-1) {
+            val end=layout.getLineEnd(line,visibleEnd=true)
+            assertTrue("Password label must wrap between words",end>=label.length || label[end].isWhitespace() || (end>0 && label[end-1].isWhitespace()))
+        }
+        journey.shot("a7-manual-password-empty-label-large")
         enter("account-password-current", "DemoPass!123")
         enter("account-password-new", "replacement")
         enter("account-password-confirmation", "different")
