@@ -105,6 +105,7 @@ class OnboardingAuthTest {
         compose.onNodeWithTag("username").assertTextContains("new.member@example.invalid")
     }
     @Test fun providerPreviewCanCancelOrRequireMfaWithoutOpeningAnSdk() {
+        val journey=NativeJourney(compose,"ux-provider-preview")
         demo();compose.onNodeWithText("Preview sign-in options").performScrollTo().performClick()
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("Preview Apple").performScrollTo().performClick();waitText("Apple sign-in preview")
@@ -124,9 +125,9 @@ class OnboardingAuthTest {
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("Continue with sample account").performScrollTo().performClick();waitText("Check your authenticator")
         DeviceWindowGuard.awaitClear()
-        compose.onNodeWithTag("mfaCode").performTextInput("123456")
+        journey.replace(compose.onNodeWithTag("mfaCode"),"123456")
         DeviceWindowGuard.awaitClear()
-        compose.onNodeWithText("Verify").performScrollTo().performClick();waitText("Choose your makerspace")
+        journey.clickText("Verify");waitText("Choose your makerspace")
     }
     @Test fun phonePreviewShowsInvalidExpiredStatesAndSsoCompletes() {
         demo();compose.onNodeWithText("Preview sign-in options").performScrollTo().performClick()
@@ -186,7 +187,8 @@ class OnboardingAuthTest {
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithTag("password").performTextInput("correctable-demo-password")
         DeviceWindowGuard.awaitClear()
-        compose.onNodeWithContentDescription("Show password").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Show password").assertWidthIsAtLeast(48.dp)
+            .assertHeightIsAtLeast(48.dp).performScrollTo().performClick()
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithTag("password").assertIsFocused()
         DeviceWindowGuard.awaitClear()

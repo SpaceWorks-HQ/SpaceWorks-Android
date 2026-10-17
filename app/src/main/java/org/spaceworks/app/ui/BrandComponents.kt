@@ -53,7 +53,17 @@ val BrandAccentFont=FontFamily(Font(R.font.unbounded,FontWeight.Medium))
         visualTransformation=if(secret && !visible) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=keyboard,autoCorrectEnabled=false,capitalization=if(role==FieldRole.NAME)KeyboardCapitalization.Words else KeyboardCapitalization.None,imeAction=if(onDone==null)ImeAction.Next else ImeAction.Done),
         keyboardActions=KeyboardActions(onNext={focus.moveFocus(FocusDirection.Next)},onDone={onDone?.invoke()}),
-        trailingIcon=if(secret) {{BrandTextButton(if(visible)copyText(UiStrings.MOBILE_HIDE) else copyText(UiStrings.MOBILE_SHOW),{visible=!visible;fieldFocus.requestFocus()},modifier=Modifier.semantics {contentDescription=if(passwordIsVisible)copyText(UiStrings.MOBILE_HIDE_PASSWORD) else copyText(UiStrings.MOBILE_SHOW_PASSWORD);stateDescription=if(passwordIsVisible)copyText(UiStrings.MOBILE_PASSWORD_VISIBLE) else copyText(UiStrings.MOBILE_PASSWORD_HIDDEN)})}} else null,
+        trailingIcon=if(secret) {{
+            IconButton(onClick={visible=!visible;fieldFocus.requestFocus()},enabled=enabled,
+                colors=IconButtonDefaults.iconButtonColors(contentColor=MaterialTheme.colorScheme.onPrimaryContainer),
+                modifier=Modifier.sizeIn(minWidth=48.dp,minHeight=48.dp).semantics {
+                    contentDescription=if(passwordIsVisible)copyText(UiStrings.MOBILE_HIDE_PASSWORD) else copyText(UiStrings.MOBILE_SHOW_PASSWORD)
+                    stateDescription=if(passwordIsVisible)copyText(UiStrings.MOBILE_PASSWORD_VISIBLE) else copyText(UiStrings.MOBILE_PASSWORD_HIDDEN)
+                }) {
+                Icon(painterResource(if(passwordIsVisible)R.drawable.ic_visibility_off else R.drawable.ic_visibility),
+                    contentDescription=null)
+            }
+        }} else null,
         shape=RoundedCornerShape(10.dp),modifier=modifier.fillMaxWidth().focusRequester(fieldFocus).semantics {
             when(role){FieldRole.PHONE->contentType=ContentType.PhoneNumber;FieldRole.NAME->contentType=ContentType.PersonFullName;FieldRole.ONE_TIME_CODE->contentType=ContentType.SmsOtpCode;FieldRole.IDENTITY->contentType=ContentType.Username+ContentType.EmailAddress;FieldRole.EMAIL->contentType=ContentType.EmailAddress;FieldRole.PASSWORD->contentType=ContentType.Password;FieldRole.NEW_PASSWORD->contentType=ContentType.NewPassword;else->Unit}
         },
