@@ -1,5 +1,9 @@
 package org.spaceworks.app
 
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
+import java.util.ArrayDeque
 import android.graphics.Point
 import android.graphics.Rect
 import android.view.WindowManager
@@ -47,17 +51,70 @@ class MainActivityLaunchTest {
                 .put("keyboard_top",keyboardTop).put("decor_screen_y",location[1])
                 .put("ime_observed",observedIme).put("soft_input_adjustment",softInputMode)
         }
-        // Accessibility screen coordinates include decor panning; local Compose bounds alone do not.
-        val root=InstrumentationRegistry.getInstrumentation().uiAutomation.rootInActiveWindow
-        val controls=listOf("Demo mode",if(DeviceProfile.dark)"Light mode"else"Dark mode").associateWith {label ->
-            val node=root?.findAccessibilityNodeInfosByText(label)
-                ?.firstOrNull {it.text?.toString()==label && it.isVisibleToUser}
-            node?.let {Rect().also(it::getBoundsInScreen)}.also {evidence.put(label,it?.toShortString()?:"missing")}
+        // Virtual Compose labels are exposed as children, not through the provider's text query.
+        // Search only the application window and retain real on-screen coordinates.
+        val automation=InstrumentationRegistry.getInstrumentation().uiAutomation
+        val appPackage=InstrumentationRegistry.getInstrumentation().targetContext.packageName
+        val labels=setOf("Demo mode",if(DeviceProfile.dark)"Light mode"else"Dark mode")
+        val controls=labels.associateWith<String,Rect?> {null}.toMutableMap()
+        fun captureEvidence() {
+            controls.forEach {(label,bounds) -> evidence.put(label,bounds?.toShortString()?:"missing")}
+            val output=requireNotNull(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("validation"))
+            output.mkdirs();File(output,"$name.json").writeText(evidence.toString(2))
+            journey.shot(name)
+        }
+        val initialFlags=automation.serviceInfo.flags
+        try {
+            automation.serviceInfo=automation.serviceInfo.also {
+                it.flags=it.flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+            }
+            evidence.put("active_window_package",automation.rootInActiveWindow?.packageName?.toString()?:"missing")
+            var selectedRoot:AccessibilityNodeInfo?=null
+            compose.waitUntil(5000) {
+                val windows=automation.windows
+                evidence.put("observed_window_count",windows.size)
+                val selected=windows.filter {it.type==AccessibilityWindowInfo.TYPE_APPLICATION}
+                    .sortedWith(compareByDescending<AccessibilityWindowInfo> {it.isActive || it.isFocused}.thenByDescending {it.layer})
+                    .mapNotNull {window -> window.root?.takeIf {it.packageName?.toString()==appPackage}?.let {window to it}}
+                    .firstOrNull()
+                if(selected!=null) {
+                    selectedRoot=selected.second
+                    evidence.put("selected_window_id",selected.first.id).put("selected_window_type",selected.first.type)
+                        .put("selected_window_package",selected.second.packageName?.toString())
+                }
+                selected!=null
+            }
+            val root=requireNotNull(selectedRoot)
+            assertEquals(appPackage,root.packageName?.toString())
+            val pending=ArrayDeque<Pair<AccessibilityNodeInfo,Int>>()
+            pending.add(root to 0)
+            var visited=0;var truncated=false
+            while(pending.isNotEmpty() && visited<512 && controls.values.any {it==null}) {
+                val (node,depth)=pending.removeFirst();visited++
+                if(!node.isEditable && node.isVisibleToUser) {
+                    val label=listOfNotNull(node.text?.toString(),node.contentDescription?.toString())
+                        .firstOrNull {it in labels && controls[it]==null}
+                    if(label!=null) controls[label]=Rect().also(node::getBoundsInScreen)
+                }
+                if(depth<32) {
+                    if(node.childCount>64)truncated=true
+                    for(index in 0 until minOf(node.childCount,64)) node.getChild(index)?.let {pending.add(it to depth+1)}
+                } else if(node.childCount>0)truncated=true
+            }
+            if(visited>=512 && controls.values.any {it==null})truncated=true
+            evidence.put("traversed_nodes",visited).put("traversal_truncated",truncated)
+        } catch(failure:Throwable) {
+            evidence.put("lookup_failure",failure.javaClass.simpleName)
+            runCatching {captureEvidence()}.onFailure {failure.addSuppressed(it)}
+            throw failure
+        } finally {
+            automation.serviceInfo=automation.serviceInfo.also {
+                it.flags=(it.flags and AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS.inv()) or
+                    (initialFlags and AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS)
+            }
         }
         // Preserve real screen evidence before an assertion, including a panned or missing control.
-        val output=requireNotNull(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("validation"))
-        output.mkdirs();File(output,"$name.json").writeText(evidence.toString(2))
-        journey.shot(name)
+        captureEvidence()
         assertEquals(keyboardShown,observedIme)
         assertEquals(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE,softInputMode)
         controls.forEach {(label,observedBounds) ->

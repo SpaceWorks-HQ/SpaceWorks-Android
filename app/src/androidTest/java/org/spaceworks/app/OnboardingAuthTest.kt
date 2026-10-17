@@ -130,6 +130,7 @@ class OnboardingAuthTest {
         journey.clickText("Verify");waitText("Choose your makerspace")
     }
     @Test fun phonePreviewShowsInvalidExpiredStatesAndSsoCompletes() {
+        val journey=NativeJourney(compose,"ux-phone-errors")
         demo();compose.onNodeWithText("Preview sign-in options").performScrollTo().performClick()
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("Preview Phone").performScrollTo().performClick()
@@ -138,9 +139,9 @@ class OnboardingAuthTest {
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithTag("previewPhone").assertTextContains("9876543210").performImeAction();waitText("Enter your verification code")
         DeviceWindowGuard.awaitClear()
-        compose.onNodeWithTag("previewCode").performTextInput("000000")
+        journey.replace(compose.onNodeWithTag("previewCode"),"000000")
         DeviceWindowGuard.awaitClear()
-        compose.onNodeWithText("Verify",substring=false).performScrollTo().performClick();waitText("That code didn't work. Check it and try again.")
+        journey.clickText("Verify");waitText("That code didn't work. Check it and try again.")
         screenshot("ux-phone-preview-code-error")
         DeviceWindowGuard.awaitClear()
         compose.onNodeWithText("Simulate expired code").performScrollTo().performClick()
