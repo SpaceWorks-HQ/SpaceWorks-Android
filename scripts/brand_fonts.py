@@ -4,6 +4,7 @@ import hashlib
 import json
 import struct
 import zlib
+import xml.etree.ElementTree as ET
 
 FACES = {'regular': 400, 'medium': 500, 'semibold': 600, 'bold': 700}
 
@@ -72,6 +73,17 @@ def generate_brand_fonts(root, brand):
     output.mkdir(parents=True, exist_ok=True)
     for face, data in prepared.items():
         (output/('gilroy_' + face + '.ttf')).write_bytes(data)
+    # Both platform and AndroidX parsers must see actual weights; the supplied OS/2
+    # metadata is intentionally preserved and reports 400 for every source face.
+    family = ET.Element('font-family', {'xmlns:android': 'http://schemas.android.com/apk/res/android',
+                                      'xmlns:app': 'http://schemas.android.com/apk/res-auto'})
+    for face, weight in FACES.items():
+        attributes = {}
+        for namespace in ('android', 'app'):
+            attributes.update({namespace+':font': '@font/gilroy_'+face,
+                               namespace+':fontWeight': str(weight), namespace+':fontStyle': 'normal'})
+        ET.SubElement(family, 'font', attributes)
+    ET.ElementTree(family).write(output/'gilroy.xml', encoding='utf-8', xml_declaration=True)
     report = root/'app/build/generated/brand-fonts.json'
     report.write_text(json.dumps(manifest, indent=2)+'\n', encoding='utf-8')
     return manifest

@@ -153,6 +153,7 @@ class StripeSheetAdapter(private val activity: ComponentActivity,
             } else null
             sheet.presentWithPaymentIntent(input.clientSecret, PaymentSheet.Configuration(
                 merchantDisplayName = input.merchantName, customer = customer, allowsDelayedPaymentMethods = false,
+                appearance = stripeBrandAppearance(),
             ))
         } catch (_: Exception) {
             callbacks.finish(NativePaymentProvider.STRIPE, SheetCloseReason.FAILED, text(org.spaceworks.app.payments.PaymentStrings.PAYMENT_SDK_CHECKOUT_UNAVAILABLE))
@@ -225,6 +226,7 @@ class RazorpayCheckoutActivity : ComponentActivity(), PaymentResultWithDataListe
         try {
             val options = JSONObject().put("name", input.merchantName).put("order_id", input.orderId)
                 .put("amount", input.amountMinor).put("currency", input.currency)
+                .put("theme.color",razorpayBrandColor())
             Checkout().apply { setKeyID(input.keyId) }.open(this, options)
         } catch (_: Exception) { fail() }
     }

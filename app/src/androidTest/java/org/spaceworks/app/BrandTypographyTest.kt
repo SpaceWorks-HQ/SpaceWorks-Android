@@ -16,6 +16,7 @@ class BrandTypographyTest {
     @Test fun suppliedWeightsResolveToTheirActualNativeGlyphMetricsAtMultipleScales() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val resolver=createFontFamilyResolver(context)
+        val xmlFamily=requireNotNull(ResourcesCompat.getFont(context,R.font.gilroy))
         val faces=listOf(
             Triple(R.font.gilroy_regular,FontWeight.Normal,.800f),
             Triple(R.font.gilroy_medium,FontWeight.Medium,.805f),
@@ -30,6 +31,10 @@ class BrandTypographyTest {
                 assertEquals("Supplied face $weight",advance*size,paint.measureText("M"),.03f)
                 paint.typeface=resolved
                 assertEquals("Compose must select supplied weight $weight",advance*size,paint.measureText("M"),.03f)
+                if(android.os.Build.VERSION.SDK_INT>=28) {
+                    paint.typeface=Typeface.create(xmlFamily,weight.weight,false)
+                    assertEquals("SDK XML family must resolve the actual weight $weight",advance*size,paint.measureText("M"),.03f)
+                }
             }
         }
         if(android.os.Build.VERSION.SDK_INT>=31) {

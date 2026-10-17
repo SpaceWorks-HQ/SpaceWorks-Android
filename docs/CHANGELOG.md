@@ -1,5 +1,11 @@
 # Phase notes
 
+## B2 — native payment SDK brand appearance (2026-10-18)
+
+The pinned Stripe 22.8.1 public Appearance API now receives the semantic light/dark brand colors, a table-preserving Gilroy XML family with explicit weights, 10 dp controls and branded primary/success colors. SDK sizing, accessibility, native layout and system appearance selection remain unchanged. Razorpay Android Standard Checkout receives its documented brand accent only; unsupported font/dark-palette options are not invented, and the merchant's provider logo is retained. No payment intent, authority, callback, retry or server-status behavior changes.
+
+Actual SDK color configuration has a JVM contract check; native font-resolution coverage now checks all four weights through the XML family used by Stripe. The no-monospace audit found no app-owned monospaced text in main/Debug sources, so identifiers and secret values are unchanged. Local lint, 531 Debug / 499 Release JVM cases (zero failures/errors/skips), all 58 native-case compilation, APK/AAB assembly and 16 KB/native-feature packaging checks passed. Fresh device font-family proof remains pending; live payment/provider visual proof still requires the owner's backend/provider setup.
+
 ## B1 — complete native Material brand typography (2026-10-18)
 
 The owner requested full Space Works brand fidelity and the latest stable native Material theme. The exact existing BOM resolves Material 3 1.4.0, confirmed as Google's current stable release; the tested toolchain and native navigation bars/rails are retained. Supplied Gilroy Regular/Medium/Semibold/Bold now replace default Roboto across all 15 Material roles in the app and restored-checkout host. Native type sizes, font scaling, system bold-text behavior, touch targets, colors, supplied logos and short Unbounded accents remain intact. Earlier phase notes about pending Gilroy clearance describe their historical checkpoint and are superseded by this owner-authorized supplied-asset integration.

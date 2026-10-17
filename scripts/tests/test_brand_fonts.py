@@ -44,6 +44,13 @@ class BrandFontsTest(unittest.TestCase):
             self.assertEqual([first[face]['weight'] for face in FONTS.FACES], [400,500,600,700])
             self.assertEqual(len(list(Path(directory).rglob('*.ttf'))), 4)
             self.assertEqual(len({record['ttf_sha256'] for record in first.values()}), 4)
+            from xml.etree import ElementTree as ET
+            family=ET.parse(Path(directory)/'app/build/generated/res/brand/font/gilroy.xml').getroot()
+            self.assertEqual(len(family),4)
+            for node,(face,weight) in zip(family,FONTS.FACES.items()):
+                for namespace in ('http://schemas.android.com/apk/res/android','http://schemas.android.com/apk/res-auto'):
+                    self.assertEqual(node.get('{'+namespace+'}fontWeight'),str(weight))
+                    self.assertEqual(node.get('{'+namespace+'}font'),'@font/gilroy_'+face)
 
     def test_invalid_font_cannot_replace_an_existing_native_font_set(self):
         with tempfile.TemporaryDirectory() as directory:
