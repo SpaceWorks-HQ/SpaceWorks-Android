@@ -47,7 +47,7 @@ class LinkStateHolder(private val server:HttpUrl,private val authorize:suspend(I
                 mutable.update {it.copy(busy=true,error=null)}
                 try {
                     val destination=if(target!=null){if(authorize(target.makerspaceId))target else null}
-                        else requireNotNull(legacy).let {alias->authorizeSlug(alias.slug,alias.staff)?.takeIf {id->id>0&&(requiredMaker==null||requiredMaker==id)}?.let {id->MobileDestination(id,if(alias.staff)MobileSection.INBOX else MobileSection.HOME)}}
+                        else requireNotNull(legacy).let {alias->authorizeSlug(alias.slug,alias.staff)?.takeIf {id->id>0&&(requiredMaker==null||requiredMaker==id)}?.let {id->MobileDestination(id,alias.section,alias.resource)}}
                     if(request!=sequence.get())continue
                     if(destination==null){mutable.update {it.copy(busy=false,pending=null,pendingLegacy=null,requiredMaker=null,error=text(CoreStrings.CORE_YOUR_MAKERSPACE_ACCESS_COULDN_T_BE_CONFIRMED_OPEN_INBOX_OR_T))};return}
                     select(destination.makerspaceId)
