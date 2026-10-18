@@ -274,5 +274,5 @@ class AccountGatewayTest {
             assertEquals(0, server.requestCount)
         }
     }
-    private companion object { const val ME = """{"id":1,"username":"meera","email":"meera@example.invalid","display_name":"Meera Nair","phone":"","email_verified":true,"role":"member","is_superuser":false,"must_change_password":false,"makerspaces":[]}""" }
+    private companion object { const val ME = """{"session_authority":"member","id":1,"username":"meera","email":"meera@example.invalid","display_name":"Meera Nair","phone":"","email_verified":true,"role":"member","is_superuser":false,"must_change_password":false,"makerspaces":[]}""" }
 }

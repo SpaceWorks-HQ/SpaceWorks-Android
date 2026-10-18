@@ -38,8 +38,11 @@ class MainActivity:ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Activity Result contracts must be registered before STARTED, including restored callbacks.
         val stripe=StripeSheetAdapter(this)
-        RazorpaySheetAdapter(this,stripe.callbacks)
-        val checkout=NativeCheckoutBindings(stripe.callbacks.state,{stripe.launch(it,false)},
+        val razorpay=RazorpaySheetAdapter(this,stripe.callbacks)
+        val checkout=NativeCheckoutBindings(stripe.callbacks.state,{input->when(input){
+                is StripeSheetInput->stripe.launch(input,false)
+                is RazorpaySheetInput->razorpay.launch(input,false)
+            }},
             {stripe.callbacks.acknowledgeServerRefresh()},
             {stripe.callbacks.recoverInterrupted(MobileText.resources(applicationContext)(org.spaceworks.app.payments.PaymentStrings.PAYMENT_CHECK_THE_PAYMENT_STATUS_BEFORE_TRYING_AGAIN));Unit})
         lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {

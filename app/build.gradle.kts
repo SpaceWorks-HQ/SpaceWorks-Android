@@ -113,6 +113,9 @@ openApiGenerate {
     // generator7.26 inline-union scalar serializer defects without editing schema.
     schemaMappings.set(mapOf(
         "TenantBootstrapMakerspace_map_url" to "String",
+        "SocialLogin_redirect_uri" to "String",
+        "WebsiteSection_url" to "String",
+        "WebsiteSection_website_url" to "String",
         "TenantBootstrapMakerspace_opening_hours" to "kotlinx.serialization.json.JsonElement",
         "TenantBootstrapMakerspace_opening_hours_oneOf_weekly" to "kotlinx.serialization.json.JsonElement"
     ))

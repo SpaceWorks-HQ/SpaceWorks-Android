@@ -26,7 +26,7 @@ import org.spaceworks.app.ui.*
 /** The Activity registers adapters before STARTED and passes their current callback state here. */
 @Composable fun PaymentsScreen(holder:PaymentsStateHolder,demo:Boolean,onBack:()->Unit,
     nativeState:NativePaymentState=NativePaymentState.Idle,
-    launchStripe:(StripeSheetInput)->PaymentLaunchResult={PaymentLaunchResult.HOST_NOT_READY},
+    launchCheckout:(NativeSheetInput)->PaymentLaunchResult={PaymentLaunchResult.HOST_NOT_READY},
     acknowledgeNative:()->Unit={},recoverInterrupted:()->Unit={},refreshOnEnter:Boolean=true,hostAvailable:Boolean=true) {
     val text=rememberMobileText()
     val s by holder.state.collectAsStateWithLifecycle();val work=rememberCoroutineScope();val context=LocalContext.current
@@ -112,8 +112,11 @@ import org.spaceworks.app.ui.*
                     BrandButton(text(PaymentStrings.PAYMENT_CONTINUE_TO_PAYMENT),{
                         if(demo)demoCheckout=row.id else work.launch{
                             val prepared=holder.prepareCheckout(row.id)?:return@launch
-                            val input=prepared.intent
-                            val result=launchStripe(StripeSheetInput(prepared.reference,context.applicationInfo.loadLabel(context.packageManager).toString(),input.publishableKey,input.clientSecret,input.customerId,input.ephemeralKey))
+                            val appName=context.applicationInfo.loadLabel(context.packageManager).toString()
+                            val result=launchCheckout(when(val input=prepared.intent){
+                                is PaymentIntent.Stripe->StripeSheetInput(prepared.reference,appName,input.publishableKey,input.clientSecret,input.customerId,input.ephemeralKey)
+                                is PaymentIntent.Razorpay->RazorpaySheetInput(prepared.reference,input.name.ifBlank {appName},input.keyId,input.orderId,input.amountMinor,input.currency,input.description)
+                            })
                             if(result!=PaymentLaunchResult.STARTED)holder.sdkClosed(prepared.reference,SheetCloseReason.FAILED,when(result){PaymentLaunchResult.HOST_NOT_READY->text(PaymentStrings.PAYMENT_CHECKOUT_IS_NOT_READY_TRY_AGAIN_FROM_PAYMENT_DETAILS);PaymentLaunchResult.ALREADY_PRESENTING,PaymentLaunchResult.AWAITING_SERVER_REFRESH->text(PaymentStrings.PAYMENT_FINISH_THE_CURRENT_CHECKOUT_AND_CHECK_ITS_PAYMENT_STATUS_BEF);else->text(PaymentStrings.PAYMENT_PAYMENT_SETUP_IS_UNAVAILABLE_CONTACT_YOUR_MAKERSPACE)})
                         }
                     },enabled&&!providerBusy)

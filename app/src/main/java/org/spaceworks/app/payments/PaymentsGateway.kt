@@ -10,10 +10,21 @@ data class PaymentRefund(val amount:String,val currency:String,val status:String
 data class PaymentDocument(val id:String,val paymentId:String,val number:String,val kind:String,val amount:String,val currency:String,val issuedAt:String)
 data class PaymentDocumentPage(val rows:List<PaymentDocument>,val nextPage:Int?,val count:Int)
 
-/** Ephemeral SDK input, never placed in persisted state, logs or a StateFlow. */
-class PaymentIntent(val paymentId:String,val clientSecret:String,val publishableKey:String,val customerId:String?,val ephemeralKey:String?) {
+/** Ephemeral SDK input, never placed in persisted state, logs or a StateFlow. The server selects the vendor. */
+sealed class PaymentIntent(val paymentId:String) {
+    class Stripe(paymentId:String,val clientSecret:String,val publishableKey:String,val customerId:String?,val ephemeralKey:String?):PaymentIntent(paymentId) {
+        override fun valid()=publishableKey.startsWith("pk_") && clientSecret.isNotBlank() && (customerId.isNullOrBlank()==ephemeralKey.isNullOrBlank())
+    }
+    /** [amountMinor] is the server's integer minor-unit amount; it is passed to the SDK unchanged. */
+    class Razorpay(paymentId:String,val keyId:String,val orderId:String,val amountMinor:Long,val currency:String,val name:String,val description:String):PaymentIntent(paymentId) {
+        override fun valid()=keyId.startsWith("rzp_") && orderId.startsWith("order_") && amountMinor>0 && Regex("[A-Za-z]{3}").matches(currency)
+    }
+    abstract fun valid():Boolean
     override fun toString()="PaymentIntent(redacted)"
 }
+/** Stripe intent shorthand used by fixtures and the Stripe rail. */
+fun PaymentIntent(paymentId:String,clientSecret:String,publishableKey:String,customerId:String?,ephemeralKey:String?):PaymentIntent=
+    PaymentIntent.Stripe(paymentId,clientSecret,publishableKey,customerId,ephemeralKey)
 class PreparedPayment(val reference:String,val intent:PaymentIntent) {
     override fun toString()="PreparedPayment(redacted)"
 }

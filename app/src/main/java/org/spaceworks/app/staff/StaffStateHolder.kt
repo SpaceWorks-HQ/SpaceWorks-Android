@@ -391,7 +391,7 @@ class StaffStateHolder(
     fun canConfirmAttendance()=canRequest()&&can("manage_events")&&state.value.person?.let{it.status=="registered"&&it.confirmable&&it.registrationId>0}==true
     suspend fun confirmAttendance(){if(!canConfirmAttendance())return;val person=state.value.person?:return;val version=checkInVersion
         mutate("manage_events",{api.markAttended(it,person.registrationId,EventAttendanceMark(source=EventAttendanceMarkSourceEnum.entries.first{it.value=="qr"}))}){row->
-            if(version==checkInVersion){if(row.id!=person.registrationId||row.status.value!="attended")throw validation(text(StaffStrings.STAFF_ATTENDANCE_COULD_NOT_BE_CONFIRMED_SCAN_AGAIN_TO_CHECK_THE_LA));mutable.update{it.copy(person=null,attendanceNotice=text(StaffStrings.STAFF_ATTENDANCE_RECORDED_FOR_1_S, person.name))}}}
+            if(version==checkInVersion){if(row.registrationId!=person.registrationId||row.attendanceStatus!="attended")throw validation(text(StaffStrings.STAFF_ATTENDANCE_COULD_NOT_BE_CONFIRMED_SCAN_AGAIN_TO_CHECK_THE_LA));mutable.update{it.copy(person=null,attendanceNotice=text(StaffStrings.STAFF_ATTENDANCE_RECORDED_FOR_1_S, person.name))}}}
         if(state.value.error!=null)mutable.update{it.copy(person=null)}
     }
     private fun invalid(detail:String){mutable.update{it.copy(error=detail)}}

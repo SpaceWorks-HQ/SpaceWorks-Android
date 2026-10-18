@@ -27,5 +27,18 @@
   "requester_notifications_enabled": null,
   "show_public_availability": false,
   "show_public_booker_names": false,
-  "updated_at": "2026-10-16T09:00:00Z"
+  "updated_at": "2026-10-16T09:00:00Z",
+  "broadcasts_enabled": false,
+  "can_copy_booking_rules": false,
+  "can_manage_grants": false,
+  "checkin_enabled": false,
+  "clone_enabled": false,
+  "embed_enabled": false,
+  "passes_enabled": false,
+  "recurring_enabled": false,
+  "report_features": [],
+  "staff_grants_enabled": false,
+  "staff_permissions": [],
+  "staff_tools_enabled": false,
+  "website_enabled": false
 }

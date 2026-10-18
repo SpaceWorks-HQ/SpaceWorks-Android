@@ -10,5 +10,9 @@
   "phone": "",
   "quoted_amount": null,
   "status": "registered",
-  "ticket_type_id": null
+  "ticket_type_id": null,
+  "cancelled_at": null,
+  "no_longer_eligible": false,
+  "restore_until": null,
+  "status_before_cancel": ""
 }

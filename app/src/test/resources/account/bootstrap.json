@@ -1,7 +1,1 @@
-{
-  "branding": {}, "theme": {}, "edition": "community", "email_enabled": true,
-  "modules": ["membership", "member_accounts"], "features": ["membership.self_export"], "workflows": [],
-  "frontend": {"type":"web","hostname":"example.invalid","allowed_origins":[]},
-  "public_api": {"base_url":"https://example.invalid/api/v1","inventory_path":"/inventory","publishable_key":"unused"},
-  "makerspace": {"id":7,"name":"Workshop","slug":"workshop","public_code":"DEMO","location":"Kochi","timezone":"Asia/Kolkata","opening_hours":{},"map_url":"","logo_url":null,"cover_image_url":null,"public_stats_enabled":false,"public_site_enabled":true,"public_inventory_enabled":true,"public_landing_page":"auto","membership_policy":"request"}
-}
+{"branding":{},"theme":{},"edition":"community","email_enabled":true,"modules":["membership","member_accounts"],"features":["membership.self_export"],"workflows":[],"frontend":{"type":"web","hostname":"example.invalid","allowed_origins":[]},"public_api":{"base_url":"https://example.invalid/api/v1","inventory_path":"/inventory","publishable_key":"unused"},"makerspace":{"id":7,"name":"Workshop","slug":"workshop","public_code":"DEMO","location":"Kochi","timezone":"Asia/Kolkata","opening_hours":{},"map_url":"","logo_url":null,"cover_image_url":null,"public_stats_enabled":false,"public_site_enabled":true,"public_inventory_enabled":true,"public_landing_page":"auto","membership_policy":"request"},"messaging":{"sms":false,"whatsapp":false}}

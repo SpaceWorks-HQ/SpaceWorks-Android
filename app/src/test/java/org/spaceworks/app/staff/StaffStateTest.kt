@@ -59,7 +59,7 @@ class StaffStateTest {
         override suspend fun kitPreview(scope:MemberScope,body:KitPreviewInput)=kits
         override suspend fun events(scope:MemberScope,page:Int):EventListWithDefaults=decode(buildJsonObject{put("count",1);put("default_registration_audience","members");put("results",JsonArray(listOf(fixture("event"))))})
         override suspend fun resolveCheckIn(scope:MemberScope,eventId:Int,body:EventCheckInResolveRequest):EventCheckInResolveResponse{checkInReads++;return checkIn}
-        override suspend fun markAttended(scope:MemberScope,registrationId:Int,body:EventAttendanceMark):EventRegistrationAdmin{marks++;return decode(patch(fixture("registration").jsonObject,"status" to JsonPrimitive("attended")))}
+        override suspend fun markAttended(scope:MemberScope,registrationId:Int,body:EventAttendanceMark):EventAttendanceResult{marks++;return decode(patch(fixture("registration").jsonObject,"status" to JsonPrimitive("attended")))}
         override suspend fun spaces(scope:MemberScope,page:Int):BookableSpaceListResponse=decode(buildJsonObject{put("count",1);put("results",JsonArray(listOf(fixture("space"))))})
         override suspend fun bookings(scope:MemberScope,spaceId:Int,page:Int):BookingListResponse{bookingsReads++;return decode(buildJsonObject{put("count",1);put("results",JsonArray(listOf(fixture("booking"))))})}
         override suspend fun approveBooking(scope:MemberScope,id:Int):BookingAdmin{bookingFailure?.let{throw it};return decode(fixture("booking"))}

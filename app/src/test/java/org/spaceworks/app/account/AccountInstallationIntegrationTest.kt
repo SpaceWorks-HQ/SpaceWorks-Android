@@ -30,7 +30,7 @@ class AccountInstallationIntegrationTest {
         override suspend fun config()=PublicConfig(false,100)
         override suspend fun me():AuthUserPayload {
             reads++;entered?.complete(Unit);release?.await()
-            return AuthUserPayload(1,"member","member@example.invalid","Member","",true,"member",false,false,emptyList())
+            return AuthUserPayload("member",1,"member","member@example.invalid","Member","",true,"member",false,false,emptyList())
         }
         override suspend fun login(username:String,password:String):DeviceLoginResult=error("Unexpected login")
         override suspend fun enroll(challenge:String):MFAEnrollment=error("Unexpected enrollment")

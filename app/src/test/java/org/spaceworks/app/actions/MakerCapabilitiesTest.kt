@@ -15,7 +15,7 @@ class MakerCapabilitiesTest {
       "branding":{},"theme":{},"edition":"community","email_enabled":true,"modules":$modules,"features":$features,"workflows":[],
       "frontend":{"type":"web","hostname":"example.invalid","allowed_origins":[]},
       "public_api":{"base_url":"https://example.invalid/api/v1","inventory_path":"/inventory","publishable_key":"unused"},
-      "makerspace":{"id":$id,"name":"Maker space","slug":"maker-space","public_code":"DEMO","location":"Kochi","timezone":"Asia/Kolkata","opening_hours":{},"map_url":"","logo_url":null,"cover_image_url":null,"public_stats_enabled":false,"public_site_enabled":true,"public_inventory_enabled":true,"public_landing_page":"auto","membership_policy":"request"}
+      "makerspace":{"id":$id,"name":"Maker space","slug":"maker-space","public_code":"DEMO","location":"Kochi","timezone":"Asia/Kolkata","opening_hours":{},"map_url":"","logo_url":null,"cover_image_url":null,"public_stats_enabled":false,"public_site_enabled":true,"public_inventory_enabled":true,"public_landing_page":"auto","membership_policy":"request"},"messaging":{"sms":false,"whatsapp":false}
     }"""
     private fun response(body:String)=MockResponse().setHeader("Content-Type","application/json").setBody(body)
     @Test fun generatedBootstrapUsesPublishedSlugAndImmutableScopeWithoutBrowserCredentials()=runBlocking {

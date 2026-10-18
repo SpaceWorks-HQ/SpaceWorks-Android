@@ -79,7 +79,7 @@ class DemoAuthGateway:AuthGateway {
         return MFACompleted(me(),"demo-access","device",refresh="demo-refresh",deviceGrant=mapOf("id" to JsonPrimitive("00000000-0000-0000-0000-000000000001")),recoveryCodes=if(enrollment) listOf("DEMO-001-ABCD","DEMO-002-EFGH","DEMO-003-IJKL") else null)
     }
     override suspend fun me():AuthUserPayload=AuthUserPayload(
-        id=1,username=username,email="meera@example.invalid",displayName=profileNames[username] ?: registrations[username] ?: if(username.contains("staff")) "Arjun Rao" else "Meera Nair",
+        sessionAuthority=if(username.contains("staff"))"native_staff" else "member",id=1,username=username,email="meera@example.invalid",displayName=profileNames[username] ?: registrations[username] ?: if(username.contains("staff")) "Arjun Rao" else "Meera Nair",
         phone="",emailVerified=!username.contains("unverified") || verified,role="member",isSuperuser=username.contains("superadmin"),mustChangePassword=username.contains("temporary") && !passwordChanged,
         makerspaces=if(username.contains("empty") || registrations.containsKey(username))emptyList() else if(username.contains("single"))listOf(membership(1,"fab-lab-kochi")) else listOf(membership(1,"fab-lab-kochi"),membership(2,"maker-space-bengaluru")))
     override suspend fun forgotPassword(email:String):String {if(email.contains("unavailable"))throw ApiFailure(503,"Recovery unavailable","recovery_unavailable",null);return "If the details are valid, a verification email has been sent."}
@@ -89,7 +89,9 @@ class DemoAuthGateway:AuthGateway {
     override suspend fun resendEmail()="If the details are valid, a verification email has been sent."
     override suspend fun logout() {beforeSignOut();delay(100);profileNames.clear()}
     override suspend fun changePassword(current:String,replacement:String) {delay(200);passwordChanged=true}
-    private fun membership(id:Int,slug:String)=AuthMembership(id,slug,"member",1,"Member","member",AuthMembershipSourceEnum.membership,emptyList(),false,false,false,false,null,false)
+    private fun membership(id:Int,slug:String)=AuthMembership(id=id,slug=slug,role="member",roleId=1,roleIds=listOf(1),roleSlugs=listOf("member"),
+        roleNames=listOf("Member"),roleName="Member",roleSlug="member",source=AuthMembershipSourceEnum.membership,actions=emptyList(),
+        canConfigureMachineTypes=false,isMachineOnly=false,canRefer=false,canVerify=false,verifiedAt=null,referralsEnabled=false)
     private fun grant()=DeviceGrant(java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"),"android","org.spaceworks.app","development","active",java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"),java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"),java.time.OffsetDateTime.parse("2026-10-16T00:00:00Z"))
 }
 

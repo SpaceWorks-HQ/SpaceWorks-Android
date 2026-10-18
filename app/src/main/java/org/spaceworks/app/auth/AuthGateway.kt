@@ -37,12 +37,14 @@ interface AuthGateway {
     val nativeSocialReady:Boolean get()=false
     suspend fun google(clientId:String,credential:suspend(String,String)->String):SocialLoginResponse {throw MobileCopyException(CoreStrings.CORE_DEVICE_SIGN_IN_IS_NOT_CONFIGURED_FOR_THIS_BUILD)}
 }
-fun interface AttestationProvider { suspend fun attest(challenge:String):JsonElement }
+/** Produces the generated attestation union over one fresh server challenge. */
+fun interface AttestationProvider { suspend fun attest(challenge:String):DeviceAttestationPayload }
 class DevelopmentAttestation(private val debug:Boolean,private val emulator:Boolean,private val text:MobileText=MobileText.ENGLISH):AttestationProvider {
     val available get()=debug && emulator
-    override suspend fun attest(challenge:String):JsonElement {
+    override suspend fun attest(challenge:String):DeviceAttestationPayload {
         if(!debug || !emulator) throw AuthMessage(text(CoreStrings.CORE_DEVICE_VERIFICATION_IS_UNAVAILABLE_FOR_THIS_BUILD_CONTACT_YO))
-        return buildJsonObject {put("type","development")}
+        // The schema's shared type enum only names play_integrity; development uses its open-object arm.
+        return DeviceAttestationPayload.JsonElementValue(buildJsonObject {put("type","development")})
     }
 }
 class GeneratedAuthGateway(private val session:ApiSession,private val appId:String,

@@ -87,7 +87,7 @@ class PaymentsStateHolder(private val api:PaymentsGateway,private val files:Paym
             val current=record(id)
             if(current?.status!="pending" || !current.onlineAvailable){stop(id,text(PaymentStrings.PAYMENT_THIS_PAYMENT_IS_NO_LONGER_AVAILABLE_TO_PAY_ONLINE_ITS_LATEST));return null}
             val input=api.intent(scope,id);if(!matches(expected,reference))return null
-            require(input.paymentId==id && input.publishableKey.startsWith("pk_") && input.clientSecret.isNotBlank() && (input.customerId.isNullOrBlank()==input.ephemeralKey.isNullOrBlank())) {text(PaymentStrings.PAYMENT_PAYMENT_SETUP_IS_UNAVAILABLE_CONTACT_YOUR_MAKERSPACE)}
+            require(input.paymentId==id && input.valid()) {text(PaymentStrings.PAYMENT_PAYMENT_SETUP_IS_UNAVAILABLE_CONTACT_YOUR_MAKERSPACE)}
             mutable.update {it.copy(checkout=PaymentCheckout(PaymentCheckoutPhase.PRESENTING,id,reference))}
             return PreparedPayment(reference,input)
         }catch(c:CancellationException){if(matches(expected,reference))stop(id,text(PaymentStrings.PAYMENT_CHECKOUT_WAS_INTERRUPTED_CHECK_THE_PAYMENT_STATUS_BEFORE_TRY));throw c}

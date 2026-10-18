@@ -109,15 +109,17 @@ class NativePaymentViewModel(handle: SavedStateHandle) : ViewModel() {
 }
 
 /** Values copied from a generated gateway response; no amount calculation or API request lives here. */
-class StripeSheetInput(val paymentReference: String, val merchantName: String, val publishableKey: String,
-    val clientSecret: String, val customerId: String? = null, val ephemeralKey: String? = null) {
+sealed interface NativeSheetInput { val paymentReference: String }
+
+class StripeSheetInput(override val paymentReference: String, val merchantName: String, val publishableKey: String,
+    val clientSecret: String, val customerId: String? = null, val ephemeralKey: String? = null) : NativeSheetInput {
     fun valid(): Boolean = paymentReference.isNotBlank() && merchantName.isNotBlank() && publishableKey.startsWith("pk_") &&
         clientSecret.isNotBlank() && (customerId.isNullOrBlank() == ephemeralKey.isNullOrBlank())
     override fun toString() = "StripeSheetInput(redacted)"
 }
 
-class RazorpaySheetInput(val paymentReference: String, val merchantName: String, val keyId: String,
-    val orderId: String, val amountMinor: Long, val currency: String) {
+class RazorpaySheetInput(override val paymentReference: String, val merchantName: String, val keyId: String,
+    val orderId: String, val amountMinor: Long, val currency: String, val description: String = "") : NativeSheetInput {
     fun valid(): Boolean = paymentReference.isNotBlank() && merchantName.isNotBlank() && keyId.startsWith("rzp_") &&
         orderId.startsWith("order_") && amountMinor > 0 && Regex("[A-Za-z]{3}").matches(currency)
     override fun toString() = "RazorpaySheetInput(redacted)"
@@ -190,6 +192,7 @@ private class RazorpayCheckoutContract : ActivityResultContract<RazorpaySheetInp
             .putExtra("reference", input.paymentReference).putExtra("merchant", input.merchantName)
             .putExtra("key", input.keyId).putExtra("order", input.orderId)
             .putExtra("amount", input.amountMinor).putExtra("currency", input.currency)
+            .putExtra("description", input.description)
     override fun parseResult(resultCode: Int, intent: Intent?): SheetCloseReason = when {
         resultCode == Activity.RESULT_OK -> SheetCloseReason.SUBMITTED
         intent?.getBooleanExtra("interrupted", false) == true -> SheetCloseReason.INTERRUPTED
@@ -221,11 +224,13 @@ class RazorpayCheckoutActivity : ComponentActivity(), PaymentResultWithDataListe
         }
         val input = RazorpaySheetInput(intent.getStringExtra("reference").orEmpty(), intent.getStringExtra("merchant").orEmpty(),
             intent.getStringExtra("key").orEmpty(), intent.getStringExtra("order").orEmpty(),
-            intent.getLongExtra("amount", 0), intent.getStringExtra("currency").orEmpty())
+            intent.getLongExtra("amount", 0), intent.getStringExtra("currency").orEmpty(),
+            intent.getStringExtra("description").orEmpty())
         if (!input.valid()) { fail(); return }
         try {
             val options = JSONObject().put("name", input.merchantName).put("order_id", input.orderId)
                 .put("amount", input.amountMinor).put("currency", input.currency)
+                .apply { if (input.description.isNotBlank()) put("description", input.description) }
                 .put("theme.color",razorpayBrandColor())
             Checkout().apply { setKeyID(input.keyId) }.open(this, options)
         } catch (_: Exception) { fail() }

@@ -185,10 +185,10 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
                         showingStaff -> Text(copyText(UiStrings.MOBILE_LOADING_YOUR_MAKERSPACE),Modifier.padding(24.dp))
                         showingPayments && paymentState?.scope?.id!=state.selectedId -> Text(copyText(UiStrings.MOBILE_LOADING_YOUR_MAKERSPACE),Modifier.padding(24.dp))
                         showingPayments && payments!=null -> PaymentsScreen(payments,bundle.demo,{showingPayments=false},nativeState,
-                            launchStripe={input->
+                            launchCheckout={input->
                                 if(!bundle.demo && !bundle.holder.state.value.busy && bundle.sessionEpoch()==owningEpoch && bundle.holder.state.value.user?.id==owningUser &&
                                     bundle.holder.state.value.selectedId==paymentState?.scope?.id)
-                                    nativeCheckout?.launchStripe?.invoke(input)?:PaymentLaunchResult.HOST_NOT_READY
+                                    nativeCheckout?.launchCheckout?.invoke(input)?:PaymentLaunchResult.HOST_NOT_READY
                                 else PaymentLaunchResult.HOST_NOT_READY
                             },acknowledgeNative={nativeCheckout?.acknowledge?.invoke()},recoverInterrupted={nativeCheckout?.recoverInterrupted?.invoke()},refreshOnEnter=paymentRoute==null,hostAvailable=!state.busy)
                         actionState?.route!=null && actionState.scope?.id!=state.selectedId -> Text(copyText(UiStrings.MOBILE_LOADING_YOUR_MAKERSPACE),Modifier.padding(24.dp))

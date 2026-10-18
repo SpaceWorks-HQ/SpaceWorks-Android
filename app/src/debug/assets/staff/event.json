@@ -39,5 +39,14 @@
   "ticketing_features": [],
   "timezone_name": "",
   "title": "Sample repair workshop",
-  "updated_at": "2026-10-16T09:00:00Z"
+  "updated_at": "2026-10-16T09:00:00Z",
+  "audience_label": null,
+  "badge_sensitive_fields_allowed": false,
+  "broadcasts_enabled": false,
+  "can_manage_staff": false,
+  "organization_admission_blocked": false,
+  "participating_organizations": [],
+  "report_features": [],
+  "show_registration_count": false,
+  "staff_permissions": []
 }

@@ -31,7 +31,7 @@ class OutcomeFeedbackTest {
     }
     @Test fun mfaAndRequiredPasswordAreProgressionRatherThanCompletedAuthentication() {
         val before=AuthState(initialized=true)
-        val user=AuthUserPayload(1,"member","member@example.invalid","Member","",true,"member",false,false,emptyList())
+        val user=AuthUserPayload("member",1,"member","member@example.invalid","Member","",true,"member",false,false,emptyList())
         assertEquals(AuthOperationKind.PROGRESSED,authOperationKind(before,before.copy(mfa=MFAChallengeResponse(true,false,"challenge",300)),false))
         assertEquals(AuthOperationKind.PROGRESSED,authOperationKind(before,before.copy(user=user.copy(mustChangePassword=true)),true))
         assertNull(authOperationKind(before,before.copy(user=user),false))

@@ -14,6 +14,7 @@ import org.spaceworks.app.auth.requireBody
 import org.spaceworks.app.member.MemberScope
 import org.spaceworks.app.network.ApiSession
 import org.spaceworks.generated.api.PaymentsApi
+import org.spaceworks.generated.model.MobilePaymentIntentResponse
 
 /** The signed API URL is parsed into generated arguments; it is never opened directly. */
 object PaymentDocumentLinks {
@@ -59,7 +60,14 @@ class GeneratedPaymentsGateway(
     }
     override suspend fun intent(scope:MemberScope,paymentId:String):PaymentIntent {
         val value=api(scope).apiV1MemberMakerspacesPaymentsMobileIntentCreate(scope.id,positivePaymentId(paymentId)).requireBody()
-        return PaymentIntent(value.paymentId.toString(),value.clientSecret,value.publishableKey,value.customerId,value.ephemeralKey)
+        return when(value) {
+            is MobilePaymentIntentResponse.StripeWrapper -> value.value.let {
+                PaymentIntent.Stripe(it.paymentId.toString(),it.clientSecret,it.publishableKey,it.customerId,it.ephemeralKey)
+            }
+            is MobilePaymentIntentResponse.RazorpayWrapper -> value.value.let {
+                PaymentIntent.Razorpay(it.paymentId.toString(),it.keyId,it.orderId,it.amountMinor.toLong(),it.currency,it.name,it.description)
+            }
+        }
     }
     override suspend fun documents(scope:MemberScope,page:Int):PaymentDocumentPage {
         require(page>0)

@@ -95,7 +95,7 @@ class GeneratedStaffGateway(private val session:ApiSession,private val authorize
         events(scope).apiV1AdminEventsCheckInResolveCreate(eventId,body).requireBody()
     }
     override suspend fun markAttended(scope:MemberScope,registrationId:Int,body:EventAttendanceMark)=checked(scope,"manage_events"){
-        requireId(registrationId);events(scope).apiV1AdminEventRegistrationsMarkAttendedCreate(registrationId,body).requireBody().also{require(it.id==registrationId)}
+        requireId(registrationId);events(scope).apiV1AdminEventRegistrationsMarkAttendedCreate(registrationId,body).requireBody().also{require(it.registrationId==registrationId)}
     }
     override suspend fun spaces(scope:MemberScope,page:Int)=checked(scope){
         requireId(page);val result=bookings(scope).apiV1AdminMakerspacesSpacesRetrieve(scope.id,page=page).requireBody()

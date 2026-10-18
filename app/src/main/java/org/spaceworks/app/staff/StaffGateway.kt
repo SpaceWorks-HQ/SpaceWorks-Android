@@ -28,7 +28,7 @@ interface StaffGateway {
     suspend fun kitPreview(scope:MemberScope,body:KitPreviewInput):KitPreview
     suspend fun events(scope:MemberScope,page:Int):EventListWithDefaults
     suspend fun resolveCheckIn(scope:MemberScope,eventId:Int,body:EventCheckInResolveRequest):EventCheckInResolveResponse
-    suspend fun markAttended(scope:MemberScope,registrationId:Int,body:EventAttendanceMark):EventRegistrationAdmin
+    suspend fun markAttended(scope:MemberScope,registrationId:Int,body:EventAttendanceMark):EventAttendanceResult
     suspend fun spaces(scope:MemberScope,page:Int):BookableSpaceListResponse
     suspend fun bookings(scope:MemberScope,spaceId:Int,page:Int):BookingListResponse
     suspend fun approveBooking(scope:MemberScope,id:Int):BookingAdmin
@@ -39,4 +39,14 @@ interface StaffGateway {
 class StaffEvidenceUpload(val evidenceId:Int,val uploadUrl:String,val method:String,
     val fields:Map<String,String>,val headers:Map<String,String>) {
     override fun toString()="StaffEvidenceUpload(redacted)"
+}
+
+/** The attendance response is a generated union; both arms carry the registration ID and its status. */
+val EventAttendanceResult.registrationId:Int get()=when(this){
+    is EventAttendanceResult.EventRegistrationAdminValue->value.id
+    is EventAttendanceResult.EventCheckInResultValue->value.id
+}
+val EventAttendanceResult.attendanceStatus:String get()=when(this){
+    is EventAttendanceResult.EventRegistrationAdminValue->value.status.value
+    is EventAttendanceResult.EventCheckInResultValue->value.status
 }
