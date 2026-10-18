@@ -73,4 +73,6 @@ Set deployment branding and an optional locked HTTPS origin in [`branding/brand.
 
 [User guide](docs/USER-GUIDE.md) · [Release readiness](docs/RELEASE-READINESS.md) · [Store listing](docs/STORE-LISTING.md) · [Local API evidence](docs/LOCAL-DOCKER-VALIDATION.md) · [Changelog](docs/CHANGELOG.md) · [PRD](docs/PRD.md)
 
+[Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Dependency provenance](docs/DEPENDENCIES.md)
+
 Ongoing work stays on `dev`, with tested phase commits pushed there. The owner authorized the existing [PR #4](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/pull/4) for delivery to `main`: merge only its reviewed head after exact-source CI and visual gates pass. Preserve `dev` and phase commits; do not create other pull requests or feature branches. Keep the PRD, API contract and pinned Design inputs unchanged.

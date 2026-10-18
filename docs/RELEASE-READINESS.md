@@ -22,6 +22,28 @@ The unsigned Release APK is under `app/build/outputs/apk/release/` and the unsig
 `app/build/outputs/bundle/release/`; these artifacts prove compilation/packaging, not Play
 distribution readiness.
 
+## Repository and supply-chain handoff
+
+Use the checked-in Gradle 8.13 distribution checksum and immutable upstream action
+commits recorded in [dependency provenance](DEPENDENCIES.md). Checkout credentials
+are not persisted, CI permissions remain read-only and no publishing/signing job
+is configured. Changes to these inputs require new exact-head CI evidence; the
+historical app proof linked in README is not relabelled as a new-source test run.
+
+Review current GitHub main protection, private reporting and secret-scanning/push
+protection settings with the owner. Repository policy files do not enable those
+settings. Follow [SECURITY.md](../SECURITY.md) for private reporting and
+[CONTRIBUTING.md](../CONTRIBUTING.md) for maintenance. Preserve `dev`, phase history
+and the existing authorized PR #4; do not introduce automatic update PRs.
+
+Retain SDK/transitive license and provider-term review as a distribution input,
+including separate owner confirmation of supplied Gilroy app-embedding rights.
+The current packaged Unbounded font includes the unchanged existing copyright
+and full OFL text under `assets/licenses/OFL-Unbounded.txt`; the APK packaging
+gate verifies those exact source bytes. This does not grant a license to the
+application code or to unrelated supplied assets. Signing, backend/provider,
+privacy/legal and store checks below remain separate owner gates.
+
 CI additionally validates every arm64/x86_64 native library's LOAD segments and runs the Android
 SDK's `zipalign -c -P 16 4` on debug and release APKs. Evidence is in
 `validation/native-packaging.json`. This verifies binary/ZIP alignment; a 16 KB runtime device
