@@ -4,6 +4,7 @@
   "ios_bundle_id": "org.spaceworks.app",
   "ios_team_id": "XXXXXXXXXX",
   "server_url": null,
+  "play_integrity_cloud_project_number": null,
   "support_url": null,
   "privacy_url": null,
   "theme_tokens": "design/tokens/tokens.json",

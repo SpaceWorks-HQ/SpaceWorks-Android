@@ -13,6 +13,7 @@ internal fun authOperationKind(before:AuthState,after:AuthState,accepted:Boolean
     after.user!=null && before.user==null && accepted ->
         if(after.user.mustChangePassword)AuthOperationKind.PROGRESSED else AuthOperationKind.ACCEPTED
     after.mfa!=null && before.mfa==null -> AuthOperationKind.PROGRESSED
+    after.phone?.codeSent==true && before.phone?.codeSent!=true -> AuthOperationKind.PROGRESSED
     after.recoveryCodes.isNotEmpty() && before.recoveryCodes.isEmpty() -> AuthOperationKind.PROGRESSED
     else -> null
 }

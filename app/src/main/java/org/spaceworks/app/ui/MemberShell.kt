@@ -68,7 +68,13 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
     val scope=rememberCoroutineScope()
     var destination by rememberSaveable(state.selectedId){mutableIntStateOf(0)}
     var signingOut by remember {mutableStateOf(false)}
+    var signingOutEverywhere by remember {mutableStateOf(false)}
     var changingServer by remember {mutableStateOf(false)}
+    if(signingOutEverywhere)AlertDialog(onDismissRequest={signingOutEverywhere=false},
+        title={Text(copyText(UiStrings.MOBILE_SIGN_OUT_EVERYWHERE_QUESTION))},text={Text(copyText(UiStrings.MOBILE_SIGN_OUT_EVERYWHERE_HELP))},
+        confirmButton={TextButton(onClick={signingOutEverywhere=false;scope.launch {bundle.holder.signOutEverywhere()}},
+            colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.error)){Text(copyText(UiStrings.MOBILE_SIGN_OUT_EVERYWHERE))}},
+        dismissButton={BrandTextButton(copyText(UiStrings.MOBILE_CANCEL),{signingOutEverywhere=false})})
     val actions=bundle.actions
     val actionState=actions?.state?.collectAsStateWithLifecycle()?.value
     val member=bundle.member
@@ -86,6 +92,10 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
     val payments=bundle.payments
     val paymentState=payments?.state?.collectAsStateWithLifecycle()?.value
     var showingPayments by remember(state.selectedId){mutableStateOf(false)}
+    val insights=bundle.insights
+    var showingMessaging by remember(state.selectedId){mutableStateOf(false)}
+    BackHandler(showingMessaging){showingMessaging=false}
+    LaunchedEffect(insights,state.selectedId) {state.selected?.let {insights?.activate(MemberScope(it.id,it.slug))}}
     var paymentRoute by remember(state.selectedId){mutableStateOf<Pair<Long,String?>?>(null)}
     val nativeCheckout=LocalNativeCheckout.current
     val nativeState=nativeCheckout?.state?.collectAsStateWithLifecycle()?.value?:NativePaymentState.Idle
@@ -181,14 +191,16 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
                                 org.spaceworks.app.theme.BrandLinks.privacyURL?.takeIf {org.spaceworks.app.account.AccountLinkPolicy.safe(it)}?.let {url->
                                     BrandTextButton(androidx.compose.ui.res.stringResource(org.spaceworks.app.R.string.account_privacy),{runCatching {context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(url)))}})}
                             })
-                        showingStaff && staffAvailable && staff!=null && (staffState?.scope==null || staffState.scope?.id==state.selectedId) -> org.spaceworks.app.staff.StaffScreen(staff,bundle.demo,{staff.close();showingStaff=false},previewScope=state.selected?.let {MemberScope(it.id,it.slug)})
+                        showingStaff && staffAvailable && staff!=null && (staffState?.scope==null || staffState.scope?.id==state.selectedId) -> org.spaceworks.app.staff.StaffScreen(staff,bundle.demo,{staff.close();showingStaff=false},previewScope=state.selected?.let {MemberScope(it.id,it.slug)},
+                            dashboard=insights?.let {holder->{org.spaceworks.app.insights.StaffDashboardPanel(holder)}})
+                        showingMessaging && insights!=null -> org.spaceworks.app.insights.MessagingConsentScreen(insights,{showingMessaging=false},onAccount)
                         showingStaff -> Text(copyText(UiStrings.MOBILE_LOADING_YOUR_MAKERSPACE),Modifier.padding(24.dp))
                         showingPayments && paymentState?.scope?.id!=state.selectedId -> Text(copyText(UiStrings.MOBILE_LOADING_YOUR_MAKERSPACE),Modifier.padding(24.dp))
                         showingPayments && payments!=null -> PaymentsScreen(payments,bundle.demo,{showingPayments=false},nativeState,
-                            launchStripe={input->
+                            launchCheckout={input->
                                 if(!bundle.demo && !bundle.holder.state.value.busy && bundle.sessionEpoch()==owningEpoch && bundle.holder.state.value.user?.id==owningUser &&
                                     bundle.holder.state.value.selectedId==paymentState?.scope?.id)
-                                    nativeCheckout?.launchStripe?.invoke(input)?:PaymentLaunchResult.HOST_NOT_READY
+                                    nativeCheckout?.launchCheckout?.invoke(input)?:PaymentLaunchResult.HOST_NOT_READY
                                 else PaymentLaunchResult.HOST_NOT_READY
                             },acknowledgeNative={nativeCheckout?.acknowledge?.invoke()},recoverInterrupted={nativeCheckout?.recoverInterrupted?.invoke()},refreshOnEnter=paymentRoute==null,hostAvailable=!state.busy)
                         actionState?.route!=null && actionState.scope?.id!=state.selectedId -> Text(copyText(UiStrings.MOBILE_LOADING_YOUR_MAKERSPACE),Modifier.padding(24.dp))
@@ -208,6 +220,7 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
                                 }
                                 actions?.takeIf {actionState?.scope?.id==state.selectedId}?.let {action->
                                     if(actionState?.capabilities?.value?.selfService==true)BrandTextButton(copyText(UiStrings.MOBILE_EDIT_PROFILE),{scope.launch {action.openProfile()}})
+                                    if(actionState?.capabilities?.value?.messaging==true && insights!=null)BrandTextButton(copyText(org.spaceworks.app.insights.InsightsStrings.INSIGHTS_MESSAGES),{showingMessaging=true},!state.busy,modifier=Modifier.semantics {testTag="messaging-entry"})
                                     if(actionState?.capabilities?.value?.memberPreferences==true)BrandTextButton(copyText(UiStrings.MOBILE_COMMUNICATION_PREFERENCES),{scope.launch {action.openPreferences()}})
                                     if(actionState?.capabilities?.loading==true)LinearProgressIndicator(Modifier.fillMaxWidth())
                                     actionState?.capabilities?.error?.let {BrandError(it);BrandTextButton(copyText(UiStrings.MOBILE_RETRY_MAKERSPACE_SETTINGS),{scope.launch {action.refreshCapabilities()}})}
@@ -217,12 +230,13 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
                                 BrandTextButton(copyText(UsageStrings.USAGE_APP_GUIDE),{showingGuide=true},!state.busy,modifier=Modifier.semantics {testTag="usage-guide-entry"})
                                 onShowIntro?.let {BrandTextButton(copyText(UiStrings.MOBILE_SHOW_INTRODUCTION),it,!state.busy)}
                                 BrandButton(copyText(UiStrings.MOBILE_SIGN_OUT),{signingOut=true},!state.busy)
+                                if(!bundle.demo)BrandTextButton(copyText(UiStrings.MOBILE_SIGN_OUT_EVERYWHERE),{signingOutEverywhere=true},!state.busy,modifier=Modifier.semantics {testTag="sign-out-everywhere"})
                                 onChangeServer?.let {BrandTextButton(copyText(UiStrings.MOBILE_CHANGE_SERVER),{changingServer=true},!state.busy)}
                             }
                         }
                         member==null -> Text(copyText(UiStrings.MOBILE_MEMBER_INFORMATION_IS_UNAVAILABLE_FOR_THIS_BUILD),Modifier.padding(24.dp))
                         content?.scope?.id!=state.selectedId -> Column(Modifier.padding(24.dp)) {LinearProgressIndicator(Modifier.fillMaxWidth());Text(copyText(UiStrings.MOBILE_LOADING_YOUR_MAKERSPACE))}
-                        destination==0 -> MemberHome(member,state.user?.displayName.orEmpty().ifBlank {state.user?.username.orEmpty()},{navigate(1)},bundle.demo,homeExtra,onPayments=payments?.let {{showingPayments=true}},guideProgress=guidance,bookingsEnabled=actionState?.capabilities?.value?.bookableSpaces==true,onProfile={navigate(4)})
+                        destination==0 -> MemberHome(member,state.user?.displayName.orEmpty().ifBlank {state.user?.username.orEmpty()},{navigate(1)},bundle.demo,homeExtra,onPayments=payments?.let {{showingPayments=true}},guideProgress=guidance,bookingsEnabled=actionState?.capabilities?.value?.bookableSpaces==true,onProfile={navigate(4)},usage=insights?.let {holder->{org.spaceworks.app.insights.MemberUsagePanel(holder)}})
                         destination==1 -> MemberInventory(member)
                         destination==2 -> MemberActivityScreen(member)
                         else -> MemberInboxScreen(member,notifications={bundle.push?.let {push->NotificationsPanel(push,bundle.demo,bundle.pushConfigured,state.memberships.associate {it.id to makerspaceLabel(it.slug)},bundle.pushPreview){hint->bundle.links?.offer(hint)}}},onOpenUpdate={bundle.links?.offer(it)},navigationSequence=inboxNavigationSerial)

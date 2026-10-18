@@ -11,5 +11,9 @@
   "public_token": "71000000-0000-4000-8000-000000000001",
   "space_id": 901,
   "starts_at": "2026-10-16T09:00:00Z",
-  "status": "pending"
+  "status": "pending",
+  "arrived_at": null,
+  "cancelled_at": null,
+  "restore_until": null,
+  "status_before_cancel": ""
 }

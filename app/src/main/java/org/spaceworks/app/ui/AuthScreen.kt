@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.*
 import androidx.compose.ui.graphics.asImageBitmap
@@ -79,7 +80,17 @@ import org.spaceworks.app.platform.GoogleIdentity
         }}
     }
     LaunchedEffect(holder) {if(!state.initialized)holder.initialize()}
+    BackHandler(state.phone!=null && state.mfa==null) {if(!state.busy)holder.closePhone()}
     when {
+        state.gate==AuthGate.UPDATE_REQUIRED -> AuthLayout(copyText(UiStrings.MOBILE_UPDATE_REQUIRED),copyText(UiStrings.MOBILE_THIS_VERSION_IS_NO_LONGER_SUPPORTED_BY_YOUR_SERVER)) {
+            BrandButton(copyText(UiStrings.MOBILE_OPEN_GOOGLE_PLAY),{
+                val id=context.packageName
+                runCatching {context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse("market://details?id=$id")))}
+                    .recoverCatching {context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse("https://play.google.com/store/apps/details?id=$id")))}
+            },!state.busy)
+            BrandTextButton(copyText(UiStrings.MOBILE_TRY_AGAIN),{scope.launch {holder.initialize()}},!state.busy)
+            onChangeServer?.let {BrandTextButton(copyText(UiStrings.MOBILE_CHANGE_SERVER),it,!state.busy)}
+        }
         state.gate!=null -> AuthLayout(if(state.gate==AuthGate.WEB_CONSOLE)copyText(UiStrings.MOBILE_USE_THE_WEB_CONSOLE) else copyText(UiStrings.MOBILE_SIGN_IN_AGAIN),
             if(state.gate==AuthGate.WEB_CONSOLE)copyText(UiStrings.MOBILE_SUPERADMIN_ACCOUNTS_USE_THE_WEB_CONSOLE_SIGN_IN_HERE_WITH_A_MEMB)
             else copyText(UiStrings.MOBILE_YOUR_SESSION_ENDED_SIGN_IN_AGAIN_TO_CONTINUE)) {
@@ -132,6 +143,7 @@ import org.spaceworks.app.platform.GoogleIdentity
                 BrandTextButton(copyText(UiStrings.MOBILE_BACK_TO_SIGN_IN),{scope.launch {holder.cancelMfa()}},!state.busy)
             }
         }
+        state.phone!=null -> PhoneSignInScreen(holder,state,retrySeconds,::launchAuth)
         else -> AuthLayout(copyText(UiStrings.MOBILE_WELCOME_BACK),copyText(UiStrings.MOBILE_SIGN_IN_TO_YOUR_MAKERSPACE_ACCOUNT)) {
             if(!state.initialized) {
                 if(state.busy) {LinearProgressIndicator(Modifier.fillMaxWidth());Text(copyText(UiStrings.MOBILE_CHECKING_SIGN_IN_METHODS),Modifier.semantics {liveRegion=LiveRegionMode.Polite})}
@@ -145,9 +157,21 @@ import org.spaceworks.app.platform.GoogleIdentity
                     else if(!bundle.demo)Text(copyText(UiStrings.MOBILE_GOOGLE_DEVICE_SIGN_IN_IS_NOT_CONFIGURED_FOR_THIS_BUILD_CONTACT_Y),style=MaterialTheme.typography.bodySmall)
                     if(state.passwordEnabled && holder.nativeSocialReady)Text(copyText(UiStrings.MOBILE_OR_SIGN_IN_WITH_A_PASSWORD),style=MaterialTheme.typography.labelLarge)
                 }
+                if(holder.nativeSocialReady && !bundle.demo)holder.oidcProviders.forEach {provider->
+                    BrandButton(copyText(UiStrings.MOBILE_CONTINUE_WITH_VALUE,provider.displayName),{
+                        launchAuth {outcome->holder.oidcSignIn(provider,{p,nonce->
+                            org.spaceworks.app.platform.OidcBrowser().idToken(context.activity()?:throw AuthMessage(copyText(UiStrings.MOBILE_THIS_SIGN_IN_OPTION_ISN_T_AVAILABLE_ON_THIS_DEVICE)),
+                                p.issuer,p.clientId,nonce,org.spaceworks.app.platform.OidcRedirects.redirectUri(context.packageName))
+                        },outcome)}
+                    },!state.busy && retrySeconds==0L,Modifier.testTag("oidc-${provider.key}"))
+                }
+                if(state.phoneEnabled && holder.nativeSocialReady && !bundle.demo)
+                    BrandButton(copyText(UiStrings.MOBILE_CONTINUE_WITH_PHONE),holder::openPhone,!state.busy && retrySeconds==0L,Modifier.testTag("phoneSignIn"))
                 if(state.passwordEnabled) {
                     BrandField(username,{username=it.take(254);usernameError=null},copyText(UiStrings.MOBILE_EMAIL_OR_USERNAME),Modifier.testTag("username").focusRequester(usernameFocus),!state.busy,role=FieldRole.IDENTITY,errorMessage=usernameError)
                     BrandField(password,{password=it.take(1024);passwordError=null},copyText(UiStrings.MOBILE_PASSWORD),Modifier.testTag("password").focusRequester(passwordFocus),!state.busy,secret=true,onDone={if(!state.busy && retrySeconds==0L)submit()},errorMessage=passwordError)
+                    if(state.phoneEnabled && holder.nativeSocialReady && !bundle.demo)bundle.accounts?.let {accounts->
+                        BrandTextButton(copyText(UiStrings.MOBILE_RESTORE_A_DELETED_ACCOUNT),{accounts.open(AccountRoute.RESTORE_PHONE)},!state.busy,Modifier.testTag("restoreEntry"))}
                     bundle.accounts?.let {accounts->BrandTextButton(copyText(UiStrings.MOBILE_FORGOT_PASSWORD),{accounts.open(AccountRoute.FORGOT_PASSWORD,username.takeIf {it.contains('@')}.orEmpty())},!state.busy)}
                     BrandError(state.error)
                     state.notice?.let {Text(it)}
@@ -158,7 +182,7 @@ import org.spaceworks.app.platform.GoogleIdentity
                         Text(copyText(UiStrings.MOBILE_NEW_HERE),style=MaterialTheme.typography.bodySmall)
                         BrandTextButton(copyText(UiStrings.MOBILE_CREATE_ACCOUNT),{accounts.open(AccountRoute.SIGN_UP)},!state.busy)
                     }
-                } else if(state.googleClientId==null || !holder.nativeSocialReady) {
+                } else if((state.googleClientId==null && !state.phoneEnabled && holder.oidcProviders.isEmpty()) || !holder.nativeSocialReady) {
                     Text(copyText(UiStrings.MOBILE_SIGN_IN_ISN_T_AVAILABLE_HERE),style=MaterialTheme.typography.titleMedium)
                     Text(copyText(UiStrings.MOBILE_ASK_YOUR_MAKERSPACE_FOR_HELP_OR_CHECK_THE_SERVER_ADDRESS))
                     BrandButton(copyText(UiStrings.MOBILE_TRY_AGAIN),{scope.launch {holder.initialize()}},!state.busy)
@@ -176,5 +200,48 @@ import org.spaceworks.app.platform.GoogleIdentity
             }
             onChangeServer?.let {BrandTextButton(copyText(UiStrings.MOBILE_CHANGE_SERVER),it,!state.busy)}
         }
+    }
+}
+
+/** Member-only phone sign-in: send a code, then verify it against the same attested challenge. */
+@Composable private fun PhoneSignInScreen(holder:AuthStateHolder,state:AuthState,retrySeconds:Long,
+    launchAuth:(suspend((AuthOperationOutcome)->Unit)->Unit)->Unit) {
+    val copyText=rememberMobileText()
+    val phone=requireNotNull(state.phone)
+    val focus=LocalFocusManager.current
+    val keyboard=LocalSoftwareKeyboardController.current
+    var country by rememberSaveable {mutableStateOf("+91")}
+    var number by rememberSaveable {mutableStateOf("")}
+    var code by rememberSaveable {mutableStateOf("")}
+    var countries by remember {mutableStateOf(false)}
+    var now by remember {mutableLongStateOf(System.currentTimeMillis())}
+    LaunchedEffect(phone.resendAtMillis) {while(System.currentTimeMillis()<phone.resendAtMillis){now=System.currentTimeMillis();kotlinx.coroutines.delay(500)};now=System.currentTimeMillis()}
+    val full=if(number.trim().startsWith("+"))number.trim() else country+number.filter {it.isDigit()}
+    fun send() {focus.clearFocus();keyboard?.hide();launchAuth {outcome->holder.sendPhoneCode(full,outcome)}}
+    if(!phone.codeSent) AuthLayout(copyText(UiStrings.MOBILE_CONTINUE_WITH_PHONE),copyText(UiStrings.MOBILE_WE_LL_TEXT_A_SIX_DIGIT_CODE_TO_THIS_NUMBER)) {
+        Box {
+            BrandTextButton(copyText(UiStrings.MOBILE_COUNTRY_CODE_VALUE,country),{countries=true},!state.busy)
+            DropdownMenu(countries,{countries=false}) {
+                listOf(copyText(UiStrings.MOBILE_INDIA_91) to "+91",copyText(UiStrings.MOBILE_UNITED_STATES_1) to "+1",copyText(UiStrings.MOBILE_UNITED_KINGDOM_44) to "+44")
+                    .forEach {(label,value)->DropdownMenuItem(text={Text(label)},onClick={country=value;countries=false})}
+            }
+        }
+        BrandField(number,{number=it.filter {c->c.isDigit() || c=='+' || c==' '}.take(20)},copyText(UiStrings.MOBILE_PHONE_NUMBER),Modifier.testTag("phoneNumber"),!state.busy,
+            role=FieldRole.PHONE,onDone={if(!state.busy && retrySeconds==0L)send()})
+        BrandError(state.error)
+        if(retrySeconds>0)Text(copyText(UiStrings.MOBILE_TRY_AGAIN_IN_VALUES,retrySeconds),style=MaterialTheme.typography.bodySmall)
+        BrandButton(if(state.busy)copyText(UiStrings.MOBILE_SENDING) else copyText(UiStrings.MOBILE_SEND_CODE),::send,!state.busy && retrySeconds==0L && number.any {it.isDigit()},Modifier.testTag("sendPhoneCode"))
+        BrandTextButton(copyText(UiStrings.MOBILE_USE_ANOTHER_SIGN_IN_METHOD),holder::closePhone,!state.busy)
+    } else AuthLayout(copyText(UiStrings.MOBILE_ENTER_YOUR_VERIFICATION_CODE),phone.phone) {
+        BrandField(code,{code=it.filter {c->c in '0'..'9'}.take(6)},copyText(UiStrings.MOBILE_VERIFICATION_CODE),Modifier.testTag("phoneCode"),!state.busy,
+            role=FieldRole.ONE_TIME_CODE,errorMessage=state.error,onDone={if(code.length==6 && !state.busy){focus.clearFocus();keyboard?.hide();launchAuth {outcome->holder.verifyPhoneCode(code,outcome);code=""}}})
+        BrandButton(if(state.busy)copyText(UiStrings.MOBILE_VERIFYING) else copyText(UiStrings.MOBILE_VERIFY),{
+            focus.clearFocus();keyboard?.hide();launchAuth {outcome->holder.verifyPhoneCode(code,outcome);code=""}
+        },!state.busy && code.length==6,Modifier.testTag("verifyPhoneCode"))
+        val seconds=((phone.resendAtMillis-now+999)/1000).coerceAtLeast(0)
+        BrandTextButton(if(seconds>0)copyText(UiStrings.MOBILE_RESEND_IN_VALUES,seconds) else copyText(UiStrings.MOBILE_RESEND_CODE),
+            {launchAuth {outcome->holder.sendPhoneCode(phone.phone,outcome)}},!state.busy && seconds==0L && retrySeconds==0L)
+        BrandTextButton(copyText(UiStrings.MOBILE_CHANGE_NUMBER),holder::changePhoneNumber,!state.busy)
+        BrandTextButton(copyText(UiStrings.MOBILE_USE_ANOTHER_SIGN_IN_METHOD),holder::closePhone,!state.busy)
     }
 }

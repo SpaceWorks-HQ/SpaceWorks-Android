@@ -28,10 +28,21 @@ class PaymentsGatewayTest {
         val request=request(server);assertEquals("GET",request.method);assertEquals("/api/v1/member/makerspaces/7/payments",request.path)
     }}
     @Test fun intentUsesOnlyActualChargeIDAndNoInventedVendorPayload()=runBlocking {withGateway{gateway,server,_->
-        server.enqueue(json("""{"payment_id":501,"client_secret":"pi_server_secret","publishable_key":"pk_test_server","customer_id":"cus_server","ephemeral_key":"eph_server"}"""))
-        val intent=gateway.intent(scope,"501");assertEquals("501",intent.paymentId);assertEquals("cus_server",intent.customerId)
+        server.enqueue(json("""{"vendor":"stripe","payment_id":501,"client_secret":"pi_server_secret","publishable_key":"pk_test_server","customer_id":"cus_server","ephemeral_key":"eph_server"}"""))
+        val intent=gateway.intent(scope,"501") as PaymentIntent.Stripe;assertEquals("501",intent.paymentId);assertEquals("cus_server",intent.customerId)
         assertEquals("PaymentIntent(redacted)",intent.toString());val request=request(server)
         assertEquals("POST",request.method);assertEquals("/api/v1/member/makerspaces/7/payments/501/mobile-intent",request.path);assertEquals(0L,request.bodySize)
+    }}
+    @Test fun razorpayIntentKeepsServerMinorAmountAndOrder()=runBlocking {withGateway{gateway,server,_->
+        server.enqueue(json("""{"vendor":"razorpay","payment_id":501,"key_id":"rzp_test_key","order_id":"order_server","amount_minor":25025,"currency":"INR","name":"Fab Lab","description":"Laser time"}"""))
+        val intent=gateway.intent(scope,"501") as PaymentIntent.Razorpay
+        assertEquals("501",intent.paymentId);assertEquals("rzp_test_key",intent.keyId);assertEquals("order_server",intent.orderId)
+        assertEquals(25025L,intent.amountMinor);assertEquals("INR",intent.currency);assertEquals("Fab Lab",intent.name);assertTrue(intent.valid())
+        assertEquals("PaymentIntent(redacted)",intent.toString());assertEquals("/api/v1/member/makerspaces/7/payments/501/mobile-intent",request(server).path)
+    }}
+    @Test fun intentWithoutVendorIsRejected()=runBlocking {withGateway{gateway,server,_->
+        server.enqueue(json("""{"payment_id":501,"client_secret":"pi_server_secret","publishable_key":"pk_test_server"}"""))
+        try{gateway.intent(scope,"501");fail("Vendorless intent accepted")}catch(_:Exception){};request(server)
     }}
     @Test fun documentsUseActualPageAndPreserveCreditNoteMoneyAndNextPage()=runBlocking {withGateway{gateway,server,_->
         val next=server.url("/api/v1/member/makerspaces/7/payment-documents?page=3")

@@ -6,7 +6,7 @@
     <!-- CAMERA permission otherwise implies a required rear camera in Play device filtering. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
-    <application android:allowBackup="false" android:label="@string/app_name" android:icon="@drawable/ic_brand" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:usesCleartextTraffic="false">
+    <application android:allowBackup="false" android:label="@string/app_name" android:icon="@drawable/ic_brand" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:usesCleartextTraffic="false" android:networkSecurityConfig="@xml/network_security_config">
         <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
         <service android:name=".platform.SpaceWorksMessagingService" android:exported="false"><intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT" /></intent-filter></service>
         <activity android:name=".platform.RazorpayCheckoutActivity" android:exported="false" />
@@ -16,7 +16,12 @@
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:windowSoftInputMode="adjustResize">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
             <intent-filter><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="spaceworks"/></intent-filter>
-            <intent-filter android:autoVerify="${deepLinkVerify}"><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="https" android:host="${deepLinkHost}"/></intent-filter>
+            <!-- OIDC authorization responses only (redirect URI ${applicationId}:/oidc); never a navigation link. -->
+            <intent-filter><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="${applicationId}"/></intent-filter>
+            <intent-filter android:autoVerify="${deepLinkVerify}"><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="https" android:host="${deepLinkHost}"/>
+                <!-- Member destinations of the server's mobile link contract only; admin, control and API paths stay in the browser. -->
+                <data android:pathPattern="/m/.*/member"/><data android:pathPattern="/m/.*/member/.*"/>
+                <data android:pathPattern="/m/.*/events/.*"/><data android:pathPattern="/m/.*/bookings/.*"/><data android:pathPattern="/m/.*/items/.*"/></intent-filter>
         </activity>
     </application>
 </manifest>

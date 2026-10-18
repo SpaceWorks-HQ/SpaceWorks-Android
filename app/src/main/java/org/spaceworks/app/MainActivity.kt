@@ -38,14 +38,17 @@ class MainActivity:ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Activity Result contracts must be registered before STARTED, including restored callbacks.
         val stripe=StripeSheetAdapter(this)
-        RazorpaySheetAdapter(this,stripe.callbacks)
-        val checkout=NativeCheckoutBindings(stripe.callbacks.state,{stripe.launch(it,false)},
+        val razorpay=RazorpaySheetAdapter(this,stripe.callbacks)
+        val checkout=NativeCheckoutBindings(stripe.callbacks.state,{input->when(input){
+                is StripeSheetInput->stripe.launch(input,false)
+                is RazorpaySheetInput->razorpay.launch(input,false)
+            }},
             {stripe.callbacks.acknowledgeServerRefresh()},
             {stripe.callbacks.recoverInterrupted(MobileText.resources(applicationContext)(org.spaceworks.app.payments.PaymentStrings.PAYMENT_CHECK_THE_PAYMENT_STATUS_BEFORE_TRYING_AGAIN));Unit})
         lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             NativeDocumentFiles(java.io.File(cacheDir,"native-documents")).cleanStale()
         }
-        controller.receive(intent)
+        if(!OidcRedirects.consume(intent,applicationContext.packageName))controller.receive(intent)
         setContent {
             val incoming by controller.incoming.collectAsStateWithLifecycle()
             CompositionLocalProvider(LocalNativeCheckout provides checkout) {
@@ -53,7 +56,15 @@ class MainActivity:ComponentActivity() {
             }
         }
     }
-    override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);controller.receive(intent)}
+    override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent)
+        if(!OidcRedirects.consume(intent,applicationContext.packageName))controller.receive(intent)}
+    private var oidcCheck:kotlinx.coroutines.Job?=null
+    override fun onResume() {
+        super.onResume()
+        // A redirect arrives through onNewIntent before resume; still waiting means the browser was dismissed.
+        if(OidcRedirects.waiting){oidcCheck?.cancel();oidcCheck=lifecycleScope.launch {kotlinx.coroutines.delay(750);OidcRedirects.abandon()}}
+    }
+    override fun onPause(){oidcCheck?.cancel();super.onPause()}
 }
 @Composable fun SpaceWorksApp(holder:ConnectionStateHolder,sessionFactory:((String)->AuthBundle)?=null,
     demoFactory:()->AuthBundle?={DemoSupport.create()},onExitDemo:()->Unit={},onboarding:OnboardingStateHolder?=null,appearance:AppearanceStateHolder?=null,incoming:PendingNativeIntent?=null,onIncomingConsumed:(Long)->Unit={}) {
@@ -111,7 +122,7 @@ class MainActivity:ComponentActivity() {
     val management=bundle.management
     val completion=management?.owner?.completion?.collectAsStateWithLifecycle()?.value
     var accountPanel by remember(bundle){mutableStateOf<AccountManagementStateHolder?>(null)}
-    var deletion by remember(bundle){mutableStateOf<AccountDeletionPreview?>(null)}
+    var deletion by remember(bundle){mutableStateOf<AccountDeletionFlow?>(null)}
     var pendingStaffMaker by remember(bundle){mutableStateOf<Int?>(null)}
     var accountError by remember(bundle){mutableStateOf<String?>(null)}
     val panelState=accountPanel?.state?.collectAsStateWithLifecycle()?.value
@@ -232,7 +243,7 @@ class MainActivity:ComponentActivity() {
         state.user?.mustChangePassword==true -> ChangePasswordScreen(bundle)
         accountPanel!=null && management?.owner?.current()===accountPanel -> AccountScreens(requireNotNull(accountPanel),bundle.demo,::closeAccount,
             privacyURL=BrandLinks.privacyURL,supportURL=BrandLinks.supportURL,
-            onDemoDelete=if(bundle.demo){{deletion=bundle.deletionPreview(bundle.holder.state.value.memberships.map {it.id})}}else null)
+            onDelete={deletion=bundle.deletionPreview(bundle.holder.state.value.memberships.map {it.id})})
         state.selected==null -> MakerspacePicker(bundle,if(management!=null){::openAccount}else null)
         else -> MemberShell(bundle,onChangeServer,onShowIntro,if(management!=null){::openAccount}else null,
             openStaff=pendingStaffMaker==state.selectedId,onStaffOpened={pendingStaffMaker=null})

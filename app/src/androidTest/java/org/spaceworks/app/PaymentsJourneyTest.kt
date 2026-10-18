@@ -43,7 +43,7 @@ class PaymentsJourneyTest {
             @Composable fun paymentContent() {
                 org.spaceworks.app.theme.SpaceWorksTheme(dark){
                     Surface(Modifier.fillMaxSize()){Box(Modifier.fillMaxSize().safeDrawingPadding()){
-                        PaymentsScreen(holder,true,{},launchStripe={launches.incrementAndGet();PaymentLaunchResult.DEMO_BLOCKED})
+                        PaymentsScreen(holder,true,{},launchCheckout={launches.incrementAndGet();PaymentLaunchResult.DEMO_BLOCKED})
                     }}
                 }
             }

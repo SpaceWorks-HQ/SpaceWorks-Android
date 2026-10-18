@@ -61,7 +61,7 @@ private data class StaffConfirmation(val title:String,val detail:String,val acti
 
 /** All physical mutations require visible review and confirmation. Camera callbacks resolve only. */
 @OptIn(ExperimentalLayoutApi::class)
-@Composable fun StaffScreen(holder:StaffStateHolder,demo:Boolean,onBack:()->Unit,previewScope:org.spaceworks.app.member.MemberScope?=null){
+@Composable fun StaffScreen(holder:StaffStateHolder,demo:Boolean,onBack:()->Unit,previewScope:org.spaceworks.app.member.MemberScope?=null,dashboard:(@Composable ()->Unit)?=null){
     val text=rememberMobileText()
 
     val s by holder.state.collectAsStateWithLifecycle();val work=rememberCoroutineScope()
@@ -130,6 +130,7 @@ private data class StaffConfirmation(val title:String,val detail:String,val acti
             if(s.busy||s.loading.isNotEmpty())LinearProgressIndicator(Modifier.fillMaxWidth().semantics{contentDescription=text(StaffStrings.STAFF_LOADING_STAFF_WORKSPACE)})
             BrandError(s.error);s.notice?.let{Text(it,Modifier.semantics{liveRegion=LiveRegionMode.Polite})}
             if(clock<s.retryAtMillis)Text(text(StaffStrings.STAFF_RETRY_SECONDS, retrySecondsRemaining(clock,s.retryAtMillis)))
+            if(s.section==StaffSection.QUEUE)dashboard?.invoke()
             if(s.section in setOf(StaffSection.QUEUE,StaffSection.DIRECT,StaffSection.EVENTS,StaffSection.SPACES))FlowRow(horizontalArrangement=Arrangement.spacedBy(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                 listOf(StaffSection.QUEUE to text(StaffStrings.STAFF_REQUESTS),StaffSection.DIRECT to text(StaffStrings.STAFF_DIRECT_HANDOUTS),StaffSection.EVENTS to text(StaffStrings.STAFF_EVENT_CHECK_IN),StaffSection.SPACES to text(StaffStrings.STAFF_BOOKINGS)).forEach{(section,label)->
                     val sectionSelected=s.section==section

@@ -67,7 +67,10 @@ class GeneratedMemberActionsGateway(private val session: ApiSession,private val 
         val (start, end) = interval(startsAtISO, endsAtISO)
         val result = api(PublicBookingsApi::class.java, scope).apiV1PublicSpacesBookCreate(makerspaceSlug = scope.slug,
             publicToken = uuid(publicToken), publicBookingInput = PublicBookingInput(startsAt = start, endsAt = end, customAnswers = answerObject(answers))).requireBody()
-        return result.status.value
+        return when (result) {
+            is ApiV1PublicSpacesBookCreate201Response.ApiV1PublicSpacesBookCreate201ResponseOneOfValue -> result.value.status.value
+            is ApiV1PublicSpacesBookCreate201Response.ApiV1PublicSpacesBookCreate201ResponseOneOf1Value -> result.value.status.value
+        }
     }
     override suspend fun reschedule(scope: MemberScope, bookingToken: String, startsAtISO: String, endsAtISO: String): MemberBooking {
         val (start, end) = interval(startsAtISO, endsAtISO)
@@ -154,7 +157,7 @@ class GeneratedMemberActionsGateway(private val session: ApiSession,private val 
         api(PersonalNotificationsApi::class.java, scope).apiV1NotificationsPreferencesRetrieve(scope.id).requireBody())
     override suspend fun updatePreference(scope: MemberScope, feature: String, channel: String, enabled: Boolean, dailyDigest: Boolean?): List<ActionPreference> {
         val family = requireNotNull(Feature9d8Enum.entries.firstOrNull { it.value == feature }) { text(CoreStrings.CORE_THIS_NOTIFICATION_FAMILY_IS_UNAVAILABLE) }
-        val delivery = requireNotNull(Channel673Enum.entries.firstOrNull { it.value == channel }) { text(CoreStrings.CORE_THIS_NOTIFICATION_CHANNEL_IS_UNAVAILABLE) }
+        val delivery = requireNotNull(ChannelB6fEnum.entries.firstOrNull { it.value == channel }) { text(CoreStrings.CORE_THIS_NOTIFICATION_CHANNEL_IS_UNAVAILABLE) }
         require(dailyDigest == null || channel == "email") { text(CoreStrings.CORE_DAILY_DIGESTS_APPLY_TO_OPTIONAL_EMAIL_MESSAGES) }
         return preferences(api(PersonalNotificationsApi::class.java, scope).apiV1NotificationsPreferencesPartialUpdate(scope.id,
             PatchedPreferenceWrite(feature = family, channel = delivery, enabled = enabled, dailyDigest = dailyDigest)).requireBody())

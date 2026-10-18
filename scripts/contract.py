@@ -66,6 +66,22 @@ phase3_operations |= {
     'api_v1_admin_bookings_reject_create',
 }
 phase3_operations |= {'api_v1_member_makerspaces_account_exports_download_create', 'api_v1_auth_device_grants_destroy', 'api_v1_member_makerspaces_account_sessions_destroy', 'api_v1_auth_mfa_recovery_create', 'api_v1_member_makerspaces_account_exports_create', 'api_v1_member_makerspaces_account_exports_retrieve', 'api_v1_auth_phone_link_start_create', 'api_v1_auth_device_grants_list', 'api_v1_auth_phone_destroy', 'api_v1_auth_mfa_retrieve', 'api_v1_member_makerspaces_account_leave_create', 'api_v1_member_makerspaces_account_exports_retrieve_2', 'api_v1_auth_mfa_disable_create', 'api_v1_auth_social_providers_destroy', 'api_v1_auth_phone_link_confirm_create', 'api_v1_member_makerspaces_account_cancel_create', 'api_v1_data_exports_download_retrieve', 'api_v1_member_makerspaces_account_membership_retrieve', 'api_v1_auth_social_providers_list', 'api_v1_member_makerspaces_account_sessions_retrieve'}
+# Backend 1a-1d native contracts: phone device sign-in, OIDC, logout-all, deletion and reauthentication.
+phase3_operations |= {
+    'api_v1_auth_phone_login_start_create','api_v1_auth_phone_login_confirm_create',
+    'api_v1_auth_social_oidc_create','api_v1_auth_logout_all_create',
+    'api_v1_auth_account_deletion_retrieve','api_v1_auth_account_deletion_create',
+    'api_v1_auth_reauth_retrieve','api_v1_auth_reauth_create',
+    'api_v1_auth_reauth_phone_start_create','api_v1_auth_reauth_phone_confirm_create',
+    'api_v1_auth_reauth_social_start_create','api_v1_auth_reauth_social_complete_create',
+    'api_v1_auth_reauth_social_factor_create',
+}
+# Backend v2 additions: member usage, staff dashboard, messaging consent and phone account restore.
+phase3_operations |= {
+    'api_v1_member_makerspaces_my_usage_retrieve','api_v1_admin_makerspace_dashboard_retrieve',
+    'api_v1_me_messaging_retrieve','api_v1_me_messaging_consent_create',
+    'api_v1_auth_account_restore_phone_create',
+}
 base_paths=set(selected)
 base_operations={op['operationId'] for path in base_paths for op in s['paths'][path].values() if isinstance(op,dict) and 'operationId' in op}
 found=set()

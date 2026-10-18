@@ -8,7 +8,8 @@ class AuthBundle(val holder:AuthStateHolder,val tokens:TokenStore,val demo:Boole
     val payments:org.spaceworks.app.payments.PaymentsStateHolder?=null,
     val staff:org.spaceworks.app.staff.StaffStateHolder?=null,val staffAvailable:()->Boolean={false},
     val management:org.spaceworks.app.account.AccountManagementCoordinator?=null,
-    val deletionPreview:(List<Int>)->org.spaceworks.app.account.AccountDeletionPreview?={null}) {
+    val deletionPreview:(List<Int>)->org.spaceworks.app.account.AccountDeletionFlow?={null},
+    val insights:org.spaceworks.app.insights.InsightsStateHolder?=null) {
     val previewGuidance=org.spaceworks.app.guidance.MemoryGuideStore()
 }
 
@@ -19,6 +20,6 @@ fun AuthBundle.clearDemoState() {
     management?.forget(this)
     if(tokens.read()!=null)tokens.replace(null)
     holder.invalidateInstallation(tokens.snapshot().epoch)
-    accounts?.clear();staff?.resetAccount();member?.clear();actions?.clear();payments?.clear()
+    accounts?.clear();staff?.resetAccount();member?.clear();actions?.clear();payments?.clear();insights?.clear()
     links?.clear();push?.pause()
 }

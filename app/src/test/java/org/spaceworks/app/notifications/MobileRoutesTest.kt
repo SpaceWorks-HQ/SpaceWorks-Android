@@ -25,12 +25,33 @@ class MobileRoutesTest {
     @Test fun legacyAliasesAreExactAndKeepStaffIntentExplicit(){
         assertEquals(LegacyMemberRoute("fab-lab",false),MobileRoutes.legacy("https://makers.example/m/fab-lab/member",server))
         assertEquals(LegacyMemberRoute("fab-lab",true),MobileRoutes.legacy("https://makers.example/m/fab-lab/admin/notifications",server))
-        for(path in listOf("/m/fab-lab/admin/other","/m/fab-lab/member/history","/m/fab-lab/member/","/m/fab-lab/../member"))assertNull(path,MobileRoutes.legacy("https://makers.example$path",server))
+        for(path in listOf("/m/fab-lab/admin/other","/m/fab-lab/admin","/m/fab-lab/member/events/5","/m/fab-lab/events/not-a-uuid","/m/fab-lab/items/0","/m/fab-lab/../member"))assertNull(path,MobileRoutes.legacy("https://makers.example$path",server))
+        // Contract tabs and trailing slashes resolve; unknown member tabs open Home.
+        assertEquals(LegacyMemberRoute("fab-lab",false),MobileRoutes.legacy("https://makers.example/m/fab-lab/member/",server))
+        assertEquals(LegacyMemberRoute("fab-lab",false),MobileRoutes.legacy("https://makers.example/m/fab-lab/member/history",server))
         assertNull(MobileRoutes.legacy("https://evil.example/m/fab-lab/member",server))
     }
     @Test fun pushVersionAndMismatchedMakerCannotSelectDifferentScope(){
         assertEquals(MobileSection.ACTIVITY,MobileRoutes.hint(PushHint(7,null,null,null,null,"/makerspaces/7/activity",2)).section)
         for(version in listOf(0,1,3,99))assertEquals(MobileSection.INBOX,MobileRoutes.hint(PushHint(7,null,null,null,null,"/makerspaces/7/activity",version)).section)
         assertEquals(MobileDestination(7,MobileSection.INBOX),MobileRoutes.hint(PushHint(7,null,null,null,null,"/makerspaces/8/payments/9",2)))
+    }
+
+    @Test fun serverLinkContractDestinationsMapToNativeSections(){
+        val token="7b9e8f2a-1c3d-4e5f-8a9b-0c1d2e3f4a5b"
+        assertEquals(LegacyMemberRoute("fab-lab",false,MobileSection.PAYMENTS),MobileRoutes.legacyPath("/m/fab-lab/member/payments"))
+        assertEquals(LegacyMemberRoute("fab-lab",false,MobileSection.ACTIVITY),MobileRoutes.legacyPath("/m/fab-lab/member/loans"))
+        assertEquals(LegacyMemberRoute("fab-lab",false,MobileSection.PROFILE),MobileRoutes.legacyPath("/m/fab-lab/member/account"))
+        assertEquals(LegacyMemberRoute("fab-lab",false,MobileSection.REGISTRATION,"31"),MobileRoutes.legacyPath("/m/fab-lab/member/events/31/ticket"))
+        assertEquals(LegacyMemberRoute("fab-lab",false,MobileSection.EVENTS,token),MobileRoutes.legacyPath("/m/fab-lab/events/$token"))
+        assertEquals(LegacyMemberRoute("fab-lab",false,MobileSection.BOOKINGS,token),MobileRoutes.legacyPath("/m/fab-lab/bookings/$token/"))
+        assertEquals(LegacyMemberRoute("fab-lab",false,MobileSection.INVENTORY,"19"),MobileRoutes.legacyPath("/m/fab-lab/items/19"))
+        for(path in listOf("/control/x","/api/v1/auth/me","/m/fab-lab/admin/requests","/m/fab-lab/events/$token?x=1","/docs"))assertNull(path,MobileRoutes.legacyPath(path))
+    }
+    @Test fun customDomainPushLinksUseTheHintMakerspace(){
+        val hint=org.spaceworks.app.platform.PushHint.from(mapOf("v" to "2","makerspace_id" to "7","feature" to "events","event" to "reminder","event_id" to "e1","link" to "/member/events/31/ticket"))!!
+        assertEquals(MobileDestination(7,MobileSection.REGISTRATION,"31"),MobileRoutes.hint(hint))
+        val unsupported=org.spaceworks.app.platform.PushHint.from(mapOf("v" to "2","makerspace_id" to "7","link" to "/m/fab-lab/admin/requests"))!!
+        assertEquals(MobileDestination(7,MobileSection.INBOX),MobileRoutes.hint(unsupported))
     }
 }

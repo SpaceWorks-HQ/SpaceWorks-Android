@@ -48,7 +48,7 @@ private data class AccountConfirmation(val title: String, val detail: String, va
 }
 
 @Composable fun AccountScreens(holder: AccountManagementStateHolder, demo: Boolean, onBack: () -> Unit,
-    privacyURL: String? = null, supportURL: String? = null, now: () -> Long = System::currentTimeMillis, onDemoDelete:(()->Unit)?=null) {
+    privacyURL: String? = null, supportURL: String? = null, now: () -> Long = System::currentTimeMillis, onDelete:(()->Unit)?=null) {
     val s by holder.state.collectAsStateWithLifecycle()
     val work = rememberCoroutineScope()
     val focus = LocalFocusManager.current
@@ -148,7 +148,7 @@ private data class AccountConfirmation(val title: String, val detail: String, va
                     if (s.capabilitiesLoading) Text(stringResource(R.string.account_services_loading))
                     if (s.scope!=null && s.capabilities?.let { !it.selfService || !it.selfExport } == true) Text(stringResource(R.string.account_services_disabled))
                     if(s.scope!=null)BrandTextButton(stringResource(R.string.account_services_refresh), { submit { holder.loadCapabilities() } }, enabled && !s.capabilitiesLoading)
-                    AccountPrivacyLinks(privacyURL, supportURL,onDemoDelete)
+                    AccountPrivacyLinks(privacyURL, supportURL,demo,onDelete)
                 }
                 AccountPage.PASSWORD -> {
                     Text(stringResource(R.string.account_password_intro))
@@ -276,7 +276,7 @@ private data class AccountConfirmation(val title: String, val detail: String, va
 
 private fun pageTitle(page: AccountPage) = when (page) { AccountPage.MENU -> R.string.account_title; AccountPage.PASSWORD -> R.string.account_change_password; AccountPage.SECURITY -> R.string.account_security; AccountPage.PHONE -> R.string.account_phone; AccountPage.PROVIDERS -> R.string.account_providers; AccountPage.SESSIONS -> R.string.account_sessions; AccountPage.DEVICES -> R.string.account_grants; AccountPage.MEMBERSHIP -> R.string.account_membership; AccountPage.EXPORTS -> R.string.account_exports }
 
-@Composable private fun AccountPrivacyLinks(privacyURL: String?, supportURL: String?,onDemoDelete:(()->Unit)?) {
+@Composable private fun AccountPrivacyLinks(privacyURL: String?, supportURL: String?,demo:Boolean,onDelete:(()->Unit)?) {
     val handler = LocalUriHandler.current
     var failed by remember { mutableStateOf(false) }
     AccountCard {
@@ -287,8 +287,9 @@ private fun pageTitle(page: AccountPage) = when (page) { AccountPage.MENU -> R.s
         }
         if (failed) BrandError(stringResource(R.string.account_link_unavailable))
         Text(stringResource(R.string.account_deletion), style = MaterialTheme.typography.titleMedium)
-        Text(stringResource(R.string.account_deletion_gap))
-        onDemoDelete?.let {BrandTextButton(stringResource(R.string.account_deletion_preview),it,modifier=Modifier.testTag("account-deletion-preview"))}
+        Text(stringResource(if(onDelete!=null)R.string.account_deletion_available else R.string.account_deletion_gap))
+        onDelete?.let {if(demo)BrandTextButton(stringResource(R.string.account_deletion_preview),it,modifier=Modifier.testTag("account-deletion-preview"))
+            else BrandTextButton(stringResource(R.string.deletion_delete_account),it,modifier=Modifier.testTag("account-deletion"))}
     }
 }
 

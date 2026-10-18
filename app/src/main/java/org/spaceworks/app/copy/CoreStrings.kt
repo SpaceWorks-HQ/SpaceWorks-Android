@@ -133,4 +133,11 @@ object CoreStrings {
     val CORE_THIS_CHANGED_REFRESH_AND_TRY_AGAIN=MobileCopyKey(R.string.core_this_changed_refresh_and_try_again,"This changed. Refresh and try again.")
     val CORE_TOO_MANY_REQUESTS_TRY_AGAIN_LATER=MobileCopyKey(R.string.core_too_many_requests_try_again_later,"Too many requests. Try again later.")
     val CORE_THE_SERVER_IS_UNAVAILABLE_TRY_AGAIN_LATER=MobileCopyKey(R.string.core_the_server_is_unavailable_try_again_later,"The server is unavailable. Try again later.")
+    val CORE_PHONE_SIGN_IN_IS_UNAVAILABLE_ON_THIS_SERVER=MobileCopyKey(R.string.core_phone_sign_in_is_unavailable_on_this_server,"Phone sign-in is unavailable on this server.")
+    val CORE_THIS_DEVICE_COULD_NOT_VERIFY_THE_APP_TRY_AGAIN=MobileCopyKey(R.string.core_this_device_could_not_verify_the_app_try_again,"This device could not verify the app. Try again.")
+    val CORE_ENTER_YOUR_PHONE_NUMBER_WITH_ITS_COUNTRY_CODE=MobileCopyKey(R.string.core_enter_your_phone_number_with_its_country_code,"Enter your phone number with its country code.")
+    val CORE_ENTER_THE_SIX_DIGIT_CODE=MobileCopyKey(R.string.core_enter_the_six_digit_code,"Enter the six-digit code.")
+    val CORE_YOUR_CODE_EXPIRED_SEND_A_NEW_CODE=MobileCopyKey(R.string.core_your_code_expired_send_a_new_code,"Your code expired. Send a new code.")
+    val CORE_SIGNED_OUT_ON_EVERY_DEVICE_AND_BROWSER=MobileCopyKey(R.string.core_signed_out_on_every_device_and_browser,"Signed out on every device and browser.")
+    val CORE_THIS_SIGN_IN_PROVIDER_IS_UNAVAILABLE_TRY_AGAIN=MobileCopyKey(R.string.core_this_sign_in_provider_is_unavailable_try_again,"This sign-in provider is unavailable. Try again.")
 }
