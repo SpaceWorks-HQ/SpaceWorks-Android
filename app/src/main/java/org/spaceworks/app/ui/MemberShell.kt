@@ -68,7 +68,13 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
     val scope=rememberCoroutineScope()
     var destination by rememberSaveable(state.selectedId){mutableIntStateOf(0)}
     var signingOut by remember {mutableStateOf(false)}
+    var signingOutEverywhere by remember {mutableStateOf(false)}
     var changingServer by remember {mutableStateOf(false)}
+    if(signingOutEverywhere)AlertDialog(onDismissRequest={signingOutEverywhere=false},
+        title={Text(copyText(UiStrings.MOBILE_SIGN_OUT_EVERYWHERE_QUESTION))},text={Text(copyText(UiStrings.MOBILE_SIGN_OUT_EVERYWHERE_HELP))},
+        confirmButton={TextButton(onClick={signingOutEverywhere=false;scope.launch {bundle.holder.signOutEverywhere()}},
+            colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.error)){Text(copyText(UiStrings.MOBILE_SIGN_OUT_EVERYWHERE))}},
+        dismissButton={BrandTextButton(copyText(UiStrings.MOBILE_CANCEL),{signingOutEverywhere=false})})
     val actions=bundle.actions
     val actionState=actions?.state?.collectAsStateWithLifecycle()?.value
     val member=bundle.member
@@ -217,6 +223,7 @@ private val destinationIcons=listOf(Icons.Outlined.Home,Icons.Outlined.Build,Ico
                                 BrandTextButton(copyText(UsageStrings.USAGE_APP_GUIDE),{showingGuide=true},!state.busy,modifier=Modifier.semantics {testTag="usage-guide-entry"})
                                 onShowIntro?.let {BrandTextButton(copyText(UiStrings.MOBILE_SHOW_INTRODUCTION),it,!state.busy)}
                                 BrandButton(copyText(UiStrings.MOBILE_SIGN_OUT),{signingOut=true},!state.busy)
+                                if(!bundle.demo)BrandTextButton(copyText(UiStrings.MOBILE_SIGN_OUT_EVERYWHERE),{signingOutEverywhere=true},!state.busy,modifier=Modifier.semantics {testTag="sign-out-everywhere"})
                                 onChangeServer?.let {BrandTextButton(copyText(UiStrings.MOBILE_CHANGE_SERVER),{changingServer=true},!state.busy)}
                             }
                         }

@@ -903,4 +903,12 @@
     <string name="mobile_your_unsaved_profile_edits_will_be_lost">"Your unsaved profile edits will be lost."</string>
     <!-- Owned copy: AuthScreen.kt -->
     <string name="mobile_your_verification_session_expired_sign_in_to_request_a_new_one">"Your verification session expired. Sign in to request a new one."</string>
+    <string name="mobile_we_ll_text_a_six_digit_code_to_this_number">"We'll text a six-digit code to this number."</string>
+    <string name="mobile_use_another_sign_in_method">"Use another sign-in method"</string>
+    <string name="mobile_open_google_play">"Open Google Play"</string>
+    <string name="mobile_this_version_is_no_longer_supported_by_your_server">"This version is no longer supported by your server. Install the latest version to continue."</string>
+    <string name="mobile_sign_out_everywhere">"Sign out everywhere"</string>
+    <string name="mobile_sign_out_everywhere_question">"Sign out everywhere?"</string>
+    <string name="mobile_sign_out_everywhere_help">"This ends every Space Works session for your account on this server, including browsers and other devices."</string>
+    <string name="mobile_continue_with_value">"Continue with %1$s"</string>
 </resources>

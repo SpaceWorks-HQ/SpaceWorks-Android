@@ -127,4 +127,10 @@
     <string name="core_this_changed_refresh_and_try_again">"This changed. Refresh and try again."</string>
     <string name="core_too_many_requests_try_again_later">"Too many requests. Try again later."</string>
     <string name="core_the_server_is_unavailable_try_again_later">"The server is unavailable. Try again later."</string>
+    <string name="core_phone_sign_in_is_unavailable_on_this_server">"Phone sign-in is unavailable on this server."</string>
+    <string name="core_this_device_could_not_verify_the_app_try_again">"This device could not verify the app. Try again."</string>
+    <string name="core_enter_your_phone_number_with_its_country_code">"Enter your phone number with its country code."</string>
+    <string name="core_enter_the_six_digit_code">"Enter the six-digit code."</string>
+    <string name="core_your_code_expired_send_a_new_code">"Your code expired. Send a new code."</string>
+    <string name="core_signed_out_on_every_device_and_browser">"Signed out on every device and browser."</string>
 </resources>

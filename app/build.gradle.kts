@@ -24,6 +24,11 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resValue("string", "app_name", brand["app_name"] as String)
         buildConfigField("String", "SERVER_URL", "\"${brand["server_url"] ?: ""}\"")
+        // Public Play Integrity Cloud project number (owner build input); 0 keeps production attestation unavailable.
+        val integrityProject = (findProperty("spaceworks.playIntegrityProject") as String?)?.toLongOrNull()
+            ?: (brand["play_integrity_cloud_project_number"] as? Number)?.toLong() ?: 0L
+        require(integrityProject >= 0) { "play_integrity_cloud_project_number must be a positive project number or null" }
+        buildConfigField("long", "PLAY_INTEGRITY_PROJECT", "${integrityProject}L")
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
@@ -114,6 +119,7 @@ openApiGenerate {
     schemaMappings.set(mapOf(
         "TenantBootstrapMakerspace_map_url" to "String",
         "SocialLogin_redirect_uri" to "String",
+        "ReauthenticationSocialStart_redirect_uri" to "String",
         "WebsiteSection_url" to "String",
         "WebsiteSection_website_url" to "String",
         "TenantBootstrapMakerspace_opening_hours" to "kotlinx.serialization.json.JsonElement",

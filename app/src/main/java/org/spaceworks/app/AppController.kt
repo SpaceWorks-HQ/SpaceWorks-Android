@@ -67,14 +67,17 @@ class AppController(application:Application):AndroidViewModel(application) {
         val session=ApiSession(ServerAddress.parse(origin,BuildConfig.DEBUG),store){holder.state.value.selectedId?.toString()}
         val environment=if(BuildConfig.DEBUG)EnvironmentEnum.development else EnvironmentEnum.production
         val emulator=Build.FINGERPRINT.startsWith("generic") || Build.MODEL.contains("Emulator") || Build.MODEL.contains("sdk_gphone") || Build.PRODUCT.startsWith("sdk_")
-        val gateway=GeneratedAuthGateway(session,BuildConfig.APPLICATION_ID,environment,DevelopmentAttestation(BuildConfig.DEBUG,emulator,text=copyText),
+        val integrity=BuildConfig.PLAY_INTEGRITY_PROJECT.takeIf {it>0}?.let {PlayIntegrityProofProvider(application,it)}
+        val attestation=NativeAttestation(DevelopmentAttestation(BuildConfig.DEBUG,emulator,text=copyText),integrity?.let {provider->{challenge:String->provider.proof(challenge)}},copyText)
+        val gateway=GeneratedAuthGateway(session,BuildConfig.APPLICATION_ID,environment,attestation,
             onNativeSignOut={try {GoogleIdentity.clear(application)}catch(cancelled:kotlinx.coroutines.CancellationException){throw cancelled}catch(_:Exception){}},
             onBeforeOwnedSignOut={epoch->push?.disable(forgetConsent=false,expectedEpoch=epoch)},text=copyText)
         holder=AuthStateHolder(gateway,store,
             readSelection={prefs.getInt("space.$origin",-1).takeIf {it>0}},
             saveSelection={id->prefs.edit().apply {if(id==null)remove("space.$origin")else putInt("space.$origin",id)}.apply()},
             onSessionEnded={accounts?.clear();runtime?.let(management::sessionEnded);staff?.resetAccount();member?.clear();actions?.clear();payments?.clear();links?.clear();push?.pause()},
-            onScopeChanged={runtime?.let(management::scopeChanged);staff?.clear();member?.clear();actions?.clear();payments?.clear()},text=copyText)
+            onScopeChanged={runtime?.let(management::scopeChanged);staff?.clear();member?.clear();actions?.clear();payments?.clear()},text=copyText,
+            appVersion=BuildConfig.VERSION_NAME)
         session.bindIdentityEpoch {holder.acceptedInstallationEpoch}
         links=LinkStateHolder(session.server,holder::authorizeMakerspace,{id->if(staff?.protectsNavigation==true || management.protectsNavigation())throw kotlinx.coroutines.CancellationException();holder.select(id)},holder::authorizeSlug,text=copyText)
         push=PushStateHolder(GeneratedPushGateway(session,environment),object:PushProvider {

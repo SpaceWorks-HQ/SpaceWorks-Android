@@ -16,23 +16,42 @@ import org.spaceworks.generated.model.*
 
 class AuthMessage(message:String):Exception(message)
 class AuthCancelled:Exception()
-enum class AuthGate { WEB_CONSOLE, SESSION_ENDED }
+enum class AuthGate { WEB_CONSOLE, SESSION_ENDED, UPDATE_REQUIRED }
+/** Local phone sign-in progress. The attestation challenge stays private to the holder. */
+data class PhoneSignIn(val phone:String="",val codeSent:Boolean=false,val resendAtMillis:Long=0,val expiresAtMillis:Long=0)
+/** Compares dotted numeric versions component by component; unparsable values never block the app. */
+object AppVersion {
+    private fun parts(value:String?)=value?.trim()?.takeIf {Regex("\\d+(\\.\\d+)*").matches(it)}?.split('.')?.map {it.toBigInteger()}
+    fun below(current:String?,minimum:String?):Boolean {
+        val have=parts(current)?:return false
+        val need=parts(minimum)?:return false
+        for(i in 0 until maxOf(have.size,need.size)) {
+            val a=have.getOrElse(i){java.math.BigInteger.ZERO};val b=need.getOrElse(i){java.math.BigInteger.ZERO}
+            if(a!=b)return a<b
+        }
+        return false
+    }
+}
 private fun ensure(value:Boolean,message:String) {if(!value) throw AuthMessage(message)}
 
 data class AuthState(val busy:Boolean=false,val initialized:Boolean=false,val config:PublicConfig?=null,
     val user:AuthUserPayload?=null,val selectedId:Int?=null,val mfa:MFAChallengeResponse?=null,
     val enrollment:MFAEnrollment?=null,val recoveryCodes:List<String> = emptyList(),
     val error:String?=null,val notice:String?=null,val retryAtMillis:Long=0,
-    val mfaExpiresAtMillis:Long=0,val expiredMfa:Boolean=false,val gate:AuthGate?=null) {
+    val mfaExpiresAtMillis:Long=0,val expiredMfa:Boolean=false,val gate:AuthGate?=null,val phone:PhoneSignIn?=null) {
     val memberships get()=user?.makerspaces.orEmpty().filter {it.source==AuthMembershipSourceEnum.membership}
     val selected get()=memberships.firstOrNull {it.id==selectedId}
-    val passwordEnabled get()=(config?.passwordLogin?.get("enabled") as? JsonPrimitive)?.booleanOrNull != false &&
-        (config?.memberAccounts?.get("enabled") as? JsonPrimitive)?.booleanOrNull != false
-    // The owner contract has no native session_authority yet. Role/action text alone cannot grant native staff tools.
-    val staffAllowed get()=false
+    /** Native deployments publish their enabled methods; legacy servers keep the browser-era flags. */
+    val native get()=config?.native
+    val passwordEnabled get()=native?.providers?.password ?: ((config?.passwordLogin?.get("enabled") as? JsonPrimitive)?.booleanOrNull != false &&
+        (config?.memberAccounts?.get("enabled") as? JsonPrimitive)?.booleanOrNull != false)
+    val phoneEnabled get()=native?.providers?.phone==true
+    /** Staff tools need a native staff grant; membership actions alone never grant them. */
+    val staffAllowed get()=user?.sessionAuthority=="native_staff"
     val selfRegistrationEnabled get()=config!=null && (config?.memberAccounts?.get("enabled") as? JsonPrimitive)?.booleanOrNull!=false &&
         (config?.selfRegistration?.get("enabled") as? JsonPrimitive)?.booleanOrNull!=false
     val googleClientId get():String? {
+        native?.let {return it.providers.google?.androidClientId?.takeIf {id->id.isNotBlank()}}
         if((config?.memberAccounts?.get("enabled") as? JsonPrimitive)?.booleanOrNull==false)return null
         val google=config?.socialAuth?.get("google") as? JsonObject ?: return null
         if((google["enabled"] as? JsonPrimitive)?.booleanOrNull!=true)return null
@@ -42,7 +61,7 @@ data class AuthState(val busy:Boolean=false,val initialized:Boolean=false,val co
 class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
     private val readSelection:()->Int?={null},private val saveSelection:(Int?)->Unit={},
     private val now:()->Long=System::currentTimeMillis,private val onSessionEnded:()->Unit={},
-    private val onScopeChanged:()->Unit={},private val text:MobileText=MobileText.ENGLISH) {
+    private val onScopeChanged:()->Unit={},private val text:MobileText=MobileText.ENGLISH,private val appVersion:String?=null) {
     constructor(api:AuthGateway,tokens:TokenStore,readSelection:()->Int?={null},saveSelection:(Int?)->Unit={},now:()->Long=System::currentTimeMillis,onSessionEnded:()->Unit)
         :this(api,tokens,readSelection,saveSelection,now,onSessionEnded,{},MobileText.ENGLISH)
 
@@ -72,7 +91,12 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
     val nativeSocialReady get()=api.nativeSocialReady
     suspend fun initialize()=runOperation {
         val config=api.config()
-        mutable.value=state.value.copy(config=config,initialized=true)
+        if(AppVersion.below(appVersion,config.native?.minAppVersion?.android)) {
+            // Keep any stored session: it resumes after the update. Nothing else is requested.
+            mutable.value=state.value.copy(config=config,initialized=true,gate=AuthGate.UPDATE_REQUIRED)
+            return@runOperation
+        }
+        mutable.value=state.value.copy(config=config,initialized=true,gate=state.value.gate.takeUnless {it==AuthGate.UPDATE_REQUIRED})
         val restored=withContext(Dispatchers.IO){tokens.snapshot()}
         if(restored.pair!=null){installedEpoch=restored.epoch;refreshIdentity()}
     }
@@ -103,6 +127,51 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         ensureOperationCurrent()
         ensure(!result.refresh.isNullOrBlank() && validGrant(result.deviceGrant),text(CoreStrings.CORE_THIS_SERVER_DID_NOT_RETURN_A_DEVICE_SESSION_CONTACT_YOUR_MAK))
         acceptPair(TokenPair(result.access,requireNotNull(result.refresh)))
+    }
+    private var phoneChallenge:PhoneChallenge?=null
+    fun openPhone() {if(!state.value.busy && state.value.phoneEnabled){phoneChallenge=null;mutable.value=state.value.copy(phone=PhoneSignIn(),error=null,notice=null,gate=null)}}
+    fun changePhoneNumber() {if(!state.value.busy){phoneChallenge=null;mutable.value=state.value.copy(phone=PhoneSignIn(state.value.phone?.phone.orEmpty()),error=null)}}
+    fun closePhone() {if(!state.value.busy){phoneChallenge=null;mutable.value=state.value.copy(phone=null,error=null)}}
+    suspend fun sendPhoneCode(phone:String,onOutcome:((AuthOperationOutcome)->Unit)?=null)=runOperation(onOutcome=onOutcome) {
+        val number=phone.filter {it.isDigit() || it=='+'}
+        ensure(Regex("\\+[1-9]\\d{6,14}").matches(number),text(CoreStrings.CORE_ENTER_YOUR_PHONE_NUMBER_WITH_ITS_COUNTRY_CODE))
+        ensure(state.value.phoneEnabled,text(CoreStrings.CORE_PHONE_SIGN_IN_IS_UNAVAILABLE_ON_THIS_SERVER))
+        ensure(api.nativeSocialReady,text(CoreStrings.CORE_DEVICE_SIGN_IN_IS_NOT_CONFIGURED_FOR_THIS_BUILD_CONTACT_YOUR))
+        val challenge=api.phoneStart(number)
+        ensureOperationCurrent()
+        phoneChallenge=challenge
+        val sent=now()
+        mutable.value=state.value.copy(phone=PhoneSignIn(number,true,sent+PHONE_RESEND_MILLIS,sent+challenge.expiresInSeconds.coerceAtLeast(0)*1000L))
+    }
+    suspend fun verifyPhoneCode(code:String,onOutcome:((AuthOperationOutcome)->Unit)?=null)=runOperation(onOutcome=onOutcome) {
+        val phone=state.value.phone?.takeIf {it.codeSent} ?: throw AuthMessage(text(CoreStrings.CORE_RESTART_SIGN_IN_AND_TRY_AGAIN))
+        ensure(Regex("\\d{6}").matches(code.trim()),text(CoreStrings.CORE_ENTER_THE_SIX_DIGIT_CODE))
+        val challenge=phoneChallenge
+        if(challenge==null || now()>=phone.expiresAtMillis) {
+            phoneChallenge=null
+            mutable.value=state.value.copy(phone=phone.copy(codeSent=false,resendAtMillis=0))
+            throw AuthMessage(text(CoreStrings.CORE_YOUR_CODE_EXPIRED_SEND_A_NEW_CODE))
+        }
+        val result=api.phoneConfirm(phone.phone,code.trim(),challenge)
+        ensureOperationCurrent()
+        phoneChallenge=null
+        when(result) {
+            is PhoneLoginResult.DeviceTokenResponseValue -> {
+                mutable.value=state.value.copy(phone=null)
+                acceptPair(TokenPair(result.value.access,result.value.refresh))
+            }
+            is PhoneLoginResult.MFACompletedValue -> {
+                ensure(result.value.surface!="verification_only" && !result.value.refresh.isNullOrBlank() && validGrant(result.value.deviceGrant),
+                    text(CoreStrings.CORE_THIS_SERVER_DID_NOT_RETURN_A_DEVICE_SESSION_CONTACT_YOUR_MAK))
+                mutable.value=state.value.copy(phone=null)
+                acceptPair(TokenPair(result.value.access,requireNotNull(result.value.refresh)))
+            }
+            is PhoneLoginResult.MFAChallengeResponseValue -> {
+                ensure(result.value.mfaRequired,text(CoreStrings.CORE_RESTART_SIGN_IN_AND_TRY_AGAIN))
+                challengeExpiresAt=now()+result.value.expiresIn.coerceAtLeast(0)*1000L
+                mutable.value=state.value.copy(phone=null,mfa=result.value,enrollment=null,error=null,mfaExpiresAtMillis=challengeExpiresAt,expiredMfa=false)
+            }
+        }
     }
     suspend fun enroll()=runOperation {
         val challenge=requireChallenge()
@@ -171,7 +240,17 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         if(state.value.selectedId!=id)onScopeChanged()
         saveSelection(id);mutable.value=state.value.copy(selectedId=id)
     }
-    fun dismissGate() {if(!state.value.busy)mutable.value=state.value.copy(gate=null,error=null)}
+    fun dismissGate() {if(!state.value.busy && state.value.gate!=AuthGate.UPDATE_REQUIRED)mutable.value=state.value.copy(gate=null,error=null)}
+    /** Server-confirmed revocation of every session; a failed request keeps this device signed in. */
+    suspend fun signOutEverywhere()=runOperation(ignoreThrottle=true) {
+        val expected=acceptedInstallationEpoch?:throw AuthMessage(text(CoreStrings.CORE_PLEASE_SIGN_IN_AGAIN))
+        api.logoutAll(expected)
+        acceptedIdentityEpoch=null
+        onSessionEnded()
+        if(tokens.snapshot().epoch==expected)saveSelection(null)
+        mutable.value=AuthState(initialized=true,config=state.value.config,notice=text(CoreStrings.CORE_SIGNED_OUT_ON_EVERY_DEVICE_AND_BROWSER),retryAtMillis=retryAt)
+        clearInstalled(expected)
+    }
     suspend fun signOut()=runOperation(ignoreThrottle=true) {
         val expected=installedEpoch
         val installed=tokens.snapshot()
@@ -357,6 +436,7 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         acceptedIdentityEpoch=expected
         mutable.value=state.value.copy(user=user,selectedId=selected,mfa=null,enrollment=null,error=null)
     }
+    private companion object { const val PHONE_RESEND_MILLIS=30_000L }
     private fun requireChallenge():MFAChallengeResponse {
         if(now()>=challengeExpiresAt){clearExpiredChallenge();throw AuthMessage(text(CoreStrings.CORE_YOUR_VERIFICATION_SESSION_EXPIRED_SIGN_IN_TO_REQUEST_A_NEW_O))}
         return state.value.mfa ?: throw AuthMessage(text(CoreStrings.CORE_RESTART_SIGN_IN_AND_TRY_AGAIN))
