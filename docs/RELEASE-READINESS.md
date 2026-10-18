@@ -3,7 +3,7 @@
 Prepared 16 October 2026. This procedure is not a claim of store submission. Phase implementation
 and passing checks are recorded in `docs/CHANGELOG.md`. The owner requested phones/tablets and
 deferred backend setup. The owner now requires all mobile work consolidated on `dev`, exact-source
-checks and artifact/visual review, then a direct tested `dev` to `main` merge without a new pull request.
+checks and artifact/visual review, then a guarded merge of only the reviewed head of existing [PR #4](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/pull/4) into `main`. Retain `dev` and phase commits; do not create other pull requests or feature branches.
 
 ## Reproduce the app
 
@@ -165,7 +165,7 @@ Record distribution evidence after owner provisioning; do not put credentials in
 
 | Evidence | Value |
 |---|---|
-| Accepted app / Design commits | Record the exact tested `dev` SHA, pinned Design input and direct `dev` to `main` delivery in the final handoff, with matching CI artifacts |
+| Accepted app / Design commits | Record the exact tested `dev` SHA, pinned Design input and reviewed PR #4 merge into `main` in the final handoff, with matching CI artifacts; retain `dev` and phase commits |
 | Full device-matrix CI run | The final handoff must link successful exact-source dev-push and ten-profile runs, observed profile evidence and actually reviewed full-OS images; fresh brand/motion validation remains required |
 | Signed bundle / versionCode / certificate fingerprint | Owner signing environment required |
 | Real-device provider test record | Owner backend/configuration required |

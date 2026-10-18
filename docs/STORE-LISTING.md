@@ -65,7 +65,7 @@ final submitted build against the owner's supported backend with a synthetic rev
 Retain original dimensions and current console device slots; never stretch a phone image into
 a tablet image. Keep recovery codes, verification codes and QR payloads out of store assets;
 do not weaken secure-window protections to capture them. Optional staff images must show a
-verified authorized staff deployment. The final release handoff links the exact tested commit, successful CI runs and actually reviewed layout-proof artifacts.
+verified authorized staff deployment. The final release handoff links the exact tested commit, successful CI runs and actually reviewed layout-proof artifacts. Deliver only through the owner-authorized existing [PR #4](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/pull/4) after those gates pass; retain `dev` and phase commits, and create no other pull requests or feature branches.
 
 ## Reviewer access and review notes
 
