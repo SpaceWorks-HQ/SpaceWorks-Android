@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "tested_app_sha": "11cc205c39294baeb3116038a5eb525519813eab",
+  "assets": [
+    {
+      "destination": "docs/images/brand/space-works-light.png",
+      "sha256": "63ef979f162a89b1526a908683781b434e3db92b1795bee6d5137e788b44dc6a",
+      "type": "logo",
+      "source": {
+        "repository": "design",
+        "commit": "fd28f825086a2cac7fa297881f1860b9d332db69",
+        "path": "logo/lockup-horizontal.png"
+      }
+    },
+    {
+      "destination": "docs/images/brand/space-works-dark.png",
+      "sha256": "d83768eddb190d9cbed7afd7f22b79ad5e3ff53ef4ec6cf3590545fdc3f454b3",
+      "type": "logo",
+      "source": {
+        "repository": "design",
+        "commit": "fd28f825086a2cac7fa297881f1860b9d332db69",
+        "path": "logo/lockup-horizontal-reversed.png"
+      }
+    },
+    {
+      "destination": "docs/images/screenshots/introduction.png",
+      "sha256": "ad48fcbe6a66d1954144870e0b51dbd0d41c1eb93aba37bbe0332dbe5016a025",
+      "type": "screenshot",
+      "source": {
+        "source_sha": "11cc205c39294baeb3116038a5eb525519813eab",
+        "run": 39081400622,
+        "artifact_id": 12119480990,
+        "profile": "phone",
+        "test": "OnboardingAuthTest",
+        "prefix": "ux-introduction-first",
+        "artifact_path": "validation/phone/screenshots/ux-introduction-first-screen.png",
+        "review_sha256": "49b29adb90c1e6b1b1822ee288da0083f5cbc17d73b1daded8949c64d07954d6"
+      }
+    },
+    {
+      "destination": "docs/images/screenshots/sign-in-dark.png",
+      "sha256": "115110374215080ede0c37a304de3082b5600cce65c8dd6bc235a421f603ff5b",
+      "type": "screenshot",
+      "source": {
+        "source_sha": "11cc205c39294baeb3116038a5eb525519813eab",
+        "run": 39081400622,
+        "artifact_id": 12118982735,
+        "profile": "large",
+        "test": "ShellTest",
+        "prefix": "a1-sign-in",
+        "artifact_path": "validation/large/screenshots/a1-sign-in-screen.png",
+        "review_sha256": "28c904d299a31c1a912900c8596ce19f8dec7ce930830230a419bf6631267510"
+      }
+    },
+    {
+      "destination": "docs/images/screenshots/tablet-home.png",
+      "sha256": "6b0f70940cbf2460a147e2f4ab22470ba69b307a5029e1ccf8a84faf80e542b8",
+      "type": "screenshot",
+      "source": {
+        "source_sha": "11cc205c39294baeb3116038a5eb525519813eab",
+        "run": 39081400622,
+        "artifact_id": 12119556424,
+        "profile": "small-tablet",
+        "test": "ShellTest",
+        "prefix": "a1-home",
+        "artifact_path": "validation/small-tablet/screenshots/a1-home-screen.png",
+        "review_sha256": "c52458a3be68f2aa53bd7138b6bad7353ddf228b761b27b4f49dc24dc782c9bf"
+      }
+    },
+    {
+      "destination": "docs/images/screenshots/request-receipt.png",
+      "sha256": "b0d404a2d652217ba29ebfb3a4c79db1001a55cdc5433379ab3c4bc04dcb102f",
+      "type": "screenshot",
+      "source": {
+        "source_sha": "11cc205c39294baeb3116038a5eb525519813eab",
+        "run": 39081400622,
+        "artifact_id": 12119480990,
+        "profile": "phone",
+        "test": "MemberActionsJourneyTest",
+        "prefix": "a3-request-receipt",
+        "artifact_path": "validation/phone/screenshots/a3-request-receipt-screen.png",
+        "review_sha256": "49b29adb90c1e6b1b1822ee288da0083f5cbc17d73b1daded8949c64d07954d6"
+      }
+    },
+    {
+      "destination": "docs/images/screenshots/account-devices.png",
+      "sha256": "fa54dbf09281ab6b311743af6e67e07cb460f6994727233d58d5790cec9600e2",
+      "type": "screenshot",
+      "source": {
+        "source_sha": "11cc205c39294baeb3116038a5eb525519813eab",
+        "run": 39081400622,
+        "artifact_id": 12119480990,
+        "profile": "phone",
+        "test": "AccountManagementJourneyTest",
+        "prefix": "a7-global-devices-no-membership",
+        "artifact_path": "validation/phone/screenshots/a7-global-devices-no-membership-screen.png",
+        "review_sha256": "49b29adb90c1e6b1b1822ee288da0083f5cbc17d73b1daded8949c64d07954d6"
+      }
+    },
+    {
+      "destination": "docs/images/screenshots/staff-confirmation.png",
+      "sha256": "700badbb262c825c63632e3cf1453ab6613792e47ffefe1864f5e835db090ef3",
+      "type": "screenshot",
+      "source": {
+        "source_sha": "11cc205c39294baeb3116038a5eb525519813eab",
+        "run": 39081400622,
+        "artifact_id": 12119480990,
+        "profile": "phone",
+        "test": "StaffJourneyTest",
+        "prefix": "a6-app-staff-request-confirmation",
+        "artifact_path": "validation/phone/screenshots/a6-app-staff-request-confirmation-screen.png",
+        "review_sha256": "49b29adb90c1e6b1b1822ee288da0083f5cbc17d73b1daded8949c64d07954d6"
+      }
+    }
+  ]
+}
