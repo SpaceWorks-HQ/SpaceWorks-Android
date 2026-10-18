@@ -44,6 +44,7 @@ jobs:
             app/build/outputs/apk/debug
             app/build/outputs/apk/release
             app/build/outputs/bundle/release
+            app/build/outputs/mapping/release
             validation/native-packaging.json
             app/build/generated/brand-fonts.json
   ui:

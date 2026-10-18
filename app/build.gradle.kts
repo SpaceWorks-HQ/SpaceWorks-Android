@@ -19,8 +19,9 @@ android {
         manifestPlaceholders["deepLinkVerify"] = ((brand["server_url"] as? String)?.isNotBlank()==true).toString()
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        // Store uploads inject a fresh versionCode/versionName without editing source.
+        versionCode = (findProperty("spaceworks.versionCode") as String?)?.toInt() ?: 1
+        versionName = (findProperty("spaceworks.versionName") as String?) ?: "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resValue("string", "app_name", brand["app_name"] as String)
         buildConfigField("String", "SERVER_URL", "\"${brand["server_url"] ?: ""}\"")
@@ -29,6 +30,24 @@ android {
             ?: (brand["play_integrity_cloud_project_number"] as? Number)?.toLong() ?: 0L
         require(integrityProject >= 0) { "play_integrity_cloud_project_number must be a positive project number or null" }
         buildConfigField("long", "PLAY_INTEGRITY_PROJECT", "${integrityProject}L")
+    }
+    // The owner's upload key is injected only in the private release environment; never committed.
+    val uploadKeystore = providers.environmentVariable("SPACEWORKS_UPLOAD_KEYSTORE").orNull
+    signingConfigs {
+        if (uploadKeystore != null) create("upload") {
+            storeFile = file(uploadKeystore)
+            storePassword = providers.environmentVariable("SPACEWORKS_UPLOAD_KEYSTORE_PASSWORD").get()
+            keyAlias = providers.environmentVariable("SPACEWORKS_UPLOAD_KEY_ALIAS").get()
+            keyPassword = providers.environmentVariable("SPACEWORKS_UPLOAD_KEY_PASSWORD").get()
+        }
+    }
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("upload")
+        }
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
