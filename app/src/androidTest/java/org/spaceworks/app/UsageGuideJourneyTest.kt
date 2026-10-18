@@ -9,6 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
@@ -30,7 +32,7 @@ class UsageGuideJourneyTest {
     @Composable private fun Host(largeText: Boolean = false, content: @Composable () -> Unit) {
         val density = LocalDensity.current
         CompositionLocalProvider(LocalDensity provides Density(density.density, if (largeText) 3.2f else density.fontScale)) {
-            MaterialTheme(colorScheme = if (DeviceProfile.dark) DarkScheme else LightScheme, shapes = Shapes(small = RoundedCornerShape(10.dp), medium = RoundedCornerShape(16.dp))) {
+            org.spaceworks.app.theme.SpaceWorksTheme(DeviceProfile.dark) {
                 Surface(Modifier.fillMaxSize()) { Box(Modifier.fillMaxSize().safeDrawingPadding()) { content() } }
             }
         }
@@ -66,12 +68,23 @@ class UsageGuideJourneyTest {
         journey.shot("a8-usage-start-here-reset")
     }
 
+    private fun assertWordBoundaries(node: SemanticsNodeInteraction) {
+        val text=node.fetchSemanticsNode().config[SemanticsProperties.Text].single().text
+        val layouts=mutableListOf<TextLayoutResult>()
+        node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) {it(layouts)}
+        val layout=layouts.single()
+        for(line in 0 until layout.lineCount-1) {
+            val end=layout.getLineEnd(line,visibleEnd=true)
+            assertTrue("Guide text must wrap between complete words: $text",end>=text.length || text[end].isWhitespace() || (end>0 && text[end-1].isWhitespace()))
+        }
+    }
     @Test fun guideRemainsReadableAndActionsReachableAtLargestTextWithoutStartingAnotherFlow() {
         var replayed = 0; var reset = 0; var back = 0
-        compose.setContent { Host(largeText = true) {
+        var reducedMotion by mutableStateOf(false)
+        compose.setContent { Host(largeText = true) { CompositionLocalProvider(org.spaceworks.app.platform.LocalReducedMotion provides reducedMotion) {
             UsageGuideScreen(demo = true, staffAvailable = false, onBack = { back++ },
                 onReplayIntro = { replayed++ }, onResetTips = { reset++ })
-        } }
+        } } }
         journey.systemBars(DeviceProfile.dark)
         journey.visible(compose.onNodeWithTag("usage-guide-heading"))
         compose.onNodeWithText("Staff handovers").assertDoesNotExist()
@@ -84,15 +97,23 @@ class UsageGuideJourneyTest {
             .assertTextEquals("Search Inventory or choose a category.")
         journey.visible(compose.onNodeWithTag("usage-section-inventory-body-5"))
             .assertTextEquals("Use its renewal action when available.")
+        assertWordBoundaries(compose.onNodeWithTag("usage-section-inventory-body-5"))
         journey.shot("a8-usage-inventory-large-text")
         journey.click(inventory)
         inventory.assert(SemanticsMatcher.keyIsDefined(SemanticsActions.Expand))
         compose.onNodeWithTag("usage-section-inventory-body-0").assertDoesNotExist()
         compose.onNodeWithTag("usage-section-inventory-body-5").assertDoesNotExist()
+        // Reduced motion keeps one immediate semantic body and the same native controls.
+        compose.runOnIdle { reducedMotion = true }
+        journey.click(inventory)
+        compose.onAllNodesWithTag("usage-section-inventory-body-0").assertCountEquals(1)
+        journey.click(inventory)
+        compose.onNodeWithTag("usage-section-inventory-body-0").assertDoesNotExist()
         journey.clickTag("usage-replay-intro"); assertEquals(1, replayed)
         journey.clickTag("usage-reset-tips"); assertEquals(1, reset)
         journey.visible(compose.onNodeWithTag("usage-reset-notice"))
             .assertTextEquals("Tips reset for this account and makerspace.")
+        assertWordBoundaries(compose.onNodeWithTag("usage-reset-notice"))
         journey.shot("a8-usage-guide-large-text")
         journey.clickTag("usage-guide-back"); assertEquals(1, back)
     }

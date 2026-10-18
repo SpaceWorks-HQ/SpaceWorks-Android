@@ -2,7 +2,8 @@
 
 Prepared 16 October 2026. This procedure is not a claim of store submission. Phase implementation
 and passing checks are recorded in `docs/CHANGELOG.md`. The owner requested phones/tablets and
-deferred backend setup; work stays on `dev` until final review of the `dev` to `main` pull request.
+deferred backend setup. The owner now requires all mobile work consolidated on `dev`, exact-source
+checks and artifact/visual review, then a guarded merge of only the reviewed head of existing [PR #4](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/pull/4) into `main`. Retain `dev` and phase commits; do not create other pull requests or feature branches.
 
 ## Reproduce the app
 
@@ -20,6 +21,28 @@ do not edit generated output. The debug APK is `app/build/outputs/apk/debug/app-
 The unsigned Release APK is under `app/build/outputs/apk/release/` and the unsigned bundle under
 `app/build/outputs/bundle/release/`; these artifacts prove compilation/packaging, not Play
 distribution readiness.
+
+## Repository and supply-chain handoff
+
+Use the checked-in Gradle 8.13 distribution checksum and immutable upstream action
+commits recorded in [dependency provenance](DEPENDENCIES.md). Checkout credentials
+are not persisted, CI permissions remain read-only and no publishing/signing job
+is configured. Changes to these inputs require new exact-head CI evidence; the
+historical app proof linked in README is not relabelled as a new-source test run.
+
+Review current GitHub main protection, private reporting and secret-scanning/push
+protection settings with the owner. Repository policy files do not enable those
+settings. Follow [SECURITY.md](../SECURITY.md) for private reporting and
+[CONTRIBUTING.md](../CONTRIBUTING.md) for maintenance. Preserve `dev`, phase history
+and the existing authorized PR #4; do not introduce automatic update PRs.
+
+Retain SDK/transitive license and provider-term review as a distribution input,
+including separate owner confirmation of supplied Gilroy app-embedding rights.
+The current packaged Unbounded font includes the unchanged existing copyright
+and full OFL text under `assets/licenses/OFL-Unbounded.txt`; the APK packaging
+gate verifies those exact source bytes. This does not grant a license to the
+application code or to unrelated supplied assets. Signing, backend/provider,
+privacy/legal and store checks below remain separate owner gates.
 
 CI additionally validates every arm64/x86_64 native library's LOAD segments and runs the Android
 SDK's `zipalign -c -P 16 4` on debug and release APKs. Evidence is in
@@ -164,9 +187,11 @@ Record distribution evidence after owner provisioning; do not put credentials in
 
 | Evidence | Value |
 |---|---|
-| Accepted app / Design commits | Exact tested source SHA and pinned Design input are recorded in the final [dev → main PR](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/pull/2) and matching CI artifacts |
-| Full device-matrix CI run | The final PR validation section links the accepted ten-profile run and reviewed artifacts; check that run before acceptance |
+| Accepted app / Design commits | Record the exact tested `dev` SHA, pinned Design input and reviewed PR #4 merge into `main` in the final handoff, with matching CI artifacts; retain `dev` and phase commits |
+| Full device-matrix CI run | The final handoff must link successful exact-source dev-push and ten-profile runs, observed profile evidence and actually reviewed full-OS images; fresh brand/motion validation remains required |
 | Signed bundle / versionCode / certificate fingerprint | Owner signing environment required |
 | Real-device provider test record | Owner backend/configuration required |
 | Whole-account deletion and web resource verification | Updated owner contract/site required |
 | Play test-track build / tester acceptance | Owner Play Console access required |
+
+[PR #2](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/pull/2) records the historical A8 checkpoint. It does not substitute for final proof of later brand, SDK appearance, motion or accessibility corrections.

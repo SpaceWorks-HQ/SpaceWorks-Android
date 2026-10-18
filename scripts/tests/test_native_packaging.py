@@ -1,7 +1,9 @@
 import importlib.util
 import pathlib
 import struct
+import tempfile
 import unittest
+import zipfile
 
 spec = importlib.util.spec_from_file_location('packaging_check', pathlib.Path(__file__).parents[1] / 'check_native_packaging.py')
 check = importlib.util.module_from_spec(spec)
@@ -37,6 +39,32 @@ class NativePackagingTests(unittest.TestCase):
         for data in [b'', b'not ELF', elf([]), elf([(0, 0, 16384)])[:-1]]:
             with self.subTest(size=len(data)), self.assertRaises(ValueError):
                 check.elf_load_alignments(data)
+
+
+class BundledFontLicenseTests(unittest.TestCase):
+    def inspect(self, license_bytes):
+        with tempfile.TemporaryDirectory() as directory:
+            apk = pathlib.Path(directory) / 'fixture.apk'
+            with zipfile.ZipFile(apk, 'w') as archive:
+                archive.writestr('lib/arm64-v8a/libfixture.so', elf([(0, 0, 16384)]))
+                if license_bytes is not None:
+                    archive.writestr(check.FONT_LICENSE_PATH, license_bytes)
+            return check.inspect_apk(apk)
+
+    def test_full_existing_font_license_is_packaged_alongside_native_checks(self):
+        result = self.inspect(check.FONT_LICENSE_SOURCE.read_bytes())
+        self.assertEqual(result['elf64_count'], 1)
+        self.assertEqual(result['elf64_libraries'][0]['load_alignments'], [16384])
+        self.assertTrue(result['font_license']['exact_source_bytes'])
+
+    def test_missing_full_font_license_cannot_pass_with_valid_native_library(self):
+        with self.assertRaisesRegex(ValueError, 'exactly one full Unbounded'):
+            self.inspect(None)
+
+    def test_url_only_or_changed_license_cannot_replace_the_complete_text(self):
+        for content in [b'https://openfontlicense.org/', check.FONT_LICENSE_SOURCE.read_bytes()[:-1]]:
+            with self.subTest(content_bytes=len(content)), self.assertRaisesRegex(ValueError, 'source bytes'):
+                self.inspect(content)
 
 
 class DeviceFeatureTests(unittest.TestCase):

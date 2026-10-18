@@ -1,38 +1,78 @@
-# Space Works Android
+<p align="center">
+  <br>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/brand/space-works-dark.png">
+    <img src="docs/images/brand/space-works-light.png" alt="Space Works" width="360">
+  </picture>
+  <br><br>
+</p>
 
-Native Kotlin/Compose app for Android 8+ (API 26), targeting API 36, for phones and tablets. [The PRD](docs/PRD.md) defines the flows; the owner's extensions in [AGENTS.md](AGENTS.md) add tablets, shared onboarding/auth UX and completion of the remaining phases on `dev`. [CHANGELOG.md](docs/CHANGELOG.md) records actual phase implementation, tests and parity. Only recorded passing phases count as complete.
+# Space Works for Android
 
-## Development workflow
+Find tools. Book a space. Keep your making moving.
 
-Use `dev` for ongoing changes and push commits to `origin/dev`. After implementation and CI validation finish, open the final pull request from `dev` to `main`. The A0 foundation is already merged into `main`.
+A native **Kotlin + Jetpack Compose** app for makerspace members and staff, with Material 3 controls, adaptive phone/tablet navigation, supplied Gilroy typography, light/dark themes and accessible text scaling. Runs on **Android 8+ (API 26)** and targets **API 36**.
 
-## Build
+Also available as a native [iOS app](https://github.com/SpaceWorks-HQ/SpaceWorks-iOS).
 
-Install Java 21, Python 3 and Android SDK 36. Clone with `--recurse-submodules`, set `ANDROID_HOME` or untracked `local.properties`, then run:
+The backend will be supplied later. Debug includes an explicitly labelled, isolated demo; live provider, payment, push and store acceptance remain separate deployment gates.
+
+## Screenshots
+
+Historical gallery: original full-OS emulator captures from tested app commit [`11cc205`](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/commit/11cc205c39294baeb3116038a5eb525519813eab). The gallery includes labelled Debug sample flows. Open any image for its full size; [capture provenance](docs/images/PROVENANCE.json) records the source, artifact and original-byte hashes.
+
+| Introduction | Sign in · dark | Tablet Home |
+| --- | --- | --- |
+| [<img src="docs/images/screenshots/introduction.png" alt="First-use introduction with the supplied Space Works symbol" width="220">](docs/images/screenshots/introduction.png) | [<img src="docs/images/screenshots/sign-in-dark.png" alt="Dark native sign-in with password visibility and account actions" width="220">](docs/images/screenshots/sign-in-dark.png) | [<img src="docs/images/screenshots/tablet-home.png" alt="Tablet navigation rail, Home guidance and quick actions" width="220">](docs/images/screenshots/tablet-home.png) |
+| Request receipt | Account devices | Staff confirmation |
+| [<img src="docs/images/screenshots/request-receipt.png" alt="Demo request received with pending status" width="220">](docs/images/screenshots/request-receipt.png) | [<img src="docs/images/screenshots/account-devices.png" alt="Global account device controls without a makerspace membership" width="220">](docs/images/screenshots/account-devices.png) | [<img src="docs/images/screenshots/staff-confirmation.png" alt="Native confirmation before accepting demo staff request quantities" width="220">](docs/images/screenshots/staff-confirmation.png) |
+
+## What’s inside
+
+- Inventory search, equipment requests, bookings, events, membership cards and inbox updates.
+- Account/profile settings, security and device sessions, membership actions and export journeys.
+- Authorized staff issue, return and check-in flows with explicit review and evidence steps.
+- Replayable introduction, scoped Home tips and **Profile → App guide**.
+- Native document previews, notification routing, system-aware motion and owned haptic feedback.
+
+Production uses the generated [OpenAPI client](api/README.md). Features without the required native contract or deployment configuration remain honestly unavailable; demo success never establishes a live session, charge or deletion. See [backend dependencies](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/issues/3) and the [release handoff](docs/RELEASE-READINESS.md).
+
+## Build and run
+
+Install **Java 21**, **Python 3**, Android Studio and **Android SDK 36**. Clone with submodules and configure `ANDROID_HOME` or an untracked `local.properties`:
 
 ```sh
+git clone --recurse-submodules https://github.com/SpaceWorks-HQ/SpaceWorks-Android.git
+cd SpaceWorks-Android
+git switch dev
 git submodule update --init --recursive
 ./gradlew lint test assembleDebug assembleRelease bundleRelease
-./gradlew connectedDebugAndroidTest
 ```
 
-Use `gradlew.bat` on Windows. Instrumented tests need an emulator/device. CI builds both variants, runs lint/unit tests, validates native-library and APK 16 KB alignment, and exercises phone/tablet journeys. Manually dispatch the workflow for the full ten-profile matrix: compact through large phones, 600/800/840/1024dp tablets, and tablet landscape. The tests record the app’s actual logical width, appearance, text scale and window orientation. Inspect actual display sizes, configuration and full-screen screenshots; the matrix does not represent every Android device. See [RELEASE-READINESS.md](docs/RELEASE-READINESS.md) for evidence and the separate 16 KB runtime-device requirement.
+Use `gradlew.bat` on Windows. Open the repository in Android Studio and run `app`; choose **Explore demo** in Debug to try the member and staff flows without a backend. Release omits demo entry points and implementations. Debug APKs are installable for development; CI Release outputs are unsigned and Play distribution requires owner signing/provisioning.
 
-Open this repository in Android Studio and run `app`. Choose a server on launch or lock one HTTPS origin in `branding/brand.json`. Debug builds allow documented local Docker origins and an explicitly labelled, isolated in-memory demo. Demo authentication, notifications and checkout previews do not establish a live session, push delivery or payment. Release builds omit demo implementations and entry points. [LOCAL-DOCKER-VALIDATION.md](docs/LOCAL-DOCKER-VALIDATION.md) separates local API evidence from fixtures.
+For instrumented journeys, start an emulator/device and run `./gradlew connectedDebugAndroidTest`. Gradle generates branding, motion, copy and API sources from the repository inputs; generated output stays outside Git.
 
-The backend and owner provisioning are deferred. Unsupported native contracts remain unavailable; see [backend dependencies](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/issues/3). Real integrity, providers, push, checkout, account deletion and store distribution require the deployment inputs and verification in the release guide. The Debug APK can be installed for development and the isolated preview. Play distribution uses an owner-signed release build; CI release outputs are unsigned.
+## Verified app baseline
 
-Gradle regenerates native semantic colors and branding from the pinned Design submodule, motion from local `tokens/mobile-motion.json`, and the API client from the [contract](api/README.md). Generated sources stay out of Git. Never replace the pinned schema with a local server's schema or hand-write API payload models. See [WHITE-LABEL.md](docs/WHITE-LABEL.md) for configuration. Space Works uses static logo masters, native system text and licensed Unbounded accent text. Gilroy is not embedded without app-embedding permission. Never commit signing material, provider secrets or test credentials.
+Current evidence is bound to tested source commit [`3a400c7`](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/commit/3a400c7bcf7c16164393ea493983a4bd173a710b), including the C1 repository-hardening inputs. Later Markdown-only handoff commits are separate from that tested source. The gallery above retains its historical `11cc205` captures and unchanged provenance.
 
-## Use and review the app
+| Gate | Accepted result |
+| --- | --- |
+| [Canonical CI](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/actions/runs/39105105315) | Build, lint, Debug/Release validation and phone/tablet jobs passed |
+| [Full device matrix](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/actions/runs/39105109733) | 59 UI tests × 10 profiles = **590**, zero failures, errors or skips |
+| Unit tests | **538 Debug + 506 Release = 1,044**, zero failures or skips |
+| Native/UI proof | Supplied font resolution, haptic dispatch/settings, measured profiles, real keyboard insets and configuration-backed 3.2× PDF dialog layout |
+| Packaging and review | 16 KB APK/ELF alignment and exact bundled Unbounded OFL checks; **210 original full-OS screenshots** manually reviewed |
 
-In Debug, choose **Explore demo** to use isolated member and staff journeys without a backend.
-Open **Profile → App guide** for task instructions, introduction replay and helpful-tip reset.
-The first-use Home tip is dismissible and scoped to the actual account and makerspace. Staff
-guidance appears only in an authorized staff context. See [USER-GUIDE.md](docs/USER-GUIDE.md).
-Prepared store copy, screenshot selection and private reviewer-access notes are in
-[STORE-LISTING.md](docs/STORE-LISTING.md).
+The matrix covers compact through large phones, 600/800/840/1024dp tablets and tablet landscape, across light/dark and large text. Emulators do not establish tactile quality, live provider/backend operation or the separate physical 16 KB runtime-device gate.
 
-Build and device evidence is linked from the [dev → main pull request](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/pull/2).
-Keep simulator/demo checks separate from live provider and physical-device acceptance; the
-[release handoff](docs/RELEASE-READINESS.md) records those deployment inputs.
+## Configuration and documentation
+
+Set deployment branding and an optional locked HTTPS origin in [`branding/brand.json`](branding/brand.json). Keep provider keys, signing files and credentials untracked. The supplied logo masters and font provenance are retained; use the [white-label guide](docs/WHITE-LABEL.md) for supported replacements.
+
+[User guide](docs/USER-GUIDE.md) · [Release readiness](docs/RELEASE-READINESS.md) · [Store listing](docs/STORE-LISTING.md) · [Local API evidence](docs/LOCAL-DOCKER-VALIDATION.md) · [Changelog](docs/CHANGELOG.md) · [PRD](docs/PRD.md)
+
+[Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Dependency provenance](docs/DEPENDENCIES.md)
+
+Ongoing work stays on `dev`, with tested phase commits pushed there. The owner authorized the existing [PR #4](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/pull/4) for delivery to `main`: merge only its reviewed head after exact-source CI and visual gates pass. Preserve `dev` and phase commits; do not create other pull requests or feature branches. Keep the PRD, API contract and pinned Design inputs unchanged.

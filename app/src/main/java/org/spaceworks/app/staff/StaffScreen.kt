@@ -4,6 +4,8 @@ import org.spaceworks.app.network.retrySecondsRemaining
 
 import org.spaceworks.app.platform.MobileText
 import org.spaceworks.app.platform.rememberMobileText
+import org.spaceworks.app.platform.rememberActionFeedback
+import org.spaceworks.app.platform.FeedbackKind
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -63,6 +65,7 @@ private data class StaffConfirmation(val title:String,val detail:String,val acti
     val text=rememberMobileText()
 
     val s by holder.state.collectAsStateWithLifecycle();val work=rememberCoroutineScope()
+    val feedback=rememberActionFeedback(holder to (s.scope to s.section))
     val focus=LocalFocusManager.current;val keyboard=LocalSoftwareKeyboardController.current
     val scroll=rememberScrollState();var confirmation by remember(s.scope,s.section){mutableStateOf<StaffConfirmation?>(null)}
     var previewOptionsOpen by remember(holder){mutableStateOf(false)}
@@ -73,7 +76,19 @@ private data class StaffConfirmation(val title:String,val detail:String,val acti
     LaunchedEffect(s.scope,s.section){when(s.section){StaffSection.QUEUE->holder.loadQueue();StaffSection.DIRECT->holder.loadDirect();StaffSection.EVENTS->holder.loadEvents();StaffSection.SPACES->holder.loadSpaces();else->Unit}}
     LaunchedEffect(s.error){if(s.error!=null){focus.clearFocus();keyboard?.hide();scroll.scrollTo(0)}}
     val enabled=!s.busy&&clock>=s.retryAtMillis
-    fun launch(action:suspend()->Unit){focus.clearFocus();keyboard?.hide();work.launch{action()}}
+    fun launch(action:suspend()->Unit){
+        focus.clearFocus();keyboard?.hide()
+        val before=holder.state.value
+        val ticket=feedback.begin()
+        work.launch {
+            action()
+            val after=holder.state.value
+            val recorded=after.scope==before.scope && after.error==null &&
+                ((after.handover?.receipt!=null && before.handover?.receipt==null) ||
+                 (after.attendanceNotice!=null && before.attendanceNotice==null))
+            feedback.finish(ticket,if(recorded)FeedbackKind.CONFIRM else null)
+        }
+    }
     fun close(){if(!s.busy){if(s.section in setOf(StaffSection.QUEUE,StaffSection.DIRECT,StaffSection.EVENTS,StaffSection.SPACES))onBack()else holder.close()}}
     BackHandler{close()}
     confirmation?.let{pending->
@@ -271,6 +286,7 @@ if(s.nextPages[key]!=null)BrandTextButton(text(StaffStrings.STAFF_LOAD_MORE),mor
 @Composable private fun StaffScanInput(holder:StaffStateHolder,kind:StaffScanKind,label:String,demo:Boolean,enabled:Boolean,tag:String,demoPayload:String){
     val text=rememberMobileText();val work=rememberCoroutineScope()
     val observed by holder.state.collectAsStateWithLifecycle()
+    val feedback=rememberActionFeedback(holder to (observed.scope to kind))
     val target=if(observed.scope==null)null else holder.scanTarget(kind)
     var code by remember(holder,tag,target){mutableStateOf("")}
     var camera by remember(holder,tag,target){mutableStateOf<StaffScanTarget?>(null)}
@@ -284,7 +300,18 @@ if(s.nextPages[key]!=null)BrandTextButton(text(StaffStrings.STAFF_LOAD_MORE),mor
     fun resolve(raw:String,owner:StaffScanTarget){
         if(!mounted||currentHolder!==holder||currentTarget!=owner||!holder.acceptsScanTarget(owner))return
         code="";camera=null;failure=null
-        work.launch(start=kotlinx.coroutines.CoroutineStart.UNDISPATCHED){holder.resolveScan(owner,raw)}
+        val before=holder.state.value
+        val ticket=feedback.begin()
+        work.launch(start=kotlinx.coroutines.CoroutineStart.UNDISPATCHED){
+            val accepted=holder.resolveScan(owner,raw)
+            val after=holder.state.value
+            val resolved=accepted && after.scope==before.scope && after.error==null && when(kind) {
+                StaffScanKind.CHECK_IN->after.person!=null && after.person!=before.person
+                StaffScanKind.CONTAINER->!after.handover?.boxCode.isNullOrBlank() && after.handover?.boxCode!=before.handover?.boxCode
+                StaffScanKind.EQUIPMENT->!after.handover?.scans.isNullOrEmpty() && after.handover?.scans!=before.handover?.scans
+            }
+            feedback.finish(ticket,if(resolved)FeedbackKind.SELECTION else null)
+        }
     }
     BrandField(code,{code=it.take(2048)},label,Modifier.testTag(tag),enabled)
     BrandError(failure)

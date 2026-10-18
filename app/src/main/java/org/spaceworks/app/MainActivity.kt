@@ -79,8 +79,7 @@ class MainActivity:ComponentActivity() {
         if(demo)demoFactory() else if(connection.connected)sessionFactory?.invoke(connection.url) else null
     }
     val identity=bundle?.holder?.state?.collectAsStateWithLifecycle()?.value?.user
-    MaterialTheme(colorScheme=if(dark)DarkScheme else LightScheme,
-        shapes=Shapes(small=androidx.compose.foundation.shape.RoundedCornerShape(10.dp),medium=androidx.compose.foundation.shape.RoundedCornerShape(16.dp))) {
+    SpaceWorksTheme(dark) {
         Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
             Column(Modifier.safeDrawingPadding()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.SpaceBetween) {

@@ -4,6 +4,7 @@ https://developer.android.com/guide/practices/page-sizes
 This is binary/package validation, not a claim of runtime testing on a 16 KB device.
 """
 import argparse
+import hashlib
 import json
 import os
 import pathlib
@@ -13,6 +14,8 @@ import subprocess
 import zipfile
 
 PAGE = 16 * 1024
+FONT_LICENSE_PATH = 'assets/licenses/OFL-Unbounded.txt'
+FONT_LICENSE_SOURCE = pathlib.Path(__file__).resolve().parents[1] / 'docs/licenses/OFL-Unbounded.txt'
 
 
 def elf_load_alignments(data):
@@ -41,6 +44,11 @@ def elf_load_alignments(data):
 def inspect_apk(path):
     libraries = []
     with zipfile.ZipFile(path) as apk:
+        if apk.namelist().count(FONT_LICENSE_PATH) != 1:
+            raise ValueError('APK must contain exactly one full Unbounded copyright/OFL license')
+        license_bytes = apk.read(FONT_LICENSE_PATH)
+        if license_bytes != FONT_LICENSE_SOURCE.read_bytes():
+            raise ValueError('Packaged Unbounded copyright/OFL license must match the existing source bytes')
         for item in apk.infolist():
             if not item.filename.startswith(('lib/arm64-v8a/', 'lib/x86_64/')) or not item.filename.endswith('.so'):
                 continue
@@ -49,7 +57,9 @@ def inspect_apk(path):
             except ValueError as error:
                 raise ValueError(f'{item.filename}: {error}') from error
             libraries.append({'path': item.filename, 'load_alignments': alignments})
-    return {'apk': str(path), 'elf64_libraries': libraries, 'elf64_count': len(libraries)}
+    return {'apk': str(path), 'elf64_libraries': libraries, 'elf64_count': len(libraries),
+            'font_license': {'path': FONT_LICENSE_PATH, 'sha256': hashlib.sha256(license_bytes).hexdigest(),
+                             'source': 'docs/licenses/OFL-Unbounded.txt', 'exact_source_bytes': True}}
 
 
 def find_zipalign():

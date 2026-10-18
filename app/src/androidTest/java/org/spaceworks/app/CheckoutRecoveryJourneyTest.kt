@@ -21,7 +21,7 @@ class CheckoutRecoveryJourneyTest {
         compose.setContent {
             val density=LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density,3.2f)) {
-                MaterialTheme(colorScheme=if(DeviceProfile.dark)DarkScheme else LightScheme) {
+                org.spaceworks.app.theme.SpaceWorksTheme(DeviceProfile.dark) {
                     CheckoutRecoveryScreen {refreshes++}
                 }
             }

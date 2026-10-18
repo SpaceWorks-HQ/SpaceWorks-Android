@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import org.spaceworks.app.R
 
 @Composable fun BrandTextButton(text:String,onClick:()->Unit,enabled:Boolean=true,modifier:Modifier=Modifier) {
-    TextButton(onClick=onClick,enabled=enabled,modifier=modifier.heightIn(min=48.dp),
+    TextButton(onClick=onClick,enabled=enabled,shape=MaterialTheme.shapes.small,modifier=modifier.heightIn(min=48.dp),
         colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onPrimaryContainer)) {Text(text)}
 }
 @Composable fun BrandButton(text:String,onClick:()->Unit,enabled:Boolean=true,modifier:Modifier=Modifier) {

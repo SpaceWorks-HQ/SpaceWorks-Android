@@ -12,3 +12,14 @@ google-services.json
 /validation/
 __pycache__/
 *.pyc
+
+# Local deployment credentials; public branding and synthetic test fixtures stay tracked.
+.env
+.env.*
+!.env.example
+*.p12
+*.pfx
+*.pem
+*.key
+keystore.properties
+signing.properties

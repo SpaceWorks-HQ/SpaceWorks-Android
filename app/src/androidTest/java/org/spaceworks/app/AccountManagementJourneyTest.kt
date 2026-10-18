@@ -26,7 +26,7 @@ import org.spaceworks.app.theme.LightScheme
 @Composable internal fun A7ComponentHost(largeText:Boolean=false,content:@Composable ()->Unit) {
     val density=LocalDensity.current
     CompositionLocalProvider(LocalDensity provides Density(density.density,if(largeText)3.2f else density.fontScale)) {
-        MaterialTheme(colorScheme=if(DeviceProfile.dark)org.spaceworks.app.theme.DarkScheme else LightScheme,shapes=Shapes(small=RoundedCornerShape(10.dp),medium=RoundedCornerShape(16.dp))) {
+        org.spaceworks.app.theme.SpaceWorksTheme(DeviceProfile.dark) {
             Surface(Modifier.fillMaxSize()){Box(Modifier.fillMaxSize().safeDrawingPadding()){content()}}
         }
     }

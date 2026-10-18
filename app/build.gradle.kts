@@ -34,12 +34,15 @@ android {
     lint { abortOnError = true }
 }
 val prepareBrand by tasks.registering(Exec::class) {
-    dependsOn("testBrandLinks")
+    dependsOn("testBrandLinks","testBrandFonts")
     inputs.files(brand.filterKeys {it.toString().startsWith("logo_")}.values.map {rootProject.file(it as String)})
     inputs.file(rootProject.file("tokens/mobile-motion.json"))
     inputs.file(rootProject.file("scripts/brand_links.py"))
+    inputs.file(rootProject.file("scripts/brand_fonts.py"))
+    inputs.files(brand.filterKeys {it.toString().startsWith("font_")}.values.map {rootProject.file(it as String)})
     inputs.files(brandFile, rootProject.file(brand["theme_tokens"] as String), rootProject.file(brand["app_icon"] as String), rootProject.file("scripts/prepare.py"))
     outputs.dirs(layout.buildDirectory.dir("generated/source/brand"),layout.buildDirectory.dir("generated/res/brand"))
+    outputs.file(layout.buildDirectory.file("generated/brand-fonts.json"))
     commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3", rootProject.file("scripts/prepare.py"))
 }
 val testContractSelection by tasks.registering(Exec::class) {
@@ -81,6 +84,12 @@ val testMobileCopyGenerator by tasks.registering(Exec::class) {
     workingDir(rootProject.projectDir)
     inputs.files(rootProject.file("scripts/generate_mobile_copy.py"),rootProject.file("scripts/tests/test_mobile_copy.py"))
     commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3","-m","unittest","discover","-s","scripts/tests","-p","test_mobile_copy.py","-v")
+}
+val testBrandFonts by tasks.registering(Exec::class) {
+    workingDir(rootProject.projectDir)
+    inputs.files(rootProject.file("scripts/brand_fonts.py"),rootProject.file("scripts/tests/test_brand_fonts.py"))
+    inputs.files(brand.filterKeys {it.toString().startsWith("font_")}.values.map {rootProject.file(it as String)})
+    commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3","-m","unittest","discover","-s","scripts/tests","-p","test_brand_fonts.py","-v")
 }
 val testBrandLinks by tasks.registering(Exec::class) {
     workingDir(rootProject.projectDir)
