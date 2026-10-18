@@ -1,11 +1,4 @@
 package org.spaceworks.app.account
 
-import androidx.compose.runtime.Composable
-
+/** In-app destinations that resolve a deletion blocker; organization fixes stay on the web console. */
 enum class AccountFixDestination { PAYMENTS, ACTIVITY, BOOKINGS, EVENTS, STAFF, SUPPORT }
-
-/** Variant-provided preview only. Release supplies no implementation or deletion transport. */
-interface AccountDeletionPreview {
-    fun clear()
-    @Composable fun Screen(onBack:()->Unit,onFix:(Int?,AccountFixDestination)->Unit,onDeleted:()->Unit)
-}

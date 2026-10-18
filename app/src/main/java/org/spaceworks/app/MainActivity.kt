@@ -114,7 +114,7 @@ class MainActivity:ComponentActivity() {
     val management=bundle.management
     val completion=management?.owner?.completion?.collectAsStateWithLifecycle()?.value
     var accountPanel by remember(bundle){mutableStateOf<AccountManagementStateHolder?>(null)}
-    var deletion by remember(bundle){mutableStateOf<AccountDeletionPreview?>(null)}
+    var deletion by remember(bundle){mutableStateOf<AccountDeletionFlow?>(null)}
     var pendingStaffMaker by remember(bundle){mutableStateOf<Int?>(null)}
     var accountError by remember(bundle){mutableStateOf<String?>(null)}
     val panelState=accountPanel?.state?.collectAsStateWithLifecycle()?.value
@@ -235,7 +235,7 @@ class MainActivity:ComponentActivity() {
         state.user?.mustChangePassword==true -> ChangePasswordScreen(bundle)
         accountPanel!=null && management?.owner?.current()===accountPanel -> AccountScreens(requireNotNull(accountPanel),bundle.demo,::closeAccount,
             privacyURL=BrandLinks.privacyURL,supportURL=BrandLinks.supportURL,
-            onDemoDelete=if(bundle.demo){{deletion=bundle.deletionPreview(bundle.holder.state.value.memberships.map {it.id})}}else null)
+            onDelete={deletion=bundle.deletionPreview(bundle.holder.state.value.memberships.map {it.id})})
         state.selected==null -> MakerspacePicker(bundle,if(management!=null){::openAccount}else null)
         else -> MemberShell(bundle,onChangeServer,onShowIntro,if(management!=null){::openAccount}else null,
             openStaff=pendingStaffMaker==state.selectedId,onStaffOpened={pendingStaffMaker=null})

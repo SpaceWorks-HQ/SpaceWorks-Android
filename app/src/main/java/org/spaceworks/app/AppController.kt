@@ -14,6 +14,7 @@ import org.spaceworks.app.network.*
 import org.spaceworks.app.notifications.*
 import org.spaceworks.app.platform.*
 import org.spaceworks.generated.model.EnvironmentEnum
+import org.spaceworks.app.copy.apiFailure
 
 sealed interface PendingNativeIntent {
     val sequence:Long
@@ -131,8 +132,17 @@ class AppController(application:Application):AndroidViewModel(application) {
             {holder.state.value.user?.id?.toString()},
             {holder.state.value.selected?.let {org.spaceworks.app.member.MemberScope(it.id,it.slug)}},
             holder::endLocalSession,holder::foreground,holder::dropConfirmedMembership)
+        val deletedNotice=application.getString(R.string.deletion_deleted)
         val bundle=AuthBundle(holder,store,accounts=accounts,member=member,actions=actions,origin=session.server.toString(),push=push,links=links,pushConfigured=FcmRegistration.configured(application),sessionEpoch={store.snapshot().epoch},payments=payments,staff=staff,
-            staffAvailable={holder.state.value.staffAllowed && holder.state.value.selected!=null},management=management)
+            staffAvailable={holder.state.value.staffAllowed && holder.state.value.selected!=null},management=management,
+            deletionPreview={_->
+                if(holder.acceptedInstallationEpoch==null)null else GeneratedDeletionFlow(
+                    AccountDeletionStateHolder(GeneratedAccountDeletionGateway(session) {holder.acceptedInstallationEpoch!=null},
+                        onDeleted={holder.endLocalSession(deletedNotice)},failureText={copyText.apiFailure(it)}),
+                    {id->holder.state.value.memberships.firstOrNull {it.id==id}?.slug?.let {org.spaceworks.app.ui.makerspaceLabel(it)}},
+                    {id->id!=null && holder.state.value.staffAllowed && holder.state.value.memberships.any {it.id==id}},
+                    session.server.host,{holder.state.value.googleClientId})
+            })
         management.register(bundle,requireNotNull(runtime)) {owner->GeneratedAccountGateway(session,owner.hasSession,owner.selected,application.resources::accountText)}
         viewModelScope.launch {store.installationEpoch.collect {holder.invalidateInstallation(it)}}
         return bundle
