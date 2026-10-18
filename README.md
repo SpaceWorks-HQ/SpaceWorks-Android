@@ -19,7 +19,7 @@ The backend will be supplied later. Debug includes an explicitly labelled, isola
 
 ## Screenshots
 
-Original full-OS emulator captures from tested app commit [`11cc205`](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/commit/11cc205c39294baeb3116038a5eb525519813eab). The gallery includes labelled Debug sample flows. Open any image for its full size; [capture provenance](docs/images/PROVENANCE.json) records the source, artifact and original-byte hashes.
+Historical gallery: original full-OS emulator captures from tested app commit [`11cc205`](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/commit/11cc205c39294baeb3116038a5eb525519813eab). The gallery includes labelled Debug sample flows. Open any image for its full size; [capture provenance](docs/images/PROVENANCE.json) records the source, artifact and original-byte hashes.
 
 | Introduction | Sign in · dark | Tablet Home |
 | --- | --- | --- |
@@ -55,15 +55,15 @@ For instrumented journeys, start an emulator/device and run `./gradlew connected
 
 ## Verified app baseline
 
-Evidence below is bound to app commit **`11cc205`**, separately from any later README-only commit.
+Current evidence is bound to tested source commit [`3a400c7`](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/commit/3a400c7bcf7c16164393ea493983a4bd173a710b), including the C1 repository-hardening inputs. Later Markdown-only handoff commits are separate from that tested source. The gallery above retains its historical `11cc205` captures and unchanged provenance.
 
 | Gate | Accepted result |
 | --- | --- |
-| [Canonical dev CI](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/actions/runs/39081399951) | Build, lint, Debug/Release validation and default device jobs passed |
-| [Full device matrix](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/actions/runs/39081400622) | 59 UI tests × 10 profiles = **590**, zero failures or skips |
-| Unit tests | **538 Debug + 506 Release**, zero failures or skips |
+| [Canonical CI](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/actions/runs/39105105315) | Build, lint, Debug/Release validation and phone/tablet jobs passed |
+| [Full device matrix](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/actions/runs/39105109733) | 59 UI tests × 10 profiles = **590**, zero failures, errors or skips |
+| Unit tests | **538 Debug + 506 Release = 1,044**, zero failures or skips |
 | Native/UI proof | Supplied font resolution, haptic dispatch/settings, measured profiles, real keyboard insets and configuration-backed 3.2× PDF dialog layout |
-| Packaging and review | 16 KB APK/ELF alignment checks; **210 original full-OS screenshots** manually reviewed |
+| Packaging and review | 16 KB APK/ELF alignment and exact bundled Unbounded OFL checks; **210 original full-OS screenshots** manually reviewed |
 
 The matrix covers compact through large phones, 600/800/840/1024dp tablets and tablet landscape, across light/dark and large text. Emulators do not establish tactile quality, live provider/backend operation or the separate physical 16 KB runtime-device gate.
 
