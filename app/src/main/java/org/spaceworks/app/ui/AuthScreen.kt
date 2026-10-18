@@ -30,6 +30,18 @@ import org.spaceworks.app.platform.GoogleIdentity
     val state by holder.state.collectAsStateWithLifecycle()
     val account=bundle.accounts?.state?.collectAsStateWithLifecycle()?.value
     val scope=rememberCoroutineScope()
+    val feedback=rememberActionFeedback(bundle)
+    fun launchAuth(action:suspend((AuthOperationOutcome)->Unit)->Unit) {
+        val ticket=feedback.begin()
+        scope.launch {action {outcome->
+            val kind=if(!holder.isCurrentOutcome(outcome))null else when(outcome.kind) {
+                AuthOperationKind.PROGRESSED->FeedbackKind.SELECTION
+                AuthOperationKind.ACCEPTED->FeedbackKind.CONFIRM
+                AuthOperationKind.REJECTED->FeedbackKind.REJECT
+            }
+            feedback.finish(ticket,kind)
+        }}
+    }
     val context=LocalContext.current
     val focus=LocalFocusManager.current
     val keyboard=LocalSoftwareKeyboardController.current
@@ -62,8 +74,8 @@ import org.spaceworks.app.platform.GoogleIdentity
     val submit:()->Unit={
         usernameError=if(username.isBlank())copyText(UiStrings.MOBILE_ENTER_YOUR_EMAIL_OR_USERNAME) else null
         passwordError=if(password.isEmpty())copyText(UiStrings.MOBILE_ENTER_YOUR_PASSWORD) else null
-        when {usernameError!=null->usernameFocus.requestFocus();passwordError!=null->passwordFocus.requestFocus();else->{
-            focus.clearFocus();keyboard?.hide();scope.launch {holder.signIn(username,password);if(holder.state.value.mfa!=null || holder.state.value.user!=null)password=""}
+        when {usernameError!=null->{feedback.perform(FeedbackKind.REJECT);usernameFocus.requestFocus()};passwordError!=null->{feedback.perform(FeedbackKind.REJECT);passwordFocus.requestFocus()};else->{
+            focus.clearFocus();keyboard?.hide();launchAuth {outcome->holder.signInWithOutcome(username,password,outcome);if(holder.state.value.mfa!=null || holder.state.value.user!=null)password=""}
         }}
     }
     LaunchedEffect(holder) {if(!state.initialized)holder.initialize()}
@@ -84,7 +96,7 @@ import org.spaceworks.app.platform.GoogleIdentity
                 Text(copyText(UiStrings.MOBILE_I_VE_SAVED_MY_RECOVERY_CODES))
             }
             BrandError(state.error)
-            BrandButton(copyText(UiStrings.MOBILE_CONTINUE),{scope.launch {holder.finishMfa()}},!state.busy && acknowledged)
+            BrandButton(copyText(UiStrings.MOBILE_CONTINUE),{launchAuth {outcome->holder.finishMfaWithOutcome(outcome)}},!state.busy && acknowledged)
         }
         state.mfa!=null -> {
             val mfa=requireNotNull(state.mfa)
@@ -111,7 +123,7 @@ import org.spaceworks.app.platform.GoogleIdentity
                 if(!enrollment || state.enrollment!=null) {
                     BrandField(code,{code=if(recoveryEntry)it.take(64) else it.filter {c->c in '0'..'9'}.take(6)},if(recoveryEntry)copyText(UiStrings.MOBILE_RECOVERY_CODE) else copyText(UiStrings.MOBILE_AUTHENTICATION_CODE),Modifier.testTag("mfaCode"),!state.busy,role=if(recoveryEntry)FieldRole.TEXT else FieldRole.CODE)
                     BrandButton(if(state.busy)copyText(UiStrings.MOBILE_VERIFYING) else if(enrollment)copyText(UiStrings.MOBILE_VERIFY_AND_CONTINUE) else copyText(UiStrings.MOBILE_VERIFY),{
-                        focus.clearFocus();keyboard?.hide();scope.launch {holder.verify(code);code=""}
+                        focus.clearFocus();keyboard?.hide();launchAuth {outcome->holder.verifyWithOutcome(code,outcome);code=""}
                     },!state.busy && if(recoveryEntry)code.trim().length in 6..64 else code.length==6)
                 }
                 if(!enrollment)BrandTextButton(if(recoveryEntry)copyText(UiStrings.MOBILE_USE_AUTHENTICATOR_INSTEAD) else copyText(UiStrings.MOBILE_USE_A_RECOVERY_CODE),{recoveryEntry=!recoveryEntry;code=""},!state.busy)
@@ -128,7 +140,7 @@ import org.spaceworks.app.platform.GoogleIdentity
             } else {
                 state.googleClientId?.let {
                     if(holder.nativeSocialReady && !bundle.demo)GoogleSignInButton(!state.busy && retrySeconds==0L) {
-                        scope.launch {holder.googleSignIn {client,nonce->GoogleIdentity.credential(context.activity() ?: throw AuthMessage(copyText(UiStrings.MOBILE_THIS_SIGN_IN_OPTION_ISN_T_AVAILABLE_ON_THIS_DEVICE)),client,nonce)}}
+                        launchAuth {outcome->holder.googleSignInWithOutcome({client,nonce->GoogleIdentity.credential(context.activity() ?: throw AuthMessage(copyText(UiStrings.MOBILE_THIS_SIGN_IN_OPTION_ISN_T_AVAILABLE_ON_THIS_DEVICE)),client,nonce)},outcome)}
                     }
                     else if(!bundle.demo)Text(copyText(UiStrings.MOBILE_GOOGLE_DEVICE_SIGN_IN_IS_NOT_CONFIGURED_FOR_THIS_BUILD_CONTACT_Y),style=MaterialTheme.typography.bodySmall)
                     if(state.passwordEnabled && holder.nativeSocialReady)Text(copyText(UiStrings.MOBILE_OR_SIGN_IN_WITH_A_PASSWORD),style=MaterialTheme.typography.labelLarge)

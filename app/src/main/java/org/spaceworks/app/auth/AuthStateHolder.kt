@@ -64,6 +64,9 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
     private var endingLocalSession=false
     private var removedMembershipEpoch:Long?=null
     private val removedMembershipIds=mutableSetOf<Int>()
+    private val outcomeOwner=Any()
+    fun isCurrentOutcome(outcome:AuthOperationOutcome)=outcome.owner===outcomeOwner &&
+        outcome.revision==localIdentityRevision && outcome.epoch==tokens.snapshot().epoch
     private var retryAt=0L
     private var challengeExpiresAt=0L
     val nativeSocialReady get()=api.nativeSocialReady
@@ -73,7 +76,8 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         val restored=withContext(Dispatchers.IO){tokens.snapshot()}
         if(restored.pair!=null){installedEpoch=restored.epoch;refreshIdentity()}
     }
-    suspend fun signIn(username:String,password:String)=runOperation {
+    suspend fun signIn(username:String,password:String)=signInWithOutcome(username,password,null)
+    suspend fun signInWithOutcome(username:String,password:String,onOutcome:((AuthOperationOutcome)->Unit)?)=runOperation(onOutcome=onOutcome) {
         mutable.value=state.value.copy(gate=null)
         ensure(username.trim().isNotBlank() && password.isNotEmpty(),text(CoreStrings.CORE_ENTER_YOUR_EMAIL_OR_USERNAME_AND_PASSWORD))
         ensure(state.value.config!=null && state.value.passwordEnabled,text(CoreStrings.CORE_PASSWORD_SIGN_IN_IS_UNAVAILABLE_ON_THIS_SERVER))
@@ -90,7 +94,8 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
             }
         }
     }
-    suspend fun googleSignIn(credential:suspend(String,String)->String)=runOperation {
+    suspend fun googleSignIn(credential:suspend(String,String)->String)=googleSignInWithOutcome(credential,null)
+    suspend fun googleSignInWithOutcome(credential:suspend(String,String)->String,onOutcome:((AuthOperationOutcome)->Unit)?)=runOperation(onOutcome=onOutcome) {
         mutable.value=state.value.copy(gate=null)
         val client=state.value.googleClientId ?: throw AuthMessage(text(CoreStrings.CORE_GOOGLE_SIGN_IN_IS_NOT_CONFIGURED_FOR_THIS_SERVER))
         ensure(api.nativeSocialReady,text(CoreStrings.CORE_DEVICE_SIGN_IN_IS_NOT_CONFIGURED_FOR_THIS_BUILD_CONTACT_YOUR))
@@ -105,7 +110,8 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         ensureOperationCurrent()
         mutable.value=state.value.copy(enrollment=enrollment)
     }
-    suspend fun verify(code:String)=runOperation {
+    suspend fun verify(code:String)=verifyWithOutcome(code,null)
+    suspend fun verifyWithOutcome(code:String,onOutcome:((AuthOperationOutcome)->Unit)?)=runOperation(onOutcome=onOutcome) {
         val challenge=requireChallenge()
         ensure(code.trim().length in 6..64,text(CoreStrings.CORE_ENTER_YOUR_AUTHENTICATOR_OR_RECOVERY_CODE))
         val result=api.verify(challenge.challenge,code.trim(),challenge.enrollmentRequired)
@@ -116,7 +122,8 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         if (result.recoveryCodes.orEmpty().isNotEmpty()) mutable.value=state.value.copy(recoveryCodes=result.recoveryCodes.orEmpty())
         else finishMfaInternal()
     }
-    suspend fun finishMfa()=runOperation { finishMfaInternal() }
+    suspend fun finishMfa()=finishMfaWithOutcome(null)
+    suspend fun finishMfaWithOutcome(onOutcome:((AuthOperationOutcome)->Unit)?)=runOperation(onOutcome=onOutcome) { finishMfaInternal() }
     private suspend fun finishMfaInternal() {
         val expected=installedEpoch
         try { refreshIdentity();mutable.value=state.value.copy(mfa=null,enrollment=null,recoveryCodes=emptyList()) }
@@ -359,9 +366,16 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
         val id=(grant?.get("id") as? JsonPrimitive)?.contentOrNull
         return try {id!=null && java.util.UUID.fromString(id).toString()==id.lowercase()}catch(_:IllegalArgumentException){false}
     }
-    private suspend fun runOperation(ignoreThrottle:Boolean=false,block:suspend()->Unit) {
+    private suspend fun runOperation(ignoreThrottle:Boolean=false,onOutcome:((AuthOperationOutcome)->Unit)?=null,block:suspend()->Unit) {
         if(endingLocalSession || !operation.tryLock()) return
         val revision=localIdentityRevision
+        val before=state.value
+        var completion:AuthOperationOutcome?=null
+        fun capture(kind:AuthOperationKind?) {
+            val epoch=operationEpoch ?: return
+            if(onOutcome!=null && kind!=null && localIdentityRevision==revision && tokens.snapshot().epoch==epoch)
+                completion=AuthOperationOutcome(outcomeOwner,revision,epoch,kind)
+        }
         operationRevision=revision
         operationEpoch=tokens.snapshot().epoch
         try {
@@ -369,6 +383,7 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
             if(state.value.user!=null)requireInstalledEpoch()
             mutable.value=state.value.copy(busy=true,error=null,notice=null)
             block()
+            capture(authOperationKind(before,state.value.copy(busy=false),acceptedInstallationEpoch!=null))
         } catch(cancelled:CancellationException) {throw cancelled}
         catch(_:AuthCancelled) {if(localIdentityRevision!=revision)return;mutable.value=state.value.copy(error=null,notice=text(CoreStrings.CORE_SIGN_IN_CANCELLED))}
         catch(f:Exception) {
@@ -377,6 +392,8 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
             mutable.value=state.value.copy(retryAtMillis=retryAt,
                 gate=if(f is ApiFailure && f.code=="device_superadmin_not_supported")AuthGate.WEB_CONSOLE else state.value.gate,
                 error=when(f){is MobileCopyException->text.failure(f);is ApiFailure->text.apiFailure(f);is AuthMessage->f.message ?: text(CoreStrings.CORE_COULDN_T_CONNECT_TRY_AGAIN);else->text(CoreStrings.CORE_COULDN_T_CONNECT_TRY_AGAIN)})
+            capture(AuthOperationKind.REJECTED)
         } finally {operationRevision=null;operationEpoch=null;mutable.value=state.value.copy(busy=endingLocalSession);operation.unlock()}
+        completion?.takeIf(::isCurrentOutcome)?.let {onOutcome?.invoke(it)}
     }
 }

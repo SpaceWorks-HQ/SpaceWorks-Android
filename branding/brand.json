@@ -13,5 +13,9 @@
   "logo_symbol_one_colour_ink": "design/logo/symbol-one-colour-ink.svg",
   "logo_stacked": "design/logo/lockup-stacked.svg",
   "logo_stacked_reversed": "design/logo/lockup-stacked-reversed.svg",
-  "logo_stacked_one_colour_ink": "design/logo/lockup-stacked-one-colour-ink.svg"
+  "logo_stacked_one_colour_ink": "design/logo/lockup-stacked-one-colour-ink.svg",
+  "font_regular": "design/fonts/Gilroy-Regular.woff",
+  "font_medium": "design/fonts/Gilroy-Medium.woff",
+  "font_semibold": "design/fonts/Gilroy-SemiBold.woff",
+  "font_bold": "design/fonts/Gilroy-Bold.woff"
 }

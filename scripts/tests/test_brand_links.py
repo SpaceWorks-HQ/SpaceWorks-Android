@@ -94,7 +94,7 @@ class BrandLinksTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             (root / 'scripts').mkdir()
-            for name in ('prepare.py', 'brand_links.py'):
+            for name in ('prepare.py', 'brand_links.py', 'brand_fonts.py'):
                 shutil.copyfile(SCRIPTS / name, root / 'scripts' / name)
             (root / 'branding').mkdir()
             (root / 'branding/icon.svg').write_text('<svg viewBox="0 0 16 16"><path d="M0,0h16v16z" fill="#142C2A"/></svg>')
@@ -109,6 +109,11 @@ class BrandLinksTest(unittest.TestCase):
             for key in ('logo_symbol', 'logo_symbol_reversed', 'logo_symbol_one_colour_ink',
                         'logo_stacked', 'logo_stacked_reversed', 'logo_stacked_one_colour_ink'):
                 brand[key] = 'branding/icon.svg'
+            for face, filename in [('regular', 'Regular'), ('medium', 'Medium'), ('semibold', 'SemiBold'), ('bold', 'Bold')]:
+                source = SCRIPTS.parent / 'design/fonts' / ('Gilroy-' + filename + '.woff')
+                target = root / ('branding/gilroy_' + face + '.woff')
+                shutil.copyfile(source, target)
+                brand['font_' + face] = str(target.relative_to(root))
             config = root / 'branding/brand.json'
             config.write_text(json.dumps(brand))
             command = [sys.executable, str(root / 'scripts/prepare.py')]

@@ -1,5 +1,11 @@
 package org.spaceworks.app.guidance
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import org.spaceworks.app.platform.LocalReducedMotion
+import org.spaceworks.app.theme.BrandMotion
+
 import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -53,7 +59,7 @@ import org.spaceworks.app.platform.rememberMobileText
             GuideButton(copy(UsageStrings.USAGE_BROWSE_INVENTORY), "usage-browse-inventory", onInventory)
             if (onBookings != null) GuideButton(copy(UsageStrings.USAGE_VIEW_BOOKINGS), "usage-view-bookings", onBookings)
             else if (onProfile != null) GuideButton(copy(UsageStrings.USAGE_VIEW_PROFILE), "usage-view-profile", onProfile)
-            TextButton(onClick = progress::dismiss, modifier = Modifier.heightIn(min = 48.dp).testTag("usage-dismiss-tip"),
+            TextButton(shape = MaterialTheme.shapes.small, onClick = progress::dismiss, modifier = Modifier.heightIn(min = 48.dp).testTag("usage-dismiss-tip"),
                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onPrimaryContainer)) {
                 Text(copy(UsageStrings.USAGE_DISMISS_TIP))
             }
@@ -76,7 +82,7 @@ import org.spaceworks.app.platform.rememberMobileText
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = 960.dp).fillMaxWidth().verticalScroll(rememberScrollState())
                 .padding(24.dp).testTag("usage-guide-scroll"), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                TextButton(onClick = onBack, modifier = Modifier.heightIn(min = 48.dp).testTag("usage-guide-back"),
+                TextButton(shape = MaterialTheme.shapes.small, onClick = onBack, modifier = Modifier.heightIn(min = 48.dp).testTag("usage-guide-back"),
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onPrimaryContainer)) {
                     Text(copy(UsageStrings.USAGE_BACK))
                 }
@@ -87,7 +93,7 @@ import org.spaceworks.app.platform.rememberMobileText
                     GuideButton(copy(UsageStrings.USAGE_RESET_HELPFUL_TIPS), "usage-reset-tips") {
                         onResetTips(); resetNotice = true
                     }
-                    if (resetNotice) Text(copy(UsageStrings.USAGE_TIPS_RESET), modifier = Modifier.testTag("usage-reset-notice")
+                    if (resetNotice) Text(copy(UsageStrings.USAGE_TIPS_RESET), style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("usage-reset-notice")
                         .semantics { liveRegion = LiveRegionMode.Polite })
                 }
                 if (demo) Text(copy(UsageStrings.USAGE_DEMO), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -115,9 +121,10 @@ private data class GuideTopic(val id: String, val title: MobileCopyKey, val body
     val copy = rememberMobileText()
     var expanded by rememberSaveable(topic.id) { mutableStateOf(false) }
     val isExpanded = expanded
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+    val reduced=LocalReducedMotion.current
+    Card(Modifier.fillMaxWidth().animateContentSize(animationSpec=if(reduced)snap()else tween(BrandMotion.EXPAND)), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            TextButton(onClick = { expanded = !isExpanded }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+            TextButton(shape = MaterialTheme.shapes.small, onClick = { expanded = !isExpanded }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("usage-section-${topic.id}").semantics {
                     heading()
@@ -130,7 +137,7 @@ private data class GuideTopic(val id: String, val title: MobileCopyKey, val body
                 }
             }
             if (isExpanded) for ((index, paragraph) in copy(topic.body).split("\n\n").withIndex()) {
-                Text(paragraph, modifier = Modifier.fillMaxWidth().testTag("usage-section-${topic.id}-body-$index"))
+                Text(paragraph, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.fillMaxWidth().testTag("usage-section-${topic.id}-body-$index"))
             }
         }
     }
