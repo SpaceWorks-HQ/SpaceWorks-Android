@@ -8,8 +8,8 @@ checks and artifact/visual review, then a guarded merge of only the reviewed hea
 ## Reproduce the app
 
 Clone recursively and retain the reviewed `design/` commit. Install JDK 21, Python 3 and Android
-SDK platform 36/build tools. `api/openapi.json` is the authoritative contract; do not replace it
-with another checkout's schema. From the repository root:
+SDK platform 36/build tools. `api/openapi.json` is the authoritative contract (re-pinned to the mobile-backend
+snapshot `962e6a4b…`; see `docs/NATIVE-CONTRACT.md`); do not replace it without an owner update. From the repository root:
 
 ```sh
 ./gradlew lint test assembleDebug assembleRelease bundleRelease
@@ -18,9 +18,11 @@ with another checkout's schema. From the repository root:
 On Windows use `gradlew.bat`. SDK location belongs in the ignored `local.properties` or the build
 environment. Gradle generates semantic colors, branding assets/motion values and the API client;
 do not edit generated output. The debug APK is `app/build/outputs/apk/debug/app-debug.apk`.
-The unsigned Release APK is under `app/build/outputs/apk/release/` and the unsigned bundle under
-`app/build/outputs/bundle/release/`; these artifacts prove compilation/packaging, not Play
-distribution readiness.
+The Release build is R8-minified and resource-shrunk; its APK is under
+`app/build/outputs/apk/release/`, the bundle under `app/build/outputs/bundle/release/` and the
+mapping file under `app/build/outputs/mapping/release/` (also a CI artifact). Without the owner's
+`SPACEWORKS_UPLOAD_*` signing environment these are unsigned and prove compilation/packaging, not
+Play distribution readiness. Minified runtime behavior must be smoke-tested on a signed owner build.
 
 ## Repository and supply-chain handoff
 
@@ -120,9 +122,11 @@ the generated application ID controls deployment identity.
 | Camera/evidence | Camera remains optional hardware. Test first-use explanation, permission request/denial, manual entry, rotation, cancellation and explicitly confirmed photo upload. No background camera or scan-triggered mutation. |
 | Payments | Server chooses vendor and supplies runtime public checkout input. Provider secrets stay on the server. Test configured sandbox success/cancel/failure, delayed webhook, process recreation and later status refresh; only the server can confirm paid status. |
 
-The [backend dependency issue](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/issues/3)
-tracks native configuration/attestation, staff authority, push v2/server link files, Razorpay
-checkout fields and whole-account deletion. The owner deferred those services. Complete labelled
+The mobile backend now publishes native configuration/attestation, phone device delivery, staff
+authority, push v2/link contract, Razorpay intents, logout-all and whole-account deletion; the app
+uses them through generated operations ([NATIVE-CONTRACT.md](NATIVE-CONTRACT.md) lists owner
+inputs and the remaining backend issues). They are verified with MockWebServer/unit and emulator
+UI tests only; live deployment round trips remain owner gates. Complete labelled
 debug demo journeys are UI fixtures; they do not make a live provider configured or perform a
 charge/deletion. A release must use supported generated operations and genuine authorization.
 Account management has additional confirmed native limitations: current backend code refuses
@@ -191,7 +195,7 @@ Record distribution evidence after owner provisioning; do not put credentials in
 | Full device-matrix CI run | The final handoff must link successful exact-source dev-push and ten-profile runs, observed profile evidence and actually reviewed full-OS images; fresh brand/motion validation remains required |
 | Signed bundle / versionCode / certificate fingerprint | Owner signing environment required |
 | Real-device provider test record | Owner backend/configuration required |
-| Whole-account deletion and web resource verification | Updated owner contract/site required |
+| Whole-account deletion and web resource verification | Implemented against the generated contract; owner deployment round trip and public web deletion resource required |
 | Play test-track build / tester acceptance | Owner Play Console access required |
 
 [PR #2](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/pull/2) records the historical A8 checkpoint. It does not substitute for final proof of later brand, SDK appearance, motion or accessibility corrections.

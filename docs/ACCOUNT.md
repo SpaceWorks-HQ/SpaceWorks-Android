@@ -47,7 +47,12 @@ Privacy and support links come from validated optional `branding/brand.json` val
 configuration displays an honest unavailable state; no legal document or contact success is
 invented. Links normalize HTTPS/IDNA and open externally without credentials.
 
-Whole-account deletion has no production route in the supplied contract. Debug alone offers
+Whole-account deletion now uses the generated `GET/POST /auth/account/deletion` and
+reauthentication operations (see [NATIVE-CONTRACT.md](NATIVE-CONTRACT.md)). **Delete account**
+shows every server blocker with its server detail and an in-app fix link, the restore disclosure,
+then reauthentication (password with authenticator code when enabled, phone OTP, or linked Google
+with any provider second factor), the typed `DELETE` confirmation and a fresh blocker list on 409.
+Success wipes the local session. Debug additionally keeps the isolated
 **Explore account deletion preview**: all planned blockers, actual demo makerspace IDs, supported
 fix destinations, fresh proof, exact typed DELETE, proof expiry, a newly discovered obligation and
 local preview reset. The preview uses `DemoPass!123` or code123456. It never deletes a real account,
@@ -55,6 +60,7 @@ invokes an SDK or sends a deletion request. Staff fix navigation appears only fo
 selected staff preview; unsupported responsibilities point to makerspace support. The ordinary
 account security preview password is `sample`; manual password preview uses `DemoPass!123`.
 
-Live server/provider/account-deletion verification remains deferred to the owner backend and the
-native-contract requests in issue3. The English account catalog prepares localization; it does not
+Live server/provider/account-deletion verification against an owner deployment remains a release
+gate. Authenticator enrollment from a device grant, native provider linking and paged
+session/export lists are still unavailable in the published backend. The English account catalog prepares localization; it does not
 claim translated languages or completed store submission.

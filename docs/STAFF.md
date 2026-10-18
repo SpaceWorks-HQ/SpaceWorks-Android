@@ -4,11 +4,11 @@ The native staff interface covers pending request quantities and accept/reject r
 issue and return, direct handout, booking approval/refusal and event attendance confirmation.
 Scanning identifies equipment or a person; it never performs a physical action by itself.
 
-The current published native session contract does not establish `native_staff` authority.
-Production staff navigation and generated operations therefore remain closed. A membership role or
-action list alone cannot grant access. The owner-deferred backend requirement is tracked in
-[issue3](https://github.com/SpaceWorks-HQ/SpaceWorks-Android/issues/3). Live inventory, evidence
-upload and attendance success are not claimed.
+Staff tools open only when `/auth/me` reports `session_authority: "native_staff"` **and** the
+selected membership grants the action. Password and social device sign-in snapshot staff
+authority; phone sign-in never does, and a member promoted after sign-in must sign in again. Every
+staff call carries the selected makerspace in `X-Makerspace-Id`. Live inventory, evidence upload
+and attendance success against an owner deployment are not claimed.
 
 ## Explore the flow
 
