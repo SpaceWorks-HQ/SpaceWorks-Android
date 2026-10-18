@@ -139,4 +139,5 @@ object CoreStrings {
     val CORE_ENTER_THE_SIX_DIGIT_CODE=MobileCopyKey(R.string.core_enter_the_six_digit_code,"Enter the six-digit code.")
     val CORE_YOUR_CODE_EXPIRED_SEND_A_NEW_CODE=MobileCopyKey(R.string.core_your_code_expired_send_a_new_code,"Your code expired. Send a new code.")
     val CORE_SIGNED_OUT_ON_EVERY_DEVICE_AND_BROWSER=MobileCopyKey(R.string.core_signed_out_on_every_device_and_browser,"Signed out on every device and browser.")
+    val CORE_THIS_SIGN_IN_PROVIDER_IS_UNAVAILABLE_TRY_AGAIN=MobileCopyKey(R.string.core_this_sign_in_provider_is_unavailable_try_again,"This sign-in provider is unavailable. Try again.")
 }

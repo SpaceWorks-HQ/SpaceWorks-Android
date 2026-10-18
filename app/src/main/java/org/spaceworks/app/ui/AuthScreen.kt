@@ -157,6 +157,14 @@ import org.spaceworks.app.platform.GoogleIdentity
                     else if(!bundle.demo)Text(copyText(UiStrings.MOBILE_GOOGLE_DEVICE_SIGN_IN_IS_NOT_CONFIGURED_FOR_THIS_BUILD_CONTACT_Y),style=MaterialTheme.typography.bodySmall)
                     if(state.passwordEnabled && holder.nativeSocialReady)Text(copyText(UiStrings.MOBILE_OR_SIGN_IN_WITH_A_PASSWORD),style=MaterialTheme.typography.labelLarge)
                 }
+                if(holder.nativeSocialReady && !bundle.demo)holder.oidcProviders.forEach {provider->
+                    BrandButton(copyText(UiStrings.MOBILE_CONTINUE_WITH_VALUE,provider.displayName),{
+                        launchAuth {outcome->holder.oidcSignIn(provider,{p,nonce->
+                            org.spaceworks.app.platform.OidcBrowser().idToken(context.activity()?:throw AuthMessage(copyText(UiStrings.MOBILE_THIS_SIGN_IN_OPTION_ISN_T_AVAILABLE_ON_THIS_DEVICE)),
+                                p.issuer,p.clientId,nonce,org.spaceworks.app.platform.OidcRedirects.redirectUri(context.packageName))
+                        },outcome)}
+                    },!state.busy && retrySeconds==0L,Modifier.testTag("oidc-${provider.key}"))
+                }
                 if(state.phoneEnabled && holder.nativeSocialReady && !bundle.demo)
                     BrandButton(copyText(UiStrings.MOBILE_CONTINUE_WITH_PHONE),holder::openPhone,!state.busy && retrySeconds==0L,Modifier.testTag("phoneSignIn"))
                 if(state.passwordEnabled) {
@@ -172,7 +180,7 @@ import org.spaceworks.app.platform.GoogleIdentity
                         Text(copyText(UiStrings.MOBILE_NEW_HERE),style=MaterialTheme.typography.bodySmall)
                         BrandTextButton(copyText(UiStrings.MOBILE_CREATE_ACCOUNT),{accounts.open(AccountRoute.SIGN_UP)},!state.busy)
                     }
-                } else if((state.googleClientId==null && !state.phoneEnabled) || !holder.nativeSocialReady) {
+                } else if((state.googleClientId==null && !state.phoneEnabled && holder.oidcProviders.isEmpty()) || !holder.nativeSocialReady) {
                     Text(copyText(UiStrings.MOBILE_SIGN_IN_ISN_T_AVAILABLE_HERE),style=MaterialTheme.typography.titleMedium)
                     Text(copyText(UiStrings.MOBILE_ASK_YOUR_MAKERSPACE_FOR_HELP_OR_CHECK_THE_SERVER_ADDRESS))
                     BrandButton(copyText(UiStrings.MOBILE_TRY_AGAIN),{scope.launch {holder.initialize()}},!state.busy)

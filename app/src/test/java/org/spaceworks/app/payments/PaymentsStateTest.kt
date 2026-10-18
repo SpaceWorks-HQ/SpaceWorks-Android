@@ -15,6 +15,15 @@ import org.spaceworks.app.platform.*
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PaymentsStateTest {
+    @Test fun razorpayIntentIsValidatedBeforePresentation()=runTest {
+        val api=FakeGateway().apply{intentBlock={_,_->PaymentIntent.Razorpay("501","rzp_test_key","order_1",25025,"INR","Fab Lab","Laser")}}
+        val holder=holder(api)
+        val prepared=holder.prepareCheckout("501")!!
+        assertTrue(prepared.intent is PaymentIntent.Razorpay);assertEquals(25025L,(prepared.intent as PaymentIntent.Razorpay).amountMinor)
+        val invalid=FakeGateway().apply{intentBlock={_,_->PaymentIntent.Razorpay("501","pk_wrong","order_1",0,"INR","Fab Lab","")}}
+        val other=holder(invalid)
+        assertNull(other.prepareCheckout("501"));assertEquals(PaymentCheckoutPhase.STOPPED,other.state.value.checkout.phase)
+    }
     @Test fun supersededPaymentRouteCannotTreatCachedRowsAsItsOwnFreshRead()=runTest {
         val api=FakeGateway();val holder=holder(api)
         val firstRead=CompletableDeferred<List<PaymentRecord>>();val secondRead=CompletableDeferred<List<PaymentRecord>>()

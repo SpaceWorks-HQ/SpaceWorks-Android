@@ -173,6 +173,16 @@ class AuthStateHolder(private val api:AuthGateway,private val tokens:TokenStore,
             }
         }
     }
+    val oidcProviders get()=state.value.native?.providers?.oidc.orEmpty().filter {it.key.startsWith("oidc:") && it.clientId.isNotBlank() && it.issuer.startsWith("https://")}
+    suspend fun oidcSignIn(provider:NativeOidc,credential:suspend(NativeOidc,String)->String,onOutcome:((AuthOperationOutcome)->Unit)?=null)=runOperation(onOutcome=onOutcome) {
+        mutable.value=state.value.copy(gate=null)
+        ensure(oidcProviders.any {it.key==provider.key},text(CoreStrings.CORE_THIS_SIGN_IN_PROVIDER_IS_UNAVAILABLE_TRY_AGAIN))
+        ensure(api.nativeSocialReady,text(CoreStrings.CORE_DEVICE_SIGN_IN_IS_NOT_CONFIGURED_FOR_THIS_BUILD_CONTACT_YOUR))
+        val result=try {api.oidc(provider,credential)}catch(f:org.spaceworks.app.platform.PlatformUnavailable){throw AuthMessage(text(CoreStrings.CORE_THIS_SIGN_IN_PROVIDER_IS_UNAVAILABLE_TRY_AGAIN))}
+        ensureOperationCurrent()
+        ensure(!result.refresh.isNullOrBlank() && validGrant(result.deviceGrant),text(CoreStrings.CORE_THIS_SERVER_DID_NOT_RETURN_A_DEVICE_SESSION_CONTACT_YOUR_MAK))
+        acceptPair(TokenPair(result.access,requireNotNull(result.refresh)))
+    }
     suspend fun enroll()=runOperation {
         val challenge=requireChallenge()
         val enrollment=api.enroll(challenge.challenge)

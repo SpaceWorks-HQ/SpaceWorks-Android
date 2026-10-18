@@ -48,7 +48,7 @@ class MainActivity:ComponentActivity() {
         lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             NativeDocumentFiles(java.io.File(cacheDir,"native-documents")).cleanStale()
         }
-        controller.receive(intent)
+        if(!OidcRedirects.consume(intent,applicationContext.packageName))controller.receive(intent)
         setContent {
             val incoming by controller.incoming.collectAsStateWithLifecycle()
             CompositionLocalProvider(LocalNativeCheckout provides checkout) {
@@ -56,7 +56,15 @@ class MainActivity:ComponentActivity() {
             }
         }
     }
-    override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);controller.receive(intent)}
+    override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent)
+        if(!OidcRedirects.consume(intent,applicationContext.packageName))controller.receive(intent)}
+    private var oidcCheck:kotlinx.coroutines.Job?=null
+    override fun onResume() {
+        super.onResume()
+        // A redirect arrives through onNewIntent before resume; still waiting means the browser was dismissed.
+        if(OidcRedirects.waiting){oidcCheck?.cancel();oidcCheck=lifecycleScope.launch {kotlinx.coroutines.delay(750);OidcRedirects.abandon()}}
+    }
+    override fun onPause(){oidcCheck?.cancel();super.onPause()}
 }
 @Composable fun SpaceWorksApp(holder:ConnectionStateHolder,sessionFactory:((String)->AuthBundle)?=null,
     demoFactory:()->AuthBundle?={DemoSupport.create()},onExitDemo:()->Unit={},onboarding:OnboardingStateHolder?=null,appearance:AppearanceStateHolder?=null,incoming:PendingNativeIntent?=null,onIncomingConsumed:(Long)->Unit={}) {

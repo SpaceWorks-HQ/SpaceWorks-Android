@@ -169,4 +169,41 @@ class NativeAuthTest {
             assertEquals("Bearer access",request.getHeader("Authorization"));assertNull(request.getHeader("X-Makerspace-Id"))
         }
     }
+
+    @Test fun oidcUsesProviderKeyNonceAndSlugRoute()=runBlocking {
+        MockWebServer().use {server->
+            val gateway=GeneratedAuthGateway(ApiSession(server.url("/")),"org.example",EnvironmentEnum.development,DevelopmentAttestation(true,true))
+            server.enqueue(MockResponse().setBody("""{"challenge":"c1","expires_in":60}"""))
+            server.enqueue(MockResponse().setBody("""{"nonce":"server-nonce","expires_in":300}"""))
+            server.enqueue(MockResponse().setBody("""{"access":"a","refresh":"r","device_grant":{"id":"00000000-0000-0000-0000-000000000001"},"user":{},"outcome":"authenticated"}"""))
+            val provider=NativeOidc("oidc:campus","Campus SSO","campus-client","https://sso.example")
+            val result=gateway.oidc(provider) {p,nonce->assertEquals("campus-client",p.clientId);assertEquals("server-nonce",nonce);"oidc-id-token"}
+            assertEquals("r",result.refresh)
+            server.takeRequest()
+            val nonce=Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
+            assertEquals("oidc:campus",nonce["provider"]!!.jsonPrimitive.content);assertEquals("c1",nonce["challenge"]!!.jsonPrimitive.content)
+            val login=server.takeRequest();assertEquals("/api/v1/auth/social/oidc/campus",login.path)
+            val body=Json.parseToJsonElement(login.body.readUtf8()).jsonObject
+            assertEquals("oidc-id-token",body["id_token"]!!.jsonPrimitive.content);assertEquals("device",body["delivery"]!!.jsonPrimitive.content)
+            try {gateway.oidc(NativeOidc("google","G","x","https://x")) {_,_->"t"};fail()}catch(_:org.spaceworks.app.platform.MobileCopyException){}
+        }
+    }
+    @Test fun oidcSignInInstallsDeviceSessionOnlyForPublishedProviders()=runTest {
+        val provider=NativeOidc("oidc:campus","Campus SSO","campus-client","https://sso.example")
+        val api=object:AuthGateway by NativeFakeAuth() {
+            val inner=NativeFakeAuth().apply {config=PublicConfig(false,100,native=NativeConfig(NativeMinVersion(null,null),NativeProviders(true,false,null,null,listOf(provider))))}
+            override val nativeSocialReady=true
+            override suspend fun config()=inner.config
+            override suspend fun me()=inner.who
+            override suspend fun oidc(provider:NativeOidc,credential:suspend(NativeOidc,String)->String):SocialLoginResponse {
+                assertEquals("id",credential(provider,"n"))
+                return SocialLoginResponse("oidc-access",emptyMap(),"authenticated","oidc-refresh",mapOf("id" to JsonPrimitive("00000000-0000-0000-0000-000000000001")))
+            }
+        }
+        val store=MemoryTokenStore();val holder=AuthStateHolder(api,store);holder.initialize()
+        assertEquals(listOf(provider),holder.oidcProviders)
+        holder.oidcSignIn(NativeOidc("oidc:other","O","c","https://o"),{_,_->"id"});assertNull(store.read());assertNotNull(holder.state.value.error)
+        holder.oidcSignIn(provider,{_,_->"id"})
+        assertEquals(TokenPair("oidc-access","oidc-refresh"),store.read());assertEquals(1,holder.state.value.user!!.id)
+    }
 }

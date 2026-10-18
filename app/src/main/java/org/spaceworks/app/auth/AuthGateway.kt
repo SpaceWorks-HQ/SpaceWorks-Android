@@ -36,6 +36,8 @@ interface AuthGateway {
     suspend fun resendEmail():String {throw MobileCopyException(CoreStrings.CORE_EMAIL_VERIFICATION_IS_UNAVAILABLE_CONTACT_YOUR_MAKERSPACE)}
     val nativeSocialReady:Boolean get()=false
     suspend fun google(clientId:String,credential:suspend(String,String)->String):SocialLoginResponse {throw MobileCopyException(CoreStrings.CORE_DEVICE_SIGN_IN_IS_NOT_CONFIGURED_FOR_THIS_BUILD)}
+    /** Configured OIDC provider: [credential] receives the provider and server nonce and returns its ID token. */
+    suspend fun oidc(provider:NativeOidc,credential:suspend(NativeOidc,String)->String):SocialLoginResponse {throw MobileCopyException(CoreStrings.CORE_DEVICE_SIGN_IN_IS_NOT_CONFIGURED_FOR_THIS_BUILD)}
     /** Member-only phone sign-in. The returned challenge is reused, unchanged, by [phoneConfirm]. */
     suspend fun phoneStart(phone:String):PhoneChallenge {throw MobileCopyException(CoreStrings.CORE_PHONE_SIGN_IN_IS_UNAVAILABLE_ON_THIS_SERVER)}
     suspend fun phoneConfirm(phone:String,code:String,challenge:PhoneChallenge):PhoneLoginResult {throw MobileCopyException(CoreStrings.CORE_PHONE_SIGN_IN_IS_UNAVAILABLE_ON_THIS_SERVER)}
@@ -129,6 +131,15 @@ class GeneratedAuthGateway(private val session:ApiSession,private val appId:Stri
     override suspend fun resendEmail()=session.globalApi(org.spaceworks.generated.api.AuthApi::class.java).apiV1AuthEmailVerificationResendCreate().requireBody().detail
     override val nativeSocialReady get()=when(attestation){is NativeAttestation->attestation.available;is DevelopmentAttestation->attestation.available;else->true}
     private suspend fun challenge()=session.devicePublic.apiV1AuthDeviceAttestationChallengeCreate(DeviceIdentity(PlatformEnum.android,appId,environment)).requireBody()
+    override suspend fun oidc(provider:NativeOidc,credential:suspend(NativeOidc,String)->String):SocialLoginResponse {
+        val slug=provider.key.removePrefix("oidc:").takeIf {provider.key.startsWith("oidc:") && it.matches(Regex("[A-Za-z0-9_-]{1,64}"))}
+            ?:throw MobileCopyException(CoreStrings.CORE_DEVICE_SIGN_IN_IS_NOT_CONFIGURED_FOR_THIS_BUILD)
+        val challenge=challenge()
+        val nonce=session.socialPublic.apiV1AuthSocialNonceCreate(SocialNonce(provider.key,Surface356Enum.member,DeliveryEnum.device,ClientPlatformEnum.android,challenge.challenge)).requireBody()
+        val idToken=credential(provider,nonce.nonce)
+        val proof=attestation.attest(challenge.challenge)
+        return session.socialPublic.apiV1AuthSocialOidcCreate(slug,SocialLogin(idToken,nonce.nonce,Surface356Enum.member,DeliveryEnum.device,ClientPlatformEnum.android,challenge=challenge.challenge,attestation=proof)).requireBody()
+    }
     override suspend fun phoneStart(phone:String):PhoneChallenge {
         val challenge=challenge()
         session.authPublic.apiV1AuthPhoneLoginStartCreate(PhoneLoginStart(phone,DeliveryEnum.device,ClientPlatformEnum.android,challenge.challenge)).requireBody()
