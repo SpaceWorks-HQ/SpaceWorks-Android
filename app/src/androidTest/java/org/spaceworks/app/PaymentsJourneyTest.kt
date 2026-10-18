@@ -111,12 +111,15 @@ class PaymentsJourneyTest {
         val characterHeight=layout.getBoundingBox(0).height
         val lineHeight=layout.getLineBottom(0)-layout.getLineTop(0)
         assertTrue("Actual dialog character boxes and line metrics must be enlarged",scaledPx>unscaledPx*1.5f && characterHeight>unscaledPx*1.5f && lineHeight>unscaledPx*1.5f)
+        val lineEnds=(0 until layout.lineCount).map{layout.getLineEnd(it,visibleEnd=true)}
         documentTextProofs.put(org.json.JSONObject().put("action",label).put("context_font_scale",documentContextScale)
             .put("owner_font_scale",ownerScale).put("dialog_font_scale",input.density.fontScale)
             .put("font_size_sp",input.style.fontSize.value).put("unscaled_font_pixels",unscaledPx)
-            .put("scaled_font_pixels",scaledPx).put("character_box_height_pixels",characterHeight).put("line_height_pixels",lineHeight))
+            .put("scaled_font_pixels",scaledPx).put("character_box_height_pixels",characterHeight).put("line_height_pixels",lineHeight)
+            .put("line_end_offsets",org.json.JSONArray(lineEnds)))
         val output=InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("validation")!!
         output.mkdirs();File(output,"a5-native-pdf-action-scale.json").writeText(documentTextProofs.toString(2),Charsets.UTF_8)
+        lineEnds.dropLast(1).forEach{end->assertTrue("$label must wrap between complete words",end>=label.length || label[end].isWhitespace() || (end>0 && label[end-1].isWhitespace()))}
         val viewport=action.onAncestors().filter(hasScrollAction()).onFirst().fetchSemanticsNode().boundsInRoot
         val actual=action.fetchSemanticsNode().boundsInRoot
         assertTrue("Full $label action must fit the actual document scroll viewport",actual.width>0 && actual.height>0 &&

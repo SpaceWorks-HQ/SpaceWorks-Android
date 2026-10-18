@@ -119,10 +119,10 @@ class NativeDocumentFiles(private val directory:File,private val now:()->Long=Sy
                         TextButton(shape=MaterialTheme.shapes.small,onClick={page++},enabled=page+1<pages&&!rendering,colors=textColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_NEXT_PAGE))}
                     }
                     Text(text(DocumentStrings.DOCUMENT_FOR_SELECTABLE_TEXT_OR_ASSISTIVE_READING_OPEN_THE_PDF_IN_A_D),style=MaterialTheme.typography.bodySmall)
-                    OutlinedButton(shape=MaterialTheme.shapes.small,onClick={send(true)},colors=outlineColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_OPEN_IN_ANOTHER_APP))}
+                    OutlinedButton(shape=MaterialTheme.shapes.small,contentPadding=PaddingValues(horizontal=16.dp,vertical=8.dp),onClick={send(true)},colors=outlineColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_OPEN_IN_ANOTHER_APP))}
                 }else Text(text(DocumentStrings.DOCUMENT_ZIP_ARCHIVE_SAVE_IT_TO_A_PRIVATE_LOCATION_TO_INSPECT_ITS_CON))
-                OutlinedButton(shape=MaterialTheme.shapes.small,onClick={export.launch("Document.${file.kind.extension}")},colors=outlineColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_SAVE_1_S, file.kind.extension.uppercase()))}
-                OutlinedButton(shape=MaterialTheme.shapes.small,onClick={send(false)},colors=outlineColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_SHARE_DOCUMENT))}
+                OutlinedButton(shape=MaterialTheme.shapes.small,contentPadding=PaddingValues(horizontal=16.dp,vertical=8.dp),onClick={export.launch("Document.${file.kind.extension}")},colors=outlineColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_SAVE_1_S, file.kind.extension.uppercase()))}
+                OutlinedButton(shape=MaterialTheme.shapes.small,contentPadding=PaddingValues(horizontal=16.dp,vertical=8.dp),onClick={send(false)},colors=outlineColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_SHARE_DOCUMENT))}
                 TextButton(shape=MaterialTheme.shapes.small,onClick=onClose,colors=textColors,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(text(DocumentStrings.DOCUMENT_DONE))}
             }
         }
