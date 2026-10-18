@@ -1,5 +1,15 @@
 # Phase notes
 
+## V1 — v2 PRD extras: usage, staff dashboard, messaging consent, phone restore (2026-10-18)
+
+Built by Claude. Adds the backend v2 PRD features that were published but missing: member Home **Your activity** (my-usage), staff **Today at a glance** (dashboard counters, handover queue tiles, report widgets), Profile **Text and WhatsApp messages** consent, and **Restore a deleted account** by phone. All five operations go through the generated client and are listed in `scripts/contract.py`; copy lives in the new `insights_strings.xml` catalog (registered in `tokens/mobile-copy.json`). `NullEnum` is mapped to `JsonElement` to keep the generator compiling.
+
+Brand: new UI uses only semantic tokens and the existing Home components. Stat cards are neutral panels with Gilroy SemiBold tabular numbers in accent ink and full-opacity labels, on an equal-width grid whose column count follows width and font scale; bars use accent ink on the soft accent track (dark `accent` alone is under 3:1) and every value is also written as text; consent status is a word on a soft pill; no Unbounded on staff screens; 48dp rows. Reviewed on the Pixel_8a emulator in light and dark through the Debug demo; the review fixed wrapped stat cards, flat stat fills, low-contrast dark bars and unit-less values.
+
+Validation: unit and MockWebServer cases for my-usage (gated sections, series projection), dashboard (non-zero counters, handover queue), messaging read/write/refusal, restore (challenge reuse, attestation, server reason), state holders (scope reset, refetch on refusal, Retry-After); 578 Debug + 546 Release unit cases (1,124 executions) with zero failures/errors/skips, lint, both APKs (16 KB/ELF and feature-filter gates pass), bundle and androidTest compile; new `InsightsJourneyTest` UI journeys run on CI.
+
+Parity checklist: Home → Your activity (Loans: Borrowed/Returned/Out now + By month; Machine time: Hours, By month, Most used machines; Bookings + Events attended; Payments: Paid/Outstanding per currency; hidden sections when gated); Staff tools → Today at a glance (counters, Handover queue: Ready to issue/Due back/Pickups, Outstanding payments, Reports; "Nothing needs your attention right now."); Profile → Text and WhatsApp messages (SMS, WhatsApp; On/Off; "Messages go to …", verify-phone, unavailable, STOP-paused states); Sign-in → Restore a deleted account (phone → code + new password → Account restored).
+
 ## C2–C7 — native backend contract wired end to end (2026-10-18)
 
 Built by Claude (no Codex in this effort). `api/openapi.json` is re-pinned to the mobile-backend snapshot `962e6a4b…` (760 paths); the generated client is regenerated and every previously "unavailable" native capability now uses generated operations. Details, owner inputs and remaining backend issues: [NATIVE-CONTRACT.md](NATIVE-CONTRACT.md).

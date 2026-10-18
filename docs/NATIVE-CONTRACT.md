@@ -23,6 +23,10 @@ generated client; `scripts/contract.py` lists each operation the app uses.
 | Account deletion | Preview with every blocker (server detail kept, unknown codes shown as-is, in-app fix links, organization fixes only to the deployment's own host), restore disclosure, reauthentication (password ± authenticator, phone OTP, Google with provider second factor), typed `DELETE`, fresh 409/403 blockers, `recent_reauth_required` → verify again, `deletion_retry` → refetch, proof expiry. Success wipes the local session. | account deletion GET/POST, reauth GET/POST, reauth phone start/confirm, reauth social start/complete/factor |
 | Payments | `vendor`-discriminated intents: Stripe PaymentSheet or Razorpay Checkout (`amount_minor` passed unchanged). Each is validated before presentation; settlement only from the refetched payment list. | payments list, mobile-intent, documents |
 | Push v2 + links | v2 `link` and verified App Links resolve the server link contract (`/m/{slug}/member[/tab]`, event tickets, events, bookings, items); custom-domain push forms use the hint's makerspace; unsupported links open Inbox. The App Link filter claims only those member paths. | push devices create/delete, inbox, preferences |
+| Member usage | Home "Your activity": loans (borrowed/returned/out now + monthly), machine hours and top machines, bookings, events attended, paid/outstanding per currency. Absent sections stay hidden; series use the server's declared x field and first measure, with every value written out. Cleared on sign-out and makerspace switch. | my-usage |
+| Staff dashboard | "Today at a glance" above the staff request tabs: server counters, handover `queue_tiles` (handover scope shows no analytics), outstanding per currency and report widgets with a single headline number. | admin dashboard |
+| SMS/WhatsApp consent | Profile → "Text and WhatsApp messages", shown when the bootstrap's `messaging` reports a channel. One switch per channel with an On/Off word; opt-in needs a verified phone and an available, unsuppressed channel; opt-out is always allowed; refusals (409/423/503) show the server reason and refetch. | me/messaging GET, consent POST |
+| Account restore | Sign-in → "Restore a deleted account" (when phone sign-in is published): phone login start with a device challenge, then code + new password through `restore/phone` with attestation. Never returns a session; the person signs in afresh. | phone login start, account restore phone |
 
 ## Owner inputs still required (not in the repository)
 
@@ -45,8 +49,10 @@ generated client; `scripts/contract.py` lists each operation the app uses.
 5. Account sessions and exports list operations still declare no `page` query parameter, although responses are paginated.
 6. `mobile-integration.md` calls the Google values "native OAuth client IDs"; on Android the published value must be the Web client used as `serverClientId` (see owner inputs).
 7. There is no published native OIDC redirect-URI convention; the app uses `{applicationId}:/oidc`.
-8. Several optional URI fields are `oneOf[uri, maxLength 0]` inline unions that OpenAPI Generator 7.26 cannot serialize; they are mapped to `String` without changing the wire contract (see `GENERATED-CLIENT.md`).
+8. Every `Dashboard` counter declares `default: 0`, so the generated client cannot distinguish an omitted (unavailable) counter from zero, contrary to the v2 PRD. The app shows only non-zero counters.
+9. `NullEnum` (`enum: [null]`, the null arm of report-chart `partition`) makes OpenAPI Generator 7.26 emit an empty enum; it is mapped to `JsonElement`.
+10. Several optional URI fields are `oneOf[uri, maxLength 0]` inline unions that OpenAPI Generator 7.26 cannot serialize; they are mapped to `String` without changing the wire contract (see `GENERATED-CLIENT.md`).
 
-## Not yet built (v2 PRD additions beyond the v1 scope)
+## Not yet built
 
-Member `my-usage` panels, the staff role dashboard/analytics, SMS/WhatsApp consent, native phone/social **account restore**, and the new ticket/calendar download routes are published by the backend but not implemented in this app yet. Live integration against the local Docker backend and real-device provider round trips (Play Integrity, FCM, Google/OIDC, Stripe/Razorpay) remain unverified.
+Email and social **account restore** stay on the web (the email landing page is browser-only; native social restore needs a fresh provider proof flow not yet built). The staff analytics report browser (`reports/catalog`, `analytics/{key}`) and the new ticket/calendar download routes are not implemented. Live integration against a deployed backend and real-device provider round trips (Play Integrity, FCM, Google/OIDC, Stripe/Razorpay, SMS) remain unverified.
