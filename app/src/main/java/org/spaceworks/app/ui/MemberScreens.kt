@@ -38,21 +38,21 @@ fun memberAvailability(item:InventoryItem,text:MobileText=MobileText.ENGLISH):St
     return if(item.availability=="Ask your makerspace about availability.")text(UiStrings.MOBILE_ASK_YOUR_MAKERSPACE_ABOUT_AVAILABILITY)else memberStatus(item.availability,text)
 }
 
-@Composable private fun MemberSection(title:String,content:@Composable ColumnScope.()->Unit) {
+@Composable internal fun MemberSection(title:String,content:@Composable ColumnScope.()->Unit) {
     Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
         Text(title,style=MaterialTheme.typography.titleLarge,modifier=Modifier.semantics {heading()})
         content()
     }
 }
-@Composable private fun MemberPanel(content:@Composable ColumnScope.()->Unit) {
+@Composable internal fun MemberPanel(content:@Composable ColumnScope.()->Unit) {
     OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(10.dp),content=content)}
 }
-@Composable private fun MemberEmpty(filtered:Boolean=false) {
+@Composable internal fun MemberEmpty(filtered:Boolean=false) {
     val copyText=rememberMobileText()
 
     Text(if(filtered)copyText(UiStrings.MOBILE_NO_RESULTS_TRY_ANOTHER_SEARCH) else copyText(UiStrings.MOBILE_NOTHING_HERE_YET),color=MaterialTheme.colorScheme.onSurfaceVariant)
 }
-@Composable private fun MemberLoading() {
+@Composable internal fun MemberLoading() {
     val copyText=rememberMobileText()
 
     Column(Modifier.fillMaxWidth().semantics {contentDescription=copyText(UiStrings.MOBILE_LOADING_MAKERSPACE_INFORMATION);liveRegion=LiveRegionMode.Polite},verticalArrangement=Arrangement.spacedBy(12.dp)) {
@@ -60,7 +60,7 @@ fun memberAvailability(item:InventoryItem,text:MobileText=MobileText.ENGLISH):St
         repeat(3){Surface(Modifier.fillMaxWidth().height(56.dp),color=MaterialTheme.colorScheme.surfaceContainerHigh,shape=MaterialTheme.shapes.medium){}}
     }
 }
-@Composable private fun <T> MemberLoaded(load:MemberLoad<T>,retry:()->Unit,content:@Composable (T)->Unit) {
+@Composable internal fun <T> MemberLoaded(load:MemberLoad<T>,retry:()->Unit,content:@Composable (T)->Unit) {
     val copyText=rememberMobileText()
 
     if(load.loading && load.value==null || load.value==null && load.error==null)MemberLoading()
@@ -96,7 +96,7 @@ fun memberAvailability(item:InventoryItem,text:MobileText=MobileText.ENGLISH):St
         }
     }
 }
-@Composable fun MemberHome(holder:MemberStateHolder,name:String,onInventory:()->Unit,demo:Boolean=false,requestedExtra:Pair<Long,String>?=null,onPayments:(()->Unit)?=null,guideProgress:GuideProgress?=null,bookingsEnabled:Boolean=false,onProfile:(()->Unit)?=null) {
+@Composable fun MemberHome(holder:MemberStateHolder,name:String,onInventory:()->Unit,demo:Boolean=false,requestedExtra:Pair<Long,String>?=null,onPayments:(()->Unit)?=null,guideProgress:GuideProgress?=null,bookingsEnabled:Boolean=false,onProfile:(()->Unit)?=null,usage:(@Composable ()->Unit)?=null) {
     val copyText=rememberMobileText()
 
     val state by holder.state.collectAsStateWithLifecycle();val scope=rememberCoroutineScope()
@@ -136,6 +136,7 @@ fun memberAvailability(item:InventoryItem,text:MobileText=MobileText.ENGLISH):St
             MemberSection(copyText(UiStrings.MOBILE_EVENTS)) {if(overview.registrations.isEmpty())MemberEmpty() else overview.registrations.take(3).forEach {MemberRegistrationPanel(it)}}
             MemberSection(copyText(UiStrings.MOBILE_NOTICES)) {if(overview.notices.isEmpty())MemberEmpty() else overview.notices.forEach {notice->MemberPanel {Text(notice.title,style=MaterialTheme.typography.titleMedium);Text(notice.body)}}}
         }
+        usage?.invoke()
         BrandTextButton(copyText(UiStrings.MOBILE_REFRESH_HOME),{scope.launch {holder.refreshOverview()}},!state.overview.loading)
     }
 }

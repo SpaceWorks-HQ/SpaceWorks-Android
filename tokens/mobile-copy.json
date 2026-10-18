@@ -40,5 +40,11 @@
     "package": "org.spaceworks.app.guidance",
     "object": "UsageStrings",
     "output": "app/src/main/java/org/spaceworks/app/guidance/UsageStrings.kt"
+  },
+  {
+    "catalog": "app/src/main/res/values/insights_strings.xml",
+    "package": "org.spaceworks.app.insights",
+    "object": "InsightsStrings",
+    "output": "app/src/main/java/org/spaceworks/app/insights/InsightsStrings.kt"
   }
 ]

@@ -65,6 +65,7 @@ class AppController(application:Application):AndroidViewModel(application) {
         var actions:org.spaceworks.app.actions.MemberActionsStateHolder?=null
         var payments:org.spaceworks.app.payments.PaymentsStateHolder?=null
         var staff:org.spaceworks.app.staff.StaffStateHolder?=null
+        var insights:org.spaceworks.app.insights.InsightsStateHolder?=null
         val session=ApiSession(ServerAddress.parse(origin,BuildConfig.DEBUG),store){holder.state.value.selectedId?.toString()}
         val environment=if(BuildConfig.DEBUG)EnvironmentEnum.development else EnvironmentEnum.production
         val emulator=Build.FINGERPRINT.startsWith("generic") || Build.MODEL.contains("Emulator") || Build.MODEL.contains("sdk_gphone") || Build.PRODUCT.startsWith("sdk_")
@@ -76,8 +77,8 @@ class AppController(application:Application):AndroidViewModel(application) {
         holder=AuthStateHolder(gateway,store,
             readSelection={prefs.getInt("space.$origin",-1).takeIf {it>0}},
             saveSelection={id->prefs.edit().apply {if(id==null)remove("space.$origin")else putInt("space.$origin",id)}.apply()},
-            onSessionEnded={accounts?.clear();runtime?.let(management::sessionEnded);staff?.resetAccount();member?.clear();actions?.clear();payments?.clear();links?.clear();push?.pause()},
-            onScopeChanged={runtime?.let(management::scopeChanged);staff?.clear();member?.clear();actions?.clear();payments?.clear()},text=copyText,
+            onSessionEnded={insights?.clear();accounts?.clear();runtime?.let(management::sessionEnded);staff?.resetAccount();member?.clear();actions?.clear();payments?.clear();links?.clear();push?.pause()},
+            onScopeChanged={insights?.clear();runtime?.let(management::scopeChanged);staff?.clear();member?.clear();actions?.clear();payments?.clear()},text=copyText,
             appVersion=BuildConfig.VERSION_NAME)
         session.bindIdentityEpoch {holder.acceptedInstallationEpoch}
         links=LinkStateHolder(session.server,holder::authorizeMakerspace,{id->if(staff?.protectsNavigation==true || management.protectsNavigation())throw kotlinx.coroutines.CancellationException();holder.select(id)},holder::authorizeSlug,text=copyText)
@@ -132,6 +133,8 @@ class AppController(application:Application):AndroidViewModel(application) {
             {holder.state.value.user?.id?.toString()},
             {holder.state.value.selected?.let {org.spaceworks.app.member.MemberScope(it.id,it.slug)}},
             holder::endLocalSession,holder::foreground,holder::dropConfirmedMembership)
+        insights=org.spaceworks.app.insights.InsightsStateHolder(org.spaceworks.app.insights.GeneratedInsightsGateway(session),
+            failureText={copyText.apiFailure(it)},unavailableText={copyText(org.spaceworks.app.copy.CoreStrings.CORE_COULDN_T_CONNECT_TRY_AGAIN)},onUnauthorized={holder.foreground()})
         val deletedNotice=application.getString(R.string.deletion_deleted)
         val bundle=AuthBundle(holder,store,accounts=accounts,member=member,actions=actions,origin=session.server.toString(),push=push,links=links,pushConfigured=FcmRegistration.configured(application),sessionEpoch={store.snapshot().epoch},payments=payments,staff=staff,
             staffAvailable={holder.state.value.staffAllowed && holder.state.value.selected!=null},management=management,
@@ -142,7 +145,7 @@ class AppController(application:Application):AndroidViewModel(application) {
                     {id->holder.state.value.memberships.firstOrNull {it.id==id}?.slug?.let {org.spaceworks.app.ui.makerspaceLabel(it)}},
                     {id->id!=null && holder.state.value.staffAllowed && holder.state.value.memberships.any {it.id==id}},
                     session.server.host,{holder.state.value.googleClientId})
-            })
+            },insights=insights)
         management.register(bundle,requireNotNull(runtime)) {owner->GeneratedAccountGateway(session,owner.hasSession,owner.selected,application.resources::accountText)}
         viewModelScope.launch {store.installationEpoch.collect {holder.invalidateInstallation(it)}}
         return bundle

@@ -15,9 +15,9 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import org.spaceworks.app.network.ApiFailure
 
-enum class AccountRoute { SIGN_UP, SIGNUP_ACK, FORGOT_PASSWORD, RESET_PASSWORD, RESET_SUCCESS, RECOVERY_UNAVAILABLE, VERIFY_EMAIL }
+enum class AccountRoute { SIGN_UP, SIGNUP_ACK, FORGOT_PASSWORD, RESET_PASSWORD, RESET_SUCCESS, RECOVERY_UNAVAILABLE, VERIFY_EMAIL, RESTORE_PHONE, RESTORE_CODE, RESTORE_SUCCESS }
 data class AccountState(val route:AccountRoute?=null,val email:String="",val busy:Boolean=false,
-    val error:String?=null,val notice:String?=null,val retryAtMillis:Long=0,val resendAtMillis:Long=0)
+    val error:String?=null,val notice:String?=null,val retryAtMillis:Long=0,val resendAtMillis:Long=0,val phone:String="")
 class AccountStateHolder(private val api:AuthGateway,private val signupAllowed:()->Boolean,
     private val onVerified:suspend()->Unit={},private val now:()->Long=System::currentTimeMillis,private val text:MobileText=MobileText.ENGLISH) {
     constructor(api:AuthGateway,signupAllowed:()->Boolean,onVerified:suspend()->Unit={},now:()->Long)
@@ -28,11 +28,33 @@ class AccountStateHolder(private val api:AuthGateway,private val signupAllowed:(
     private class FlowGeneration {val mutex=Mutex()}
     @Volatile private var generation=FlowGeneration()
     /** Clear private context synchronously, even while an older request/callback is suspended. */
-    fun clear(){val retry=state.value.retryAtMillis;generation=FlowGeneration();mutable.value=AccountState(retryAtMillis=retry)}
+    fun clear(){val retry=state.value.retryAtMillis;generation=FlowGeneration();restoreChallenge=null;mutable.value=AccountState(retryAtMillis=retry)}
+    private var restoreChallenge:PhoneChallenge?=null
+    /** Native restore of an archived phone-only account: code by SMS, then a new password. */
+    suspend fun restoreStart(phone:String,resend:Boolean=false)=run {expected->
+        if(resend && now()<state.value.resendAtMillis)return@run
+        val number=phone.filter {it.isDigit() || it=='+'}
+        if(!Regex("\\+[1-9]\\d{6,14}").matches(number))throw AuthMessage(text(CoreStrings.CORE_ENTER_YOUR_PHONE_NUMBER_WITH_ITS_COUNTRY_CODE))
+        val challenge=api.phoneStart(number)
+        if(!accept(expected))return@run
+        restoreChallenge=challenge
+        mutable.value=state.value.copy(route=AccountRoute.RESTORE_CODE,phone=number,resendAtMillis=now()+30000)
+    }
+    suspend fun restore(code:String,password:String,confirmation:String)=run {expected->
+        if(!Regex("[0-9]{6}").matches(code))throw AuthMessage(text(CoreStrings.CORE_ENTER_THE_SIX_DIGIT_VERIFICATION_CODE))
+        if(password.length<8)throw AuthMessage(text(CoreStrings.CORE_USE_AT_LEAST_8_CHARACTERS))
+        if(password!=confirmation)throw AuthMessage(text(CoreStrings.CORE_PASSWORDS_DON_T_MATCH))
+        val challenge=restoreChallenge?:throw AuthMessage(text(CoreStrings.CORE_YOUR_CODE_EXPIRED_SEND_A_NEW_CODE))
+        val result=api.restorePhone(state.value.phone,code,password,challenge)
+        if(!accept(expected))return@run
+        restoreChallenge=null
+        if(!result.restored)throw AuthMessage(result.detail.ifBlank {text(CoreStrings.CORE_INVALID_OR_EXPIRED_VERIFICATION_CODE)})
+        mutable.value=state.value.copy(route=AccountRoute.RESTORE_SUCCESS,notice=result.detail.takeIf {it.isNotBlank()})
+    }
     private fun current(expected:FlowGeneration)=generation===expected
     private suspend fun accept(expected:FlowGeneration):Boolean {currentCoroutineContext().ensureActive();return current(expected)}
     fun open(route:AccountRoute,email:String="") {if(!state.value.busy)mutable.value=state.value.copy(route=route,email=email,error=null,notice=null)}
-    fun back(){if(!state.value.busy)mutable.value=state.value.copy(route=null,error=null,notice=null)}
+    fun back(){if(!state.value.busy){restoreChallenge=null;mutable.value=state.value.copy(route=null,error=null,notice=null)}}
     private fun email(value:String):String=value.trim().also {if(!it.contains('@') || it.contains(' '))throw AuthMessage(text(CoreStrings.CORE_ENTER_YOUR_EMAIL_ADDRESS))}
     suspend fun signUp(name:String,address:String,password:String,confirmation:String,phone:String)=run {expected->
         if(!signupAllowed())throw AuthMessage(text(CoreStrings.CORE_ACCOUNT_REGISTRATION_IS_UNAVAILABLE_ON_THIS_SERVER))

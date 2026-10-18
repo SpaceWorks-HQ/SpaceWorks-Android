@@ -41,6 +41,8 @@ interface AuthGateway {
     /** Member-only phone sign-in. The returned challenge is reused, unchanged, by [phoneConfirm]. */
     suspend fun phoneStart(phone:String):PhoneChallenge {throw MobileCopyException(CoreStrings.CORE_PHONE_SIGN_IN_IS_UNAVAILABLE_ON_THIS_SERVER)}
     suspend fun phoneConfirm(phone:String,code:String,challenge:PhoneChallenge):PhoneLoginResult {throw MobileCopyException(CoreStrings.CORE_PHONE_SIGN_IN_IS_UNAVAILABLE_ON_THIS_SERVER)}
+    /** Identity-only restore of an archived phone account; never returns a session. Reuses a [phoneStart] challenge. */
+    suspend fun restorePhone(phone:String,code:String,newPassword:String,challenge:PhoneChallenge):AccountRestoreResult {throw MobileCopyException(CoreStrings.CORE_PHONE_SIGN_IN_IS_UNAVAILABLE_ON_THIS_SERVER)}
     /** Revokes every browser session, device grant and push destination for this account on this server. */
     suspend fun logoutAll(expectedEpoch:Long):LogoutAllResponse {throw MobileCopyException(CoreStrings.CORE_COULDN_T_CONNECT_TRY_AGAIN)}
 }
@@ -144,6 +146,11 @@ class GeneratedAuthGateway(private val session:ApiSession,private val appId:Stri
         val challenge=challenge()
         session.authPublic.apiV1AuthPhoneLoginStartCreate(PhoneLoginStart(phone,DeliveryEnum.device,ClientPlatformEnum.android,challenge.challenge)).requireBody()
         return PhoneChallenge(challenge.challenge,challenge.expiresIn)
+    }
+    override suspend fun restorePhone(phone:String,code:String,newPassword:String,challenge:PhoneChallenge):AccountRestoreResult {
+        val proof=attestation.attest(challenge.challenge)
+        return session.publicApi(org.spaceworks.generated.api.AccountsApi::class.java).apiV1AuthAccountRestorePhoneCreate(
+            AccountRestorePhone(phone,code,newPassword,DeliveryEnum.device,ClientPlatformEnum.android,challenge.challenge,proof)).requireBody()
     }
     override suspend fun phoneConfirm(phone:String,code:String,challenge:PhoneChallenge):PhoneLoginResult {
         val proof=attestation.attest(challenge.challenge)

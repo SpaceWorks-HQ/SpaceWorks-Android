@@ -35,15 +35,16 @@ object DemoSupport {
                 staffApi?.authority?.allows(scope,action)==true
         }
         staff=staffApi?.let {org.spaceworks.app.staff.StaffStateHolder(it,staffAuthority,it.uploads,text=copyText)}
-        clearScope={runtime?.let(accountCoordinator::scopeChanged);staff?.clear();member.clear();actions.clear();payments.clear()}
-        clearPrivate={accounts?.clear();runtime?.let(accountCoordinator::sessionEnded);staff?.resetAccount();clearScope();links.clear();push.holder.pause()}
+        val insights=org.spaceworks.app.insights.InsightsStateHolder(org.spaceworks.app.insights.DemoInsightsGateway())
+        clearScope={insights.clear();runtime?.let(accountCoordinator::scopeChanged);staff?.clear();member.clear();actions.clear();payments.clear()}
+        clearPrivate={insights.clear();accounts?.clear();runtime?.let(accountCoordinator::sessionEnded);staff?.resetAccount();clearScope();links.clear();push.holder.pause()}
         gateway.beforeSignOut={push.holder.disable(forgetConsent=false)}
         accounts=AccountStateHolder(gateway,{true},{holder.foreground()},text=copyText)
         runtime=NativeAccountRuntime("https://demo.invalid/",tokens,{holder.acceptedInstallationEpoch},
             {holder.state.value.user?.id?.toString()},
             {holder.state.value.selected?.let {org.spaceworks.app.member.MemberScope(it.id,it.slug)}},
             holder::endLocalSession,holder::foreground,holder::dropConfirmedMembership)
-        val bundle=AuthBundle(holder,tokens,true,accounts,DemoAuthFlow(holder,text=copyText),member,actions,origin="https://demo.invalid/",push=push.holder,links=links,pushConfigured=true,sessionEpoch={tokens.snapshot().epoch},pushPreview=push.control,payments=payments,staff=staff,
+        val bundle=AuthBundle(holder,tokens,true,accounts,DemoAuthFlow(holder,text=copyText),member,actions,origin="https://demo.invalid/",push=push.holder,links=links,pushConfigured=true,sessionEpoch={tokens.snapshot().epoch},pushPreview=push.control,payments=payments,staff=staff,insights=insights,
             staffAvailable={staff!=null && holder.state.value.user?.username=="staff.demo" && holder.state.value.selected!=null},management=accountCoordinator,
             deletionPreview={ids->DemoDeletionPreview(ids,{id->holder.state.value.memberships.firstOrNull {it.id==id}?.slug?.let {org.spaceworks.app.ui.makerspaceLabel(it)}},
                 {id->staff!=null && holder.state.value.user?.username=="staff.demo" && holder.state.value.selectedId==id})})

@@ -142,6 +142,7 @@ openApiGenerate {
         "WebsiteSection_url" to "String",
         "WebsiteSection_website_url" to "String",
         "TenantBootstrapMakerspace_opening_hours" to "kotlinx.serialization.json.JsonElement",
+        "NullEnum" to "kotlinx.serialization.json.JsonElement",
         "TenantBootstrapMakerspace_opening_hours_oneOf_weekly" to "kotlinx.serialization.json.JsonElement"
     ))
     enumNameMappings.set(mapOf("name" to "nameAscending", "" to "none"))

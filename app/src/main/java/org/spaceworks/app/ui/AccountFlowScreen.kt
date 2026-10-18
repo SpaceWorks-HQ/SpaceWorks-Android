@@ -43,8 +43,8 @@ import org.spaceworks.app.auth.*
         }
     }
     BackHandler {if(!state.busy)holder.back()}
-    val title=when(state.route){AccountRoute.SIGN_UP->copyText(UiStrings.MOBILE_CREATE_YOUR_ACCOUNT);AccountRoute.SIGNUP_ACK->copyText(UiStrings.MOBILE_ACCOUNT_CREATED);AccountRoute.FORGOT_PASSWORD->copyText(UiStrings.MOBILE_RESET_PASSWORD);AccountRoute.RESET_PASSWORD->copyText(UiStrings.MOBILE_ENTER_YOUR_RECOVERY_CODE);AccountRoute.RESET_SUCCESS->copyText(UiStrings.MOBILE_PASSWORD_UPDATED);AccountRoute.RECOVERY_UNAVAILABLE->copyText(UiStrings.MOBILE_PASSWORD_RECOVERY_UNAVAILABLE);else->copyText(UiStrings.MOBILE_CONFIRM_YOUR_EMAIL)}
-    val subtitle=when(state.route){AccountRoute.SIGN_UP->copyText(UiStrings.MOBILE_USE_THE_EMAIL_YOU_WANT_TO_USE_WITH_YOUR_MAKERSPACE);AccountRoute.SIGNUP_ACK->copyText(UiStrings.MOBILE_SIGN_IN_TO_CONTINUE_YOU_MAY_NEED_TO_CONFIRM_YOUR_EMAIL);AccountRoute.FORGOT_PASSWORD->copyText(UiStrings.MOBILE_ENTER_YOUR_ACCOUNT_EMAIL_TO_REQUEST_A_SIX_DIGIT_RECOVERY_CODE);AccountRoute.RESET_PASSWORD->copyText(UiStrings.MOBILE_IF_AN_ACCOUNT_MATCHES_THIS_EMAIL_A_RECOVERY_CODE_WILL_ARRIVE_DEL);AccountRoute.RESET_SUCCESS->copyText(UiStrings.MOBILE_YOUR_PASSWORD_HAS_BEEN_UPDATED_YOU_CAN_NOW_SIGN_IN);AccountRoute.RECOVERY_UNAVAILABLE->copyText(UiStrings.MOBILE_CONTACT_YOUR_MAKERSPACE_STAFF_TO_RESET_YOUR_PASSWORD);else->copyText(UiStrings.MOBILE_ENTER_THE_SIX_DIGIT_CODE_SENT_TO_YOUR_EMAIL)}
+    val title=when(state.route){AccountRoute.SIGN_UP->copyText(UiStrings.MOBILE_CREATE_YOUR_ACCOUNT);AccountRoute.SIGNUP_ACK->copyText(UiStrings.MOBILE_ACCOUNT_CREATED);AccountRoute.FORGOT_PASSWORD->copyText(UiStrings.MOBILE_RESET_PASSWORD);AccountRoute.RESET_PASSWORD->copyText(UiStrings.MOBILE_ENTER_YOUR_RECOVERY_CODE);AccountRoute.RESET_SUCCESS->copyText(UiStrings.MOBILE_PASSWORD_UPDATED);AccountRoute.RECOVERY_UNAVAILABLE->copyText(UiStrings.MOBILE_PASSWORD_RECOVERY_UNAVAILABLE);AccountRoute.RESTORE_PHONE,AccountRoute.RESTORE_CODE->copyText(UiStrings.MOBILE_RESTORE_A_DELETED_ACCOUNT);AccountRoute.RESTORE_SUCCESS->copyText(UiStrings.MOBILE_ACCOUNT_RESTORED);else->copyText(UiStrings.MOBILE_CONFIRM_YOUR_EMAIL)}
+    val subtitle=when(state.route){AccountRoute.SIGN_UP->copyText(UiStrings.MOBILE_USE_THE_EMAIL_YOU_WANT_TO_USE_WITH_YOUR_MAKERSPACE);AccountRoute.SIGNUP_ACK->copyText(UiStrings.MOBILE_SIGN_IN_TO_CONTINUE_YOU_MAY_NEED_TO_CONFIRM_YOUR_EMAIL);AccountRoute.FORGOT_PASSWORD->copyText(UiStrings.MOBILE_ENTER_YOUR_ACCOUNT_EMAIL_TO_REQUEST_A_SIX_DIGIT_RECOVERY_CODE);AccountRoute.RESET_PASSWORD->copyText(UiStrings.MOBILE_IF_AN_ACCOUNT_MATCHES_THIS_EMAIL_A_RECOVERY_CODE_WILL_ARRIVE_DEL);AccountRoute.RESET_SUCCESS->copyText(UiStrings.MOBILE_YOUR_PASSWORD_HAS_BEEN_UPDATED_YOU_CAN_NOW_SIGN_IN);AccountRoute.RECOVERY_UNAVAILABLE->copyText(UiStrings.MOBILE_CONTACT_YOUR_MAKERSPACE_STAFF_TO_RESET_YOUR_PASSWORD);AccountRoute.RESTORE_PHONE->copyText(UiStrings.MOBILE_RESTORE_WITH_PHONE_HELP);AccountRoute.RESTORE_CODE->copyText(UiStrings.MOBILE_RESTORE_SET_PASSWORD_HELP);AccountRoute.RESTORE_SUCCESS->copyText(UiStrings.MOBILE_RESTORED_SIGN_IN_AGAIN);else->copyText(UiStrings.MOBILE_ENTER_THE_SIX_DIGIT_CODE_SENT_TO_YOUR_EMAIL)}
     AuthLayout(title,subtitle) {
         when(state.route) {
             AccountRoute.SIGN_UP -> {
@@ -77,7 +77,22 @@ import org.spaceworks.app.auth.*
                 val seconds=((state.resendAtMillis-now+999)/1000).coerceAtLeast(0)
                 BrandTextButton(if(seconds>0)copyText(UiStrings.MOBILE_SEND_ANOTHER_CODE_IN_VALUES,seconds) else copyText(UiStrings.MOBILE_SEND_ANOTHER_CODE),{submit {holder.resendVerification()}},ready && seconds==0L)
             }
-            AccountRoute.SIGNUP_ACK,AccountRoute.RESET_SUCCESS -> BrandButton(copyText(UiStrings.MOBILE_GO_TO_SIGN_IN),holder::back)
+            AccountRoute.RESTORE_PHONE -> {
+                BrandField(phone,{phone=it.filter {c->c.isDigit() || c=='+' || c==' '}.take(20)},copyText(UiStrings.MOBILE_PHONE_NUMBER),Modifier.testTag("restorePhone"),!state.busy,role=FieldRole.PHONE,
+                    onDone={if(ready)submit {holder.restoreStart(phone)}})
+                BrandButton(if(state.busy)copyText(UiStrings.MOBILE_SENDING) else copyText(UiStrings.MOBILE_SEND_CODE),{submit {holder.restoreStart(phone)}},ready && phone.any {it.isDigit()},Modifier.testTag("restoreSend"))
+            }
+            AccountRoute.RESTORE_CODE -> {
+                Text(state.phone,style=MaterialTheme.typography.bodyMedium)
+                BrandField(code,{code=it.filter {c->c in '0'..'9'}.take(6)},copyText(UiStrings.MOBILE_SIX_DIGIT_CODE),Modifier.testTag("restoreCode"),!state.busy,role=FieldRole.ONE_TIME_CODE)
+                BrandField(password,{password=it.take(128)},copyText(UiStrings.MOBILE_NEW_PASSWORD),Modifier.testTag("restorePassword"),!state.busy,secret=true,role=FieldRole.NEW_PASSWORD)
+                BrandField(confirmation,{confirmation=it.take(128)},copyText(UiStrings.MOBILE_CONFIRM_PASSWORD),Modifier.testTag("restoreConfirmation"),!state.busy,secret=true,role=FieldRole.NEW_PASSWORD,onDone={if(ready)submit {holder.restore(code,password,confirmation)}})
+                BrandButton(if(state.busy)copyText(UiStrings.MOBILE_UPDATING) else copyText(UiStrings.MOBILE_RESTORE_ACCOUNT),{submit {holder.restore(code,password,confirmation)}},ready,Modifier.testTag("restoreSubmit"))
+                val seconds=((state.resendAtMillis-now+999)/1000).coerceAtLeast(0)
+                BrandTextButton(if(seconds>0)copyText(UiStrings.MOBILE_RESEND_IN_VALUES,seconds) else copyText(UiStrings.MOBILE_RESEND_CODE),{submit {holder.restoreStart(state.phone,true)}},ready && seconds==0L)
+                BrandTextButton(copyText(UiStrings.MOBILE_CHANGE_NUMBER),{holder.open(AccountRoute.RESTORE_PHONE)},!state.busy)
+            }
+            AccountRoute.SIGNUP_ACK,AccountRoute.RESET_SUCCESS,AccountRoute.RESTORE_SUCCESS -> BrandButton(copyText(UiStrings.MOBILE_GO_TO_SIGN_IN),holder::back)
             AccountRoute.RECOVERY_UNAVAILABLE -> Unit
             null -> Unit
         }
@@ -86,6 +101,6 @@ import org.spaceworks.app.auth.*
         state.notice?.let {Text(it)}
         if(now<state.retryAtMillis)Text(copyText(UiStrings.MOBILE_TRY_AGAIN_IN_VALUE_SECONDS,retrySecondsRemaining(now,state.retryAtMillis)))
         if(demo)Text(copyText(UiStrings.MOBILE_DEMO_ONLY_NO_EMAIL_IS_SENT_VERIFICATION_CODE_123456),style=MaterialTheme.typography.bodySmall)
-        if(state.route!=AccountRoute.SIGNUP_ACK && state.route!=AccountRoute.RESET_SUCCESS)BrandTextButton(if(state.route==AccountRoute.VERIFY_EMAIL)copyText(UiStrings.MOBILE_BACK) else copyText(UiStrings.MOBILE_BACK_TO_SIGN_IN),holder::back,!state.busy)
+        if(state.route!=AccountRoute.SIGNUP_ACK && state.route!=AccountRoute.RESET_SUCCESS && state.route!=AccountRoute.RESTORE_SUCCESS)BrandTextButton(if(state.route==AccountRoute.VERIFY_EMAIL)copyText(UiStrings.MOBILE_BACK) else copyText(UiStrings.MOBILE_BACK_TO_SIGN_IN),holder::back,!state.busy)
     }
 }

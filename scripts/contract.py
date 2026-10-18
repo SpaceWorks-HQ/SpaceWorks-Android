@@ -76,6 +76,12 @@ phase3_operations |= {
     'api_v1_auth_reauth_social_start_create','api_v1_auth_reauth_social_complete_create',
     'api_v1_auth_reauth_social_factor_create',
 }
+# Backend v2 additions: member usage, staff dashboard, messaging consent and phone account restore.
+phase3_operations |= {
+    'api_v1_member_makerspaces_my_usage_retrieve','api_v1_admin_makerspace_dashboard_retrieve',
+    'api_v1_me_messaging_retrieve','api_v1_me_messaging_consent_create',
+    'api_v1_auth_account_restore_phone_create',
+}
 base_paths=set(selected)
 base_operations={op['operationId'] for path in base_paths for op in s['paths'][path].values() if isinstance(op,dict) and 'operationId' in op}
 found=set()

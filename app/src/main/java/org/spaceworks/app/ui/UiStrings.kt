@@ -457,4 +457,10 @@ object UiStrings {
     val MOBILE_SIGN_OUT_EVERYWHERE_QUESTION=MobileCopyKey(R.string.mobile_sign_out_everywhere_question,"Sign out everywhere?")
     val MOBILE_SIGN_OUT_EVERYWHERE_HELP=MobileCopyKey(R.string.mobile_sign_out_everywhere_help,"This ends every Space Works session for your account on this server, including browsers and other devices.")
     val MOBILE_CONTINUE_WITH_VALUE=MobileCopyKey(R.string.mobile_continue_with_value,"Continue with %1\$s")
+    val MOBILE_RESTORE_A_DELETED_ACCOUNT=MobileCopyKey(R.string.mobile_restore_a_deleted_account,"Restore a deleted account")
+    val MOBILE_RESTORE_WITH_PHONE_HELP=MobileCopyKey(R.string.mobile_restore_with_phone_help,"Enter the phone number on the deleted account. If it can still be restored, we'll text a code.")
+    val MOBILE_RESTORE_SET_PASSWORD_HELP=MobileCopyKey(R.string.mobile_restore_set_password_help,"Enter the code we sent and choose a new password.")
+    val MOBILE_RESTORE_ACCOUNT=MobileCopyKey(R.string.mobile_restore_account,"Restore account")
+    val MOBILE_ACCOUNT_RESTORED=MobileCopyKey(R.string.mobile_account_restored,"Account restored")
+    val MOBILE_RESTORED_SIGN_IN_AGAIN=MobileCopyKey(R.string.mobile_restored_sign_in_again,"Sign in with your new password. Memberships, sessions and notifications stay off until your makerspace restores them.")
 }

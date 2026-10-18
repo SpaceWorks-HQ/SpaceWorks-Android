@@ -911,4 +911,10 @@
     <string name="mobile_sign_out_everywhere_question">"Sign out everywhere?"</string>
     <string name="mobile_sign_out_everywhere_help">"This ends every Space Works session for your account on this server, including browsers and other devices."</string>
     <string name="mobile_continue_with_value">"Continue with %1$s"</string>
+    <string name="mobile_restore_a_deleted_account">"Restore a deleted account"</string>
+    <string name="mobile_restore_with_phone_help">"Enter the phone number on the deleted account. If it can still be restored, we'll text a code."</string>
+    <string name="mobile_restore_set_password_help">"Enter the code we sent and choose a new password."</string>
+    <string name="mobile_restore_account">"Restore account"</string>
+    <string name="mobile_account_restored">"Account restored"</string>
+    <string name="mobile_restored_sign_in_again">"Sign in with your new password. Memberships, sessions and notifications stay off until your makerspace restores them."</string>
 </resources>

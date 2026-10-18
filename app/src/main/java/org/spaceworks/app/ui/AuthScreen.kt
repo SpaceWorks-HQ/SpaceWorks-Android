@@ -170,6 +170,8 @@ import org.spaceworks.app.platform.GoogleIdentity
                 if(state.passwordEnabled) {
                     BrandField(username,{username=it.take(254);usernameError=null},copyText(UiStrings.MOBILE_EMAIL_OR_USERNAME),Modifier.testTag("username").focusRequester(usernameFocus),!state.busy,role=FieldRole.IDENTITY,errorMessage=usernameError)
                     BrandField(password,{password=it.take(1024);passwordError=null},copyText(UiStrings.MOBILE_PASSWORD),Modifier.testTag("password").focusRequester(passwordFocus),!state.busy,secret=true,onDone={if(!state.busy && retrySeconds==0L)submit()},errorMessage=passwordError)
+                    if(state.phoneEnabled && holder.nativeSocialReady && !bundle.demo)bundle.accounts?.let {accounts->
+                        BrandTextButton(copyText(UiStrings.MOBILE_RESTORE_A_DELETED_ACCOUNT),{accounts.open(AccountRoute.RESTORE_PHONE)},!state.busy,Modifier.testTag("restoreEntry"))}
                     bundle.accounts?.let {accounts->BrandTextButton(copyText(UiStrings.MOBILE_FORGOT_PASSWORD),{accounts.open(AccountRoute.FORGOT_PASSWORD,username.takeIf {it.contains('@')}.orEmpty())},!state.busy)}
                     BrandError(state.error)
                     state.notice?.let {Text(it)}
